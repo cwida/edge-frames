@@ -19,27 +19,23 @@
 import java.io.File
 
 import scala.io.Source._
+import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
-import org.apache.spark.sql.SparkSession
 
-object DFSReadWriteTest {
+case class Person(id: Long, firstName: String, lastName: String) {}
+case class Knows(from: Long, to: Long)
 
-  private var localFilePath: File = new File(".")
-  private var dfsDirPath: String = ""
+object TriangleQueryTest {
+
+  private var socialnetwork_csv_folder: File = new File(".")
 
   private val NPARAMS = 1
-
-  private def readFile(filename: String): List[String] = {
-    val lineIter: Iterator[String] = fromFile(filename).getLines()
-    val lineList: List[String] = lineIter.toList
-    lineList
-  }
 
   private def printUsage(): Unit = {
     val usage = """DFS Read-Write Test
                   |Usage: localFile dfsDir
                   |localFile - (string) local file to use in test
-                  |dfsDir - (string) DFS directory for read/write tests""".stripMargin
+                  |""".stripMargin
 
     println(usage)
   }
@@ -52,73 +48,73 @@ object DFSReadWriteTest {
 
     var i = 0
 
-    localFilePath = new File(args(i))
-    if (!localFilePath.exists) {
+    socialnetwork_csv_folder = new File(args(i))
+    if (!socialnetwork_csv_folder.exists) {
       System.err.println(s"Given path (${args(i)}) does not exist")
       printUsage()
       System.exit(1)
     }
 
-    if (!localFilePath.isFile) {
-      System.err.println(s"Given path (${args(i)}) is not a file")
+    if (!socialnetwork_csv_folder.isDirectory) {
+      System.err.println(s"Given path (${args(i)}) is not a directory")
       printUsage()
       System.exit(1)
     }
-
-    i += 1
-    dfsDirPath = args(i)
   }
 
-  def runLocalWordCount(fileContents: List[String]): Int = {
-    fileContents.flatMap(_.split(" "))
-      .flatMap(_.split("\t"))
-      .filter(_.nonEmpty)
-      .groupBy(w => w)
-      .mapValues(_.size)
-      .values
-      .sum
+  def readCSVFile(spark: SparkSession, csvFile: File): DataFrame = {
+    spark.read
+    .format("csv")
+    .option("header", value = true)
+    .option("inferSchema", value = true)
+    .option("delimiter", "|")
+    .load("file://" + csvFile.toString)
   }
 
   def main(args: Array[String]): Unit = {
     parseArgs(args)
 
-    println("Performing local word count")
-    val fileContents = readFile(localFilePath.toString())
-    val localWordCount = runLocalWordCount(fileContents)
-
-    println("Creating SparkSession")
     val spark = SparkSession
       .builder
-      .appName("DFS Read Write Test")
+      .appName("Triangle count test")
       .getOrCreate()
+    import spark.implicits._
 
-    println("Writing local file to DFS")
-    val dfsFilename = s"$dfsDirPath/dfs_read_write_test"
-    val fileRDD = spark.sparkContext.parallelize(fileContents)
-    fileRDD.saveAsTextFile(dfsFilename)
+    val persons = readCSVFile(spark, new File(socialnetwork_csv_folder, "person_0_0.csv"))
+      .as[Person].cache()
+    val knows = readCSVFile(spark, new File(socialnetwork_csv_folder, "person_knows_person_0_0.csv"))
+      .withColumnRenamed("Person.id0", "from")
+      .withColumnRenamed("Person.id1", "to")
+      .as[Knows].cache()
+//    val example = List(Knows(1, 2), Knows(2, 3), Knows(3, 1))
+//    val knows: Dataset[Knows] = example.toDF.as[Knows]
+    println("Person count: " + persons.count)
 
-    println("Reading file from DFS and running Word Count")
-    val readFileRDD = spark.sparkContext.textFile(dfsFilename)
+//    knows.show(numRows = 10)
 
-    val dfsWordCount = readFileRDD
-      .flatMap(_.split(" "))
-      .flatMap(_.split("\t"))
-      .filter(_.nonEmpty)
-      .map(w => (w, 1))
-      .countByKey()
-      .values
-      .sum
+//    val r = knows.withColumnRenamed("from", "A2")
+//        .withColumnRenamed("to", "B")
+//    val s = knows.withColumnRenamed("from", "B")
+//      .withColumnRenamed("to", "C")
+//    val t = knows.withColumnRenamed("from", "C")
+//      .withColumnRenamed("to", "A1")
+//
+//    val rs = r.join(s, "B")
+//    val rst = rs.join(t, "C")
+//    val triangles = rst.filter("A1 = A2")
+
+
+    println("Knows count: " + knows.count)
+    println(s"Knows storage level: ${knows.rdd.getStorageLevel.description}")
+
+    val duos = knows.as("k1")
+        .joinWith(knows.as("k2"), $"k1.to" === $"k2.from")
+    val triangles = duos.joinWith(knows.as("k3"),
+      condition = $"_2.to" === $"k3.from" && $"_1.from" === $"k3.to")
+    triangles.explain(true)
+    println(s"Triangle count: ${triangles.count()}")
+
 
     spark.stop()
-
-    if (localWordCount == dfsWordCount) {
-      println(s"Success! Local Word Count $localWordCount and " +
-        s"DFS Word Count $dfsWordCount agree.")
-    } else {
-      println(s"Failure! Local Word Count $localWordCount " +
-        s"and DFS Word Count $dfsWordCount disagree.")
-    }
-
   }
 }
-// scalastyle:on println
