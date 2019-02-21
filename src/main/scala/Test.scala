@@ -18,12 +18,14 @@
 // scalastyle:off println
 import java.io.File
 
+import org.apache.spark.SparkConf
+
 import scala.io.Source._
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
 
 case class Person(id: Long, firstName: String, lastName: String) {}
-case class Knows(from: Long, to: Long)
+case class Knows(p1: Long, p2: Long)
 
 object TriangleQueryTest {
 
@@ -71,48 +73,49 @@ object TriangleQueryTest {
     .load("file://" + csvFile.toString)
   }
 
+  def findTriangles(spark: SparkSession, rel: Dataset[Knows]): Long = {
+    import spark.implicits._
+    val duos = rel.as("k1")
+      .joinWith(rel.as("k2"), $"k1.p2" === $"k2.p1")
+    val triangles = duos.joinWith(rel.as("k3"),
+      condition = $"_2.p2" === $"k3.p2" && $"_1.p1" === $"k3.p1")
+    triangles.explain(true)
+    triangles.count()
+  }
+
   def main(args: Array[String]): Unit = {
     parseArgs(args)
 
-    val spark = SparkSession
-      .builder
-      .appName("Triangle count test")
+    val conf = new SparkConf()
+      .setMaster("local[20]")
+      .setAppName("Triangle count test")
+      .set("spark.local.dir", "/scratch/per/spark-temp")
+
+    val spark = SparkSession.builder()
+      .config(conf)
       .getOrCreate()
     import spark.implicits._
+
 
     val persons = readCSVFile(spark, new File(socialnetwork_csv_folder, "person_0_0.csv"))
       .as[Person].cache()
     val knows = readCSVFile(spark, new File(socialnetwork_csv_folder, "person_knows_person_0_0.csv"))
-      .withColumnRenamed("Person.id0", "from")
-      .withColumnRenamed("Person.id1", "to")
+      .withColumnRenamed("Person.id0", "p1")
+      .withColumnRenamed("Person.id1", "p2")
       .as[Knows].cache()
-//    val example = List(Knows(1, 2), Knows(2, 3), Knows(3, 1))
-//    val knows: Dataset[Knows] = example.toDF.as[Knows]
+    val example = List(Knows(1, 2), Knows(2, 3), Knows(1, 3))
+    val example_knows: Dataset[Knows] = example.toDF.as[Knows]
     println("Person count: " + persons.count)
-
-//    knows.show(numRows = 10)
-
-//    val r = knows.withColumnRenamed("from", "A2")
-//        .withColumnRenamed("to", "B")
-//    val s = knows.withColumnRenamed("from", "B")
-//      .withColumnRenamed("to", "C")
-//    val t = knows.withColumnRenamed("from", "C")
-//      .withColumnRenamed("to", "A1")
-//
-//    val rs = r.join(s, "B")
-//    val rst = rs.join(t, "C")
-//    val triangles = rst.filter("A1 = A2")
-
 
     println("Knows count: " + knows.count)
     println(s"Knows storage level: ${knows.rdd.getStorageLevel.description}")
 
-    val duos = knows.as("k1")
-        .joinWith(knows.as("k2"), $"k1.to" === $"k2.from")
-    val triangles = duos.joinWith(knows.as("k3"),
-      condition = $"_2.to" === $"k3.from" && $"_1.from" === $"k3.to")
-    triangles.explain(true)
-    println(s"Triangle count: ${triangles.count()}")
+    val knows_is_ordered = knows.filter($"p2" < $"p1").isEmpty
+    println(s"Knows is ordered, smaller person is the first attribute: $knows_is_ordered")
+
+
+    println(s"Triangle count in real knows: ${findTriangles(spark, knows)}")
+    println(s"Triangle count in example knows: ${findTriangles(spark, example_knows)}")
 
 
     spark.stop()
