@@ -83,20 +83,9 @@ object TriangleQueryTest {
     triangles.count()
   }
 
-  def main(args: Array[String]): Unit = {
+  def triangleCountTest(args: Array[String], spark: SparkSession): Unit = {
     parseArgs(args)
-
-    val conf = new SparkConf()
-      .setMaster("local[20]")
-      .setAppName("Triangle count test")
-      .set("spark.local.dir", "/scratch/per/spark-temp")
-
-    val spark = SparkSession.builder()
-      .config(conf)
-      .getOrCreate()
     import spark.implicits._
-
-
     val persons = readCSVFile(spark, new File(socialnetwork_csv_folder, "person_0_0.csv"))
       .as[Person].cache()
     val knows = readCSVFile(spark, new File(socialnetwork_csv_folder, "person_knows_person_0_0.csv"))
@@ -117,6 +106,22 @@ object TriangleQueryTest {
     println(s"Triangle count in real knows: ${findTriangles(spark, knows)}")
     println(s"Triangle count in example knows: ${findTriangles(spark, example_knows)}")
 
+  }
+
+  def main(args: Array[String]): Unit = {
+    val conf = new SparkConf()
+      .setMaster("local[20]")
+      .setAppName("Spark test")
+      .set("spark.local.dir", "/scratch/per/spark-temp")
+      .set("spark.executor.memory", "10g")
+
+
+    val spark = SparkSession.builder()
+      .config(conf)
+      .getOrCreate()
+
+
+    triangleCountTest(args, spark)
 
     spark.stop()
   }
