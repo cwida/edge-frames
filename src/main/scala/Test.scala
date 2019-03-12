@@ -19,13 +19,46 @@
 import java.io.File
 
 import org.apache.spark.SparkConf
+import org.apache.spark.broadcast.Broadcast
 
 import scala.io.Source._
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
+import scala.collection.mutable
+import org.apache.spark.sql.functions.broadcast
+
+
+
 
 case class Person(id: Long, firstName: String, lastName: String) {}
 case class Knows(p1: Long, p2: Long)
+
+
+class BroadcastedDataset(spark: SparkSession, data: Broadcast[Seq[(Int, Int, Int)]]) {
+  import spark.implicits._
+  val datasets: mutable.MutableList[Dataset[(Int, Int, Int)]] = mutable.MutableList()
+  print("test")
+
+
+  // Just because I have p datesets does not mean they are on all nodes.
+  for (i <- 0 to 20) {
+    val test = spark.sparkContext.parallelize(data.value, 1).toDS()
+    datasets += test
+  }
+
+  print("Datasets ", datasets)
+
+  def join(right: DataFrame): DataFrame = {
+    val newDatasets = datasets.map((d) => d.as("l").join(broadcast(right).as("r"),
+    $"l._1" === $"r._1", "leftsemi"))
+    print("Datasets ", newDatasets)
+    var ret : DataFrame = spark.sparkContext.parallelize(List[(Int, Int, Int)]()).toDF()
+    for (d <- newDatasets) {
+      ret = ret.union(d)
+    }
+    ret
+  }
+}
 
 object TriangleQueryTest {
 
@@ -105,7 +138,44 @@ object TriangleQueryTest {
 
     println(s"Triangle count in real knows: ${findTriangles(spark, knows)}")
     println(s"Triangle count in example knows: ${findTriangles(spark, example_knows)}")
+  }
 
+
+  def broadcasted_semi_join_test(spark: SparkSession): Unit = {
+    import spark.implicits._
+    var edges = new Array[(Int, Int, Int)](100000)  // edge id, src, dest
+    var properties = new Array[(Int, String, String)](20)  // edge id, name, value
+    for (i <- 0 to (edges.length - 1)) {
+      edges(i) = (i, i, i + 1)
+      if (i < 10) {
+        properties(i) = (i, "p1", "v1")
+        properties(i + 10) = (i, "p2", i.toString)
+      }
+    }
+    print("edges generated")
+//    var edge_table = spark.sparkContext.parallelize(edges).toDS()
+//    print("columns ", edge_table.columns)
+
+    var properties_dataset = spark.sparkContext.parallelize(properties).toDS()
+//    print("columns ", properties_dataset.columns)
+
+    val filtered_properties = properties_dataset
+      .filter(p => p._2 == "p1" && p._3 == "v1")
+      .select($"_1")
+    filtered_properties.show()
+
+
+    val broadcasted_edges = new BroadcastedDataset(spark, spark.sparkContext.broadcast(edges))
+    val filtered_edges = broadcasted_edges.join(filtered_properties)
+
+//    val broadcasted_edges = broadcast(edge_table)
+//        .as("e")
+//
+//    // Broadcast hints work only on the right site.
+//    val filtered_edges = broadcasted_edges.join(broadcast(filtered_properties.as("p")), $"p._1" === $"e._1", "leftsemi")
+
+    print(filtered_edges.count())
+    filtered_edges.explain(true)
   }
 
   def main(args: Array[String]): Unit = {
@@ -114,14 +184,18 @@ object TriangleQueryTest {
       .setAppName("Spark test")
       .set("spark.local.dir", "/scratch/per/spark-temp")
       .set("spark.executor.memory", "10g")
+      .set("spark.driver.memory", "10g")
 
 
     val spark = SparkSession.builder()
       .config(conf)
       .getOrCreate()
 
+    print("Here")
+    broadcasted_semi_join_test(spark)
+    print("Here1")
 
-    triangleCountTest(args, spark)
+    readLine("Exit?")
 
     spark.stop()
   }
