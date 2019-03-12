@@ -22,7 +22,7 @@ class JoinSpecification (val relations: Seq[Relationship]) {
 class HyperCube (join: JoinSpecification, sizes: Map[String, Int]) {
   val dimensions = join.allAttributes.size
 
-  if (sizes.length != dimensions) {
+  if (sizes.size != dimensions) {
     throw new Exception("Illegal HyperCube configuration")
   }
 
@@ -35,7 +35,7 @@ class HyperCube (join: JoinSpecification, sizes: Map[String, Int]) {
     throw new NotImplementedError()
   }
 
-  def getPartitioner(rel: Relationship, duplicate: int): Partioner = {
+  def getPartitioner(rel: Relationship, duplicate: Int): Partitioner = {
     if (duplicate >= getDuplicates(rel)) {
       throw new Exception(s"This relationship is only duplicated ${getDuplicates(rel)} times not $duplicate.")
     }
@@ -50,5 +50,6 @@ class HyperCubePartioner (partitions: Int) extends Partitioner {
 
   override def getPartition(key: Any): Int = {
     // Linearizations of an m-cube (number of set attributes)
+    throw new NotImplementedError()
   }
 }
