@@ -1,8 +1,11 @@
 package leapfrogTriejoin
 
+import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.{FlatSpec, Matchers}
 
-class TrieIteratorSpec extends FlatSpec with Matchers {
+import scala.collection.mutable
+
+class TrieIteratorSpec extends FlatSpec with Matchers with GeneratorDrivenPropertyChecks {
 
   "An empty TrieIterator" should "be at end" in {
     val iter = new TrieIterator(Array())
@@ -77,6 +80,41 @@ class TrieIteratorSpec extends FlatSpec with Matchers {
     iter.key shouldBe 1
     iter.seek(3)
     iter.key shouldBe 4
+  }
+
+  def traverseTrieIterator(iter: TrieIterator): Seq[(Int, Int)] = {
+    if (iter.isAtTotalEnd) {
+      return List()
+    }
+    var ret: mutable.MutableList[(Int, Int)] = mutable.MutableList()
+    iter.open()
+    do {
+      val outer: Int = iter.key
+      iter.open()
+      do {
+        ret += ((outer, iter.key))
+        iter.next()
+      } while(!iter.atEnd)
+      iter.up()
+      iter.next()
+    } while(!iter.atEnd)
+    ret
+  }
+  org.scalacheck.Arbitrary.arbInt
+
+
+
+
+  "A TrieIterator traversal, without seeks," should "enumerate all values in order" in {
+    import org.scalacheck.Gen
+    val positiveIntTuples = Gen.containerOf[Array, (Int, Int)](Gen.zip(Gen.posNum[Int], Gen.posNum[Int]))
+    forAll (positiveIntTuples) { l =>
+
+      whenever(l.length == Set(l).size) {
+        val iter = new TrieIterator(l)
+        traverseTrieIterator(iter) should contain theSameElementsInOrderAs (l)
+      }
+    }
   }
 
 }
