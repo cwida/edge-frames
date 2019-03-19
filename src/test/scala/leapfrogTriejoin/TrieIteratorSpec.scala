@@ -107,12 +107,16 @@ class TrieIteratorSpec extends FlatSpec with Matchers with GeneratorDrivenProper
 
   "A TrieIterator traversal, without seeks," should "enumerate all values in order" in {
     import org.scalacheck.Gen
-    val positiveIntTuples = Gen.containerOf[Array, (Int, Int)](Gen.zip(Gen.posNum[Int], Gen.posNum[Int]))
-    forAll (positiveIntTuples) { l =>
+    import Ordering.Implicits._
 
-      whenever(l.length == Set(l).size) {
-        val iter = new TrieIterator(l)
-        traverseTrieIterator(iter) should contain theSameElementsInOrderAs (l)
+    // Generates sets for uniqueness
+    val positiveIntTuples = Gen.buildableOf[Set[(Int, Int)], (Int, Int)](Gen.zip(Gen.posNum[Int], Gen.posNum[Int]))
+
+    forAll (positiveIntTuples) { l =>
+      whenever(l.forall(t => t._1 >0 && t._2 > 0)) {  // Sad way to ensure numbers are actually positive
+        val array = l.toArray.sorted
+        val iter = new TrieIterator(array)
+        traverseTrieIterator(iter) should contain theSameElementsInOrderAs (array)
       }
     }
   }
