@@ -51,7 +51,6 @@ class LeapfrogTriejoin(trieIterators: Seq[TrieIterator], variableOrdering: Seq[S
     val NEXT_ACTION: Int = 1
     val UP_ACTION: Int = 2
 
-    println("Moving to next tuple")
     var action: Int = NEXT_ACTION
     if (depth == -1) {
       action = DOWN_ACTION
@@ -61,7 +60,6 @@ class LeapfrogTriejoin(trieIterators: Seq[TrieIterator], variableOrdering: Seq[S
     var done = false
     while (!done) {
       if (action == NEXT_ACTION) {
-        println("Next")
         currentLeapfrogJoin.leapfrogNext()
         if (currentLeapfrogJoin.atEnd) {
           action = UP_ACTION
@@ -74,7 +72,6 @@ class LeapfrogTriejoin(trieIterators: Seq[TrieIterator], variableOrdering: Seq[S
           }
         }
       } else if (action == DOWN_ACTION) {
-        println("down")
         triejoinOpen()
         if (currentLeapfrogJoin.atEnd) {
           action = UP_ACTION
@@ -88,7 +85,6 @@ class LeapfrogTriejoin(trieIterators: Seq[TrieIterator], variableOrdering: Seq[S
           }
         }
       } else if (action == UP_ACTION) {
-        println("up depth: ", depth)
         if (depth == 0) {
           done = true
           atEnd = true
@@ -102,11 +98,9 @@ class LeapfrogTriejoin(trieIterators: Seq[TrieIterator], variableOrdering: Seq[S
         }
       }
     }
-    println("Bindings: ", bindings.mkString(", "))
   }
   private def triejoinOpen() ={
     depth += 1
-    println(s"Opening $depth")
     val variable = variableOrdering(depth)
     trieIterators
       .filter(i => i.relationship.variables.contains(variable))
@@ -115,7 +109,6 @@ class LeapfrogTriejoin(trieIterators: Seq[TrieIterator], variableOrdering: Seq[S
   }
 
   private def triejoinUp() = {
-    println(s"Closing $depth")
     trieIterators
       .filter(i => i.relationship.variables.contains(variableOrdering(depth)))
       .foreach(i => i.up())
