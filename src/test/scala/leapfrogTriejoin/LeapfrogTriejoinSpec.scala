@@ -53,4 +53,20 @@ class LeapfrogTriejoinSpec extends FlatSpec with Matchers {
     assertJoinEqual(join, List(List(1, 2, 2), List(1, 5, 2), List(4, 2, 2), List(4, 5, 2)))
   }
 
+  "Triangle joins" should "work" in {
+    val tuples1 = Array[(Int, Int)]((1, 2), (3, 3), (4, 7), (5, 1))
+    val tuples2 = Array[(Int, Int)]((2, 4), (3, 5), (5, 2))
+    val tuples3 = Array[(Int, Int)]((1, 2), (3, 3), (3, 5), (5, 8))
+
+    val rel1 = new EdgeRelationship(("a", "b"), tuples1)
+    val rel2 = new EdgeRelationship(("b", "c"), tuples2)
+    val rel3 = new EdgeRelationship(("a", "c"), tuples3)
+    val trieIterator1 = new TrieIterator(rel1)
+    val trieIterator2 = new TrieIterator(rel2)
+    val trieIterator3 = new TrieIterator(rel3)
+    val join = new LeapfrogTriejoin(List(trieIterator1, trieIterator2, trieIterator3), List("a", "b", "c"))
+
+    assertJoinEqual(join, List(List(3, 3, 5)))
+  }
+
 }
