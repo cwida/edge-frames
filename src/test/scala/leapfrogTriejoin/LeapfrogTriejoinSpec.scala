@@ -41,10 +41,8 @@ class LeapfrogTriejoinSpec extends FlatSpec with Matchers {
   }
 
   "A join on the second attribute" should "be the intersection on the second attribute" in {
-    //    val tuples1 = Array[(Int, Int)]((1, 2), (3, 3), (4, 2), (5, 1))
-        val tuples1 = Array[(Int, Int)]((1, 2))
-//    val tuples2 = Array[(Int, Int)]((2, 2), (3, 4), (5, 2))
-    val tuples2 = Array[(Int, Int)]((2, 2), (3, 4))
+    val tuples1 = Array[(Int, Int)]((1, 2), (3, 3), (4, 2), (5, 1))
+    val tuples2 = Array[(Int, Int)]((2, 2), (3, 4), (5, 2))
 
     val rel1 = new EdgeRelationship(("a", "b"), tuples1)
     val rel2 = new EdgeRelationship(("c", "b"), tuples2)
@@ -52,8 +50,7 @@ class LeapfrogTriejoinSpec extends FlatSpec with Matchers {
     val trieIterator2 = new TrieIterator(rel2)
     val join = new LeapfrogTriejoin(List(trieIterator1, trieIterator2), List("a", "c", "b"))
 
-//    assertJoinEqual(join, List(List(1, 2, 2), List(1, 5, 2), List(4, 2, 2), List(4, 5, 2)))
-    assertJoinEqual(join, List(List(1, 2, 2)))//List(1, 5, 2), List(4, 2, 2), List(4, 5, 2)))
+    assertJoinEqual(join, List(List(1, 2, 2), List(1, 5, 2), List(4, 2, 2), List(4, 5, 2)))
   }
 
 }
