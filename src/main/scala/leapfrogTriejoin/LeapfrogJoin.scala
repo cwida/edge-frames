@@ -1,6 +1,6 @@
 package leapfrogTriejoin
 
-class LeapfrogJoin(iterators: Array[UnaryIterator] ) {
+class LeapfrogJoin(iterators: Array[LinearIterator] ) {
   if (iterators.isEmpty) {
     throw new IllegalArgumentException("iterators cannot be empty")
   }
@@ -10,11 +10,12 @@ class LeapfrogJoin(iterators: Array[UnaryIterator] ) {
   var key = 0
 
   def init(): Unit = {
-    if (iterators.exists(i => i.atEnd)) {
-      atEnd = true
-    } else {
+    atEnd = iterators.exists(i => i.atEnd)
+    p = 0
+    key = 0
+
+    if (!atEnd) {
       iterators.sortBy(i => i.key)
-      p = 0
       leapfrogSearch()
     }
   }

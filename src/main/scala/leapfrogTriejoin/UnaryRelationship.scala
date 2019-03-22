@@ -12,7 +12,7 @@ class ObjectArrayTools[T <: Int](a: Array[T]) {
   }
 }
 
-class UnaryRelationship(values: Array[Int]) extends UnaryIterator {
+class UnaryRelationship(values: Array[Int]) extends LinearIterator {
   implicit def anyrefarray_tools[T <: Int](a: Array[T]) = new ObjectArrayTools(a)
   var iteratorPosition: Int = 0
 

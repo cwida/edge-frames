@@ -3,7 +3,12 @@ package leapfrogTriejoin
 import scala.collection.immutable.TreeMap
 import Ordering.Implicits._
 // TODO needs to be changed to a multimap
-class TrieIterator(values: Array[(Int, Int)]) extends UnaryIterator {
+class TrieIterator(val relationship: EdgeRelationship) extends LinearIterator {
+  def this (tuples: Array[(Int, Int)]) {
+    this(new EdgeRelationship(("a", "b"), tuples))
+  }
+
+  val values = relationship.tuples
 
   val HIGHEST_LEVEL = -1
   var map = new TreeMap[Vector[Int], Int]()  // TODO do I want a mutable tree map?
@@ -42,7 +47,7 @@ class TrieIterator(values: Array[(Int, Int)]) extends UnaryIterator {
 
   override def next(): Unit = {
     // TODO can we simply proceed along the map instead of seeking?
-    seek(triePath(depth) + 1)  // TODO no support for repeated values
+    seek(triePath(depth) + 1)
   }
 
   override def atEnd: Boolean = isAtEnd
@@ -62,7 +67,7 @@ class TrieIterator(values: Array[(Int, Int)]) extends UnaryIterator {
       possiblyNewNextVector = map.firstKey
       if (0 < depth && possiblyNewNextVector(depth - 1) != triePath(depth - 1)) {
         isAtEnd = true
-        map = temp  // TODO is that necessary?
+        map = temp  // TODO is that necessary? Yep, if one wants to have a linear and a tree part one could potentially go with a linear iterator changing depth on it's own
       } else {
         triePath = triePath.updated(depth, possiblyNewNextVector(depth))
       }

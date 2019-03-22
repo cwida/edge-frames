@@ -13,7 +13,7 @@ class LeapfrogJoinSpec extends FlatSpec {
   }
 
   "A empty join " should "throw an error on creation" in {
-    assertThrows[IllegalArgumentException](new LeapfrogJoin(Array[UnaryIterator]()))
+    assertThrows[IllegalArgumentException](new LeapfrogJoin(Array[LinearIterator]()))
   }
 
   "A join over an empty relationship" should "at end" in {
@@ -36,5 +36,14 @@ class LeapfrogJoinSpec extends FlatSpec {
     val join = new LeapfrogJoin(Array(new UnaryRelationship(values1), new UnaryRelationship(values2)))
     join.init()
     assertJoinEqual(join, values1.intersect(values2))
+  }
+
+  "A join over an empty intersection" should "be atEnd" in {
+    val values1 = Array(1)
+    val values2 = Array(2)
+    val join = new LeapfrogJoin(Array(new UnaryRelationship(values1),
+      new UnaryRelationship(values2)))
+    join.init()
+    assert(join.atEnd)
   }
 }

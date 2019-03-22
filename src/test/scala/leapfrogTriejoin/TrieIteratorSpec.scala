@@ -8,7 +8,7 @@ import scala.collection.mutable
 class TrieIteratorSpec extends FlatSpec with Matchers with GeneratorDrivenPropertyChecks {
 
   "An empty TrieIterator" should "be at end" in {
-    val iter = new TrieIterator(Array())
+    val iter = new TrieIterator(Array[(Int, Int)]())
     assert(iter.atEnd)
   }
 
@@ -100,10 +100,6 @@ class TrieIteratorSpec extends FlatSpec with Matchers with GeneratorDrivenProper
     } while(!iter.atEnd)
     ret
   }
-  org.scalacheck.Arbitrary.arbInt
-
-
-
 
   "A TrieIterator traversal, without seeks," should "enumerate all values in order" in {
     import org.scalacheck.Gen
