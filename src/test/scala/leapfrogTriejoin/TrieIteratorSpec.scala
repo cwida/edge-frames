@@ -101,6 +101,19 @@ class TrieIteratorSpec extends FlatSpec with Matchers with GeneratorDrivenProper
     ret
   }
 
+  "A TrieIterator level that is reopened" should "start from the beginning again" in {
+    val iter = new TrieIterator(Array((1, 2)))
+    iter.open()
+    iter.open()
+    iter.key shouldBe 2
+    iter.seek(3)
+    iter.atEnd shouldBe true
+    iter.up()
+    iter.atEnd shouldBe false
+    iter.open()
+    iter.key shouldBe 2
+  }
+
   "A TrieIterator traversal, without seeks," should "enumerate all values in order" in {
     import org.scalacheck.Gen
     import Ordering.Implicits._
@@ -116,5 +129,7 @@ class TrieIteratorSpec extends FlatSpec with Matchers with GeneratorDrivenProper
       }
     }
   }
+
+
 
 }
