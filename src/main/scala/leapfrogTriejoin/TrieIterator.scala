@@ -22,6 +22,7 @@ class TrieIterator(val relationship: EdgeRelationship) extends LinearIterator {
   var isAtTotalEnd = map.isEmpty
   val maxDepth = 1
   var triePath = Vector.fill(maxDepth + 1){-1}
+  var mapIterator = map.keysIterator
 
   def up(): Unit = {
     if(depth == HIGHEST_LEVEL) {
@@ -37,8 +38,8 @@ class TrieIterator(val relationship: EdgeRelationship) extends LinearIterator {
       throw new IllegalStateException("Cannot go down in TrieIterator at lowest level.")
     } else{
       depth += 1
-      map = map.from(triePath)
-      triePath = triePath.updated(depth, map.firstKey(depth))
+      mapIterator = map.keysIteratorFrom(triePath)
+      triePath = triePath.updated(depth, mapIterator.next()(depth))
       isAtEnd = false
     }
   }
@@ -57,17 +58,17 @@ class TrieIterator(val relationship: EdgeRelationship) extends LinearIterator {
       throw new IllegalStateException("Cannot move to next at end of branch.")
     }
 
-    val temp = map
+    val temp = mapIterator
     var possiblyNewNextVector = triePath.updated(depth, key)
-    map = map.from(possiblyNewNextVector)
-    if (map.isEmpty) {
+    mapIterator = map.keysIteratorFrom(possiblyNewNextVector)
+    if (mapIterator.isEmpty) {
       isAtEnd = true
       isAtTotalEnd = true
     } else {
-      possiblyNewNextVector = map.firstKey
+      possiblyNewNextVector = mapIterator.next()
       if (0 < depth && possiblyNewNextVector(depth - 1) != triePath(depth - 1)) {
         isAtEnd = true
-        map = temp  // TODO is that necessary? Yep, if one wants to have a linear and a tree part one could potentially go with a linear iterator changing depth on it's own
+        mapIterator = temp  // TODO is that necessary? Yep, if one wants to have a linear and a tree part one could potentially go with a linear iterator changing depth on it's own
       } else {
         triePath = triePath.updated(depth, possiblyNewNextVector(depth))
       }
