@@ -1,4 +1,36 @@
 import csv
+import sys
+import itertools
+from functools import reduce
+
+from math import sqrt, ceil
+
+""" Workload as defined in "From Theory to Practice": biggest workload over all nodes."""
+def workload(num_edges, c):
+  size = sys.maxsize
+  for d1 in c:
+    for d2 in c:
+      size = min(d1 * d2, size)
+
+  return num_edges / pow(size, 2)
+
+
+"""best configuration as defined in "From Theory to Practice": 
+most even configuration with lowest workload"""
+def best_configuration(workers, edges, dimensions):
+  min_workload = 1.0
+  best_conf = None
+  for c in itertools.combinations_with_replacement(list(range(1, ceil(sqrt(workers)))), dimensions):
+    w = workload(edges, c)
+    if reduce(lambda x, y: x * y, c) < workers:
+      min_workload = min(min_workload, w)
+      best_conf = c
+    elif w == min_workload and max(c) < max(best_conf):
+      best_conf = c
+  return best_conf
+
+def numberOfWorkers(c):
+  return reduce(lambda x, y: x * y, c)
 
 
 def percentageOfTuplesPerWorker(num_edges, size):
