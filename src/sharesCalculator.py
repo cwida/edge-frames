@@ -36,7 +36,7 @@ def best_configuration(workers: int, edges: List[Tuple[str, str]], vertices: Lis
       if w < min_workload:
         min_workload = w
         best_conf = c
-      elif w == min_workload and (best_conf == None or max(c) < max(best_conf)):
+      elif w == min_workload and (best_conf is None or max(c) < max(best_conf)):
         best_conf = c
   return best_conf
 
@@ -59,11 +59,24 @@ def clique_pattern(num_vertices):
 def path_pattern(num_vertices):
   vertices = list(map(lambda i: ascii_lowercase[i], range(num_vertices)))
   edges = []
-  for (v1, i) in enumerate(vertices):
+  for (i, v1) in enumerate(vertices):
     if i < len(vertices) - 1:
       edges.append((v1, vertices[i + 1]))
 
   return vertices, edges
+
+
+def circle_pattern(num_vertices):
+  v, e = path_pattern(num_vertices)
+  e.append((v[0], v[-1]))
+  return v, e
+
+
+def two_rings_pattern():
+  v, e = clique_pattern(3)
+  v += 'z'
+  e += [('a', 'z'), ('b', 'z')]
+  return v, e
 
 
 def diamond_pattern():
@@ -105,4 +118,27 @@ def write_replication_file():
     writer.writerows(rows)
 
 
+def check_against_paper_results():
+  # Size of edge relationship in paper (twitter, follower -> followee)
+  e_size = 1114289
+  workers = 64
+
+  # Patterns of the paper
+  # patterns = [clique_pattern(3)] + [clique_pattern(4)] + [circle_pattern(4)] + [two_rings_pattern()]
+  patterns = [clique_pattern(4)]
+
+  # Number of tuples shuffled in millions from the paper, same order as patterns
+  expected_tuples_to_shuffle = [13, 24, 35, 17]
+
+  calculated_tuple_shuffles = []
+  for (v, e) in patterns:
+    config = best_configuration(workers, e, v)
+    w = workload_per_worker(e, config)
+    calculated_tuple_shuffles.append(round(e_size * w * number_of_workers(config) / 1000000))
+
+  print("Expected tuples to shuffle:   ", expected_tuples_to_shuffle)
+  print("Calculated tuples to shuffle: ", calculated_tuple_shuffles)
+
+
+check_against_paper_results()
 write_replication_file()
