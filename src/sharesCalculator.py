@@ -1,5 +1,4 @@
 import csv
-import sys
 import itertools
 from functools import reduce
 from typing import List, Tuple, Dict
@@ -8,10 +7,10 @@ from string import ascii_lowercase
 from math import sqrt, ceil
 
 
-def workload_per_worker(edges: List[Tuple[str, str]], c: Dict[str, int]):
+def workload_per_worker(edges: List[Tuple[str, str]], config: Dict[str, int]):
   w = 0
   for (a, b) in edges:
-    size = c[a] * c[b]
+    size = config[a] * config[b]
     w += 1 / size
 
   return w
@@ -19,7 +18,7 @@ def workload_per_worker(edges: List[Tuple[str, str]], c: Dict[str, int]):
 
 def workload_total(edges, c):
   w = workload_per_worker(edges, c)
-  return w / numberOfWorkers(c)
+  return w / number_of_workers(c)
 
 
 def best_configuration(workers: int, edges: List[Tuple[str, str]], vertices: List[str]):
@@ -42,8 +41,8 @@ def best_configuration(workers: int, edges: List[Tuple[str, str]], vertices: Lis
   return best_conf
 
 
-def numberOfWorkers(c):
-  return reduce(lambda x, y: x * y, c.values())
+def number_of_workers(config):
+  return reduce(lambda x, y: x * y, config.values())
 
 
 def clique_pattern(num_vertices):
@@ -79,23 +78,31 @@ def house_pattern():
   clique[1].remove(('a', 'e'))
   return clique
 
-cliquePatterns = list(map(lambda i: clique_pattern(i), range(3, 7)))
-pathPatterns = list(map(lambda i: clique_pattern(i), range(2, 10)))
 
-patterns = cliquePatterns + pathPatterns + [diamond_pattern()] + [house_pattern()]
-print(patterns)
-fieldnames = ['vertices', 'edges', 'workers', 'workers_used', 'config', 'max_percentage']
-rows = []
-workers = 64
-
-for (v, e) in patterns:
-    c = best_configuration(workers, e, v)
-    rows.append((len(v), len(e), workers, numberOfWorkers(c), '; '.join(map(str, map(lambda v: c[v], v))), workload_per_worker(e, c)))
-
-with open('output.csv', 'w') as f:
-  writer = csv.writer(f)
-  writer.writerow(fieldnames)
-
-  writer.writerows(rows)
+clique_patterns = list(map(lambda i: clique_pattern(i), range(3, 7)))
+path_patterns = list(map(lambda i: clique_pattern(i), range(2, 10)))
 
 
+def write_replication_file():
+  """
+  Produces a table that shows how many percent of the E relationship is hold at each node for the optimal
+  configurations, given a fixed number of workers. Optimality is defined as detailed in Chu et al. 2015.
+  :return:
+  """
+  patterns = clique_patterns + path_patterns + [diamond_pattern()] + [house_pattern()]
+  field_names = ['vertices', 'edges', 'workers', 'workers_used', 'config', 'max_percentage']
+  rows = []
+  workers = 64
+
+  for (v, e) in patterns:
+      c = best_configuration(workers, e, v)
+      rows.append((len(v), len(e), workers, number_of_workers(c), '; '.join(map(str, map(lambda v: c[v], v))), workload_per_worker(e, c)))
+
+  with open('output.csv', 'w') as f:
+    writer = csv.writer(f)
+    writer.writerow(field_names)
+
+    writer.writerows(rows)
+
+
+write_replication_file()
