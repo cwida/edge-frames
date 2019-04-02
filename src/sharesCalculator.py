@@ -5,6 +5,7 @@ from typing import List, Tuple, Dict
 from string import ascii_lowercase
 import operator as op
 
+from collections import deque
 from math import sqrt, ceil
 
 UNIQUE_TUPLES_ONLY = True
@@ -39,17 +40,30 @@ def best_configuration(workers: int, edges: List[Tuple[str, str]], vertices: Lis
   most even configuration with lowest workload
   """
   min_workload = 1.0
-  best_conf = None
-  for c_tuple in itertools.combinations_with_replacement(list(range(1, ceil(sqrt(workers)))), len(vertices)):
-    if reduce(lambda x, y: x * y, c_tuple) <= workers:
-      c = dict(zip(vertices, c_tuple))
+  best_conf = dict(zip(vertices, [0 for v in vertices]))
 
-      w = workload_total((vertices, edges), c)
-      if w < min_workload:
-        min_workload = w
-        best_conf = c
-      elif w == min_workload and (best_conf is None or max(c) < max(best_conf)):
-        best_conf = c
+  visited = set()
+  toVisit = deque()
+  toVisit.append(tuple([1 for _ in vertices]))
+
+  while (len(toVisit) > 0):
+    c_tuple = toVisit.pop()
+    c = dict(zip(vertices, c_tuple))
+
+    w = workload_total((vertices, edges), c)
+    if w < min_workload:
+      min_workload = w
+      best_conf = c
+    elif w == min_workload and (best_conf is None or max(c.values()) < max(best_conf.values())):
+      best_conf = c
+
+    for i, d in enumerate(c_tuple):
+      new_dim_sizes = (c_tuple[0:i] +
+                       tuple([c_tuple[i] + 1]) +
+                       c_tuple[i + 1:])
+      if (reduce(op.mul, new_dim_sizes) <= workers and
+          new_dim_sizes not in visited):
+        toVisit.append(new_dim_sizes)
   return best_conf
 
 
