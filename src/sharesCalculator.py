@@ -5,10 +5,10 @@ from typing import List, Tuple, Dict
 from string import ascii_lowercase
 import operator as op
 
-from collections import deque
-from math import sqrt, ceil
+# from poibin.poibin import PoiBin
 
-UNIQUE_TUPLES_ONLY = True
+from collections import deque
+from math import sqrt, ceil, isclose
 
 
 def workload_per_worker(pattern, config: Dict[str, int]):
@@ -25,6 +25,12 @@ def workload_per_worker(pattern, config: Dict[str, int]):
     probability_not_there_before = probability_not_there_before * (1 - probability_to_be_assigned_now)
 
     w += probability_to_be_unique
+
+  # probabilities = [1 / (config[a] * config[b]) for (a, b) in e]
+  # poison_binominial = PoiBin(probabilities)
+  #
+  # po_bi = 1 - (poison_binominial.pmf([0])[0])
+  # assert(isclose(w, po_bi))
 
   return w
 
@@ -118,16 +124,14 @@ def house_pattern():
   return clique
 
 
-clique_patterns = list(map(lambda i: clique_pattern(i), range(3, 7)))
-path_patterns = list(map(lambda i: clique_pattern(i), range(2, 10)))
-
-
 def write_replication_file():
   """
   Produces a table that shows how many percent of the E relationship is hold at each node for the optimal
   configurations, given a fixed number of workers. Optimality is defined as detailed in Chu et al. 2015.
   :return:
   """
+  clique_patterns = list(map(lambda i: clique_pattern(i), range(3, 6)))
+  path_patterns = list(map(lambda i: clique_pattern(i), range(2, 6)))
   patterns = clique_patterns + path_patterns + [diamond_pattern()] + [house_pattern()]
   field_names = ['vertices', 'edges', 'workers', 'workers_used', 'config', 'max_percentage']
   rows = []
@@ -150,8 +154,8 @@ def check_against_paper_results():
   workers = 64
 
   # Patterns of the paper
-  patterns = [clique_pattern(3)] + [clique_pattern(4)] + [circle_pattern(4)] + [two_rings_pattern()]
-  # patterns = [clique_pattern(4)]
+  patterns = [clique_pattern(3)] + [clique_pattern(4)] + [circle_pattern(4)]# + [two_rings_pattern()]
+  # patterns = [clique_pattern(3) ]
 
   # Number of tuples shuffled in millions from the paper, same order as patterns
   expected_tuples_to_shuffle = [13, 24, 35, 17]
@@ -167,4 +171,4 @@ def check_against_paper_results():
 
 
 check_against_paper_results()
-write_replication_file()
+# write_replication_file()
