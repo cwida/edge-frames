@@ -3,21 +3,33 @@ import itertools
 from functools import reduce
 from typing import List, Tuple, Dict
 from string import ascii_lowercase
+import operator as op
 
 from math import sqrt, ceil
 
+UNIQUE_TUPLES_ONLY = True
 
-def workload_per_worker(edges: List[Tuple[str, str]], config: Dict[str, int]):
+
+def workload_per_worker(pattern, config: Dict[str, int]):
   w = 0
-  for (a, b) in edges:
+  v, e = pattern
+
+  probability_not_there_before = 1
+  for (a, b) in e:
     size = config[a] * config[b]
-    w += 1 / size
+    probability_to_be_assigned_now = 1 / size
+
+    probability_to_be_unique = probability_to_be_assigned_now * probability_not_there_before
+
+    probability_not_there_before = probability_not_there_before * (1 - probability_to_be_assigned_now)
+
+    w += probability_to_be_unique
 
   return w
 
 
-def workload_total(edges, c):
-  w = workload_per_worker(edges, c)
+def workload_total(pattern, c):
+  w = workload_per_worker(pattern, c)
   return w / number_of_workers(c)
 
 
@@ -32,7 +44,7 @@ def best_configuration(workers: int, edges: List[Tuple[str, str]], vertices: Lis
     if reduce(lambda x, y: x * y, c_tuple) <= workers:
       c = dict(zip(vertices, c_tuple))
 
-      w = workload_total(edges, c)
+      w = workload_total((vertices, edges), c)
       if w < min_workload:
         min_workload = w
         best_conf = c
@@ -109,7 +121,7 @@ def write_replication_file():
 
   for (v, e) in patterns:
       c = best_configuration(workers, e, v)
-      rows.append((len(v), len(e), workers, number_of_workers(c), '; '.join(map(str, map(lambda v: c[v], v))), workload_per_worker(e, c)))
+      rows.append((len(v), len(e), workers, number_of_workers(c), '; '.join(map(str, map(lambda v: c[v], v))), workload_per_worker((v, e), c)))
 
   with open('output.csv', 'w') as f:
     writer = csv.writer(f)
@@ -124,8 +136,8 @@ def check_against_paper_results():
   workers = 64
 
   # Patterns of the paper
-  # patterns = [clique_pattern(3)] + [clique_pattern(4)] + [circle_pattern(4)] + [two_rings_pattern()]
-  patterns = [clique_pattern(4)]
+  patterns = [clique_pattern(3)] + [clique_pattern(4)] + [circle_pattern(4)] + [two_rings_pattern()]
+  # patterns = [clique_pattern(4)]
 
   # Number of tuples shuffled in millions from the paper, same order as patterns
   expected_tuples_to_shuffle = [13, 24, 35, 17]
@@ -133,7 +145,7 @@ def check_against_paper_results():
   calculated_tuple_shuffles = []
   for (v, e) in patterns:
     config = best_configuration(workers, e, v)
-    w = workload_per_worker(e, config)
+    w = workload_per_worker((v, e), config)
     calculated_tuple_shuffles.append(round(e_size * w * number_of_workers(config) / 1000000))
 
   print("Expected tuples to shuffle:   ", expected_tuples_to_shuffle)
