@@ -35,11 +35,6 @@ def workload_per_worker(pattern, config: Dict[str, int]):
   return w
 
 
-def workload_total(pattern, c):
-  w = workload_per_worker(pattern, c)
-  return w / number_of_workers(c)
-
-
 def best_configuration(workers: int, edges: List[Tuple[str, str]], vertices: List[str]):
   """
   best configuration as defined in "From Theory to Practice":
@@ -56,7 +51,7 @@ def best_configuration(workers: int, edges: List[Tuple[str, str]], vertices: Lis
     c_tuple = toVisit.pop()
     c = dict(zip(vertices, c_tuple))
 
-    w = workload_total((vertices, edges), c)
+    w = workload_per_worker((vertices, edges), c)
     if w < min_workload:
       min_workload = w
       best_conf = c
@@ -162,6 +157,7 @@ def check_against_paper_results():
   calculated_tuple_shuffles = []
   for (v, e) in patterns:
     config = best_configuration(workers, e, v)
+    print(config)
     w = workload_per_worker((v, e), config)
     calculated_tuple_shuffles.append(round(e_size * w * number_of_workers(config) / 1000000))
 
@@ -169,5 +165,5 @@ def check_against_paper_results():
   print("Calculated tuples to shuffle: ", calculated_tuple_shuffles)
 
 
-write_replication_file()
 check_against_paper_results()
+write_replication_file()
