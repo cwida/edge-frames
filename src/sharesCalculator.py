@@ -15,16 +15,16 @@ def workload_per_worker(pattern, config: Dict[str, int]):
   w = 0
   v, e = pattern
 
-  probability_not_there_before = 1
+  p_unique = 1
   for (a, b) in e:
     size = config[a] * config[b]
-    probability_to_be_assigned_now = 1 / size
+    p_assign = 1 / size
 
-    probability_to_be_unique = probability_to_be_assigned_now * probability_not_there_before
+    p_unique_assign = p_assign * p_unique
 
-    probability_not_there_before = probability_not_there_before * (1 - probability_to_be_assigned_now)
+    p_unique = p_unique * (1 - p_assign)
 
-    w += probability_to_be_unique
+    w += p_unique_assign
 
   # probabilities = [1 / (config[a] * config[b]) for (a, b) in e]
   # poison_binominial = PoiBin(probabilities)
@@ -67,8 +67,9 @@ def best_configuration(workers: int, edges: List[Tuple[str, str]], vertices: Lis
       new_dim_sizes = (c_tuple[0:i] +
                        tuple([c_tuple[i] + 1]) +
                        c_tuple[i + 1:])
-      if (reduce(op.mul, new_dim_sizes) <= workers and
-          new_dim_sizes not in visited):
+      if (reduce(op.mul, new_dim_sizes) <= workers
+          and new_dim_sizes not in visited
+          and (workers <= 64 or max(new_dim_sizes) < ceil(sqrt(workers)))):  # Optimization for many workers, takes to long otherwise.
         toVisit.append(new_dim_sizes)
   return best_conf
 
@@ -135,17 +136,16 @@ def write_replication_file():
   patterns = clique_patterns + path_patterns + [diamond_pattern()] + [house_pattern()]
   field_names = ['vertices', 'edges', 'workers', 'workers_used', 'config', 'max_percentage']
   rows = []
-  workers = 64
-
-  for (v, e) in patterns:
-      c = best_configuration(workers, e, v)
-      rows.append((len(v), len(e), workers, number_of_workers(c), '; '.join(map(str, map(lambda v: c[v], v))), workload_per_worker((v, e), c)))
+  workers = [64, 256]
 
   with open('output.csv', 'w') as f:
     writer = csv.writer(f)
     writer.writerow(field_names)
-
-    writer.writerows(rows)
+    for (v, e) in patterns:
+      for w in workers:
+        c = best_configuration(w, e, v)
+        writer.writerow((len(v), len(e), w, number_of_workers(c), '; '.join(map(str, map(lambda v: c[v], v))), workload_per_worker((v, e), c)))
+        f.flush()
 
 
 def check_against_paper_results():
@@ -154,8 +154,7 @@ def check_against_paper_results():
   workers = 64
 
   # Patterns of the paper
-  patterns = [clique_pattern(3)] + [clique_pattern(4)] + [circle_pattern(4)]# + [two_rings_pattern()]
-  # patterns = [clique_pattern(3) ]
+  patterns = [clique_pattern(3)] + [clique_pattern(4)] + [circle_pattern(4)] + [two_rings_pattern()]
 
   # Number of tuples shuffled in millions from the paper, same order as patterns
   expected_tuples_to_shuffle = [13, 24, 35, 17]
@@ -170,5 +169,5 @@ def check_against_paper_results():
   print("Calculated tuples to shuffle: ", calculated_tuple_shuffles)
 
 
+write_replication_file()
 check_against_paper_results()
-# write_replication_file()
