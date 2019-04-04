@@ -30,7 +30,7 @@ def workload_per_worker(pattern, config: Dict[str, int]):
   # poison_binominial = PoiBin(probabilities)
   #
   # po_bi = 1 - (poison_binominial.pmf([0])[0])
-  # assert(isclose(w, po_bi))
+  # assert(isclose(w, po_bi))  # That assert never fails, from now on I use the implementation above because it is faster.
 
   return w
 
@@ -127,11 +127,11 @@ def write_replication_file():
   :return:
   """
   clique_patterns = list(map(lambda i: clique_pattern(i), range(3, 6)))
-  path_patterns = list(map(lambda i: clique_pattern(i), range(2, 6)))
+  path_patterns = list(map(lambda i: path_patterns(i), range(2, 6)))
   patterns = clique_patterns + path_patterns + [diamond_pattern()] + [house_pattern()]
   field_names = ['vertices', 'edges', 'workers', 'workers_used', 'config', 'max_percentage']
   rows = []
-  workers = [64, 256]
+  workers = [64, 128]
 
   with open('output.csv', 'w') as f:
     writer = csv.writer(f)
