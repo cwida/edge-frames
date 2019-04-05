@@ -1,9 +1,13 @@
 package leapfrogTriejoin
 
+import org.slf4j.LoggerFactory
+
 import scala.collection.immutable.TreeMap
 import Ordering.Implicits._
 // TODO needs to be changed to a multimap
 class TrieIterator(val relationship: EdgeRelationship) extends LinearIterator {
+  private val logger = LoggerFactory.getLogger(classOf[TrieIterator])
+
   def this (tuples: Array[(Int, Int)]) {
     this(new EdgeRelationship(("a", "b"), tuples))
   }
@@ -12,6 +16,9 @@ class TrieIterator(val relationship: EdgeRelationship) extends LinearIterator {
 
   val HIGHEST_LEVEL = -1
   var map = new TreeMap[Vector[Int], Int]()  // TODO do I want a mutable tree map?
+
+
+  logger.error(values.map(t => t.toString()).mkString(", "))
 
   for ((t, i) <- values.zipWithIndex) {
     map = map.updated(Vector(t._1, t._2), i)

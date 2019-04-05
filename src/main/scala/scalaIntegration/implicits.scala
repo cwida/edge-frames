@@ -1,6 +1,6 @@
 package scalaIntegration
 
-import org.apache.spark.sql.{Dataset}
+import org.apache.spark.sql.{Dataset, WCOJFunctions}
 
 object implicits {
   import scala.language.implicitConversions

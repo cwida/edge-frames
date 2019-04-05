@@ -9,27 +9,29 @@ import org.apache.spark.sql.execution.{RowIterator, SparkPlan}
 case class WCOJExec(joinSpecification: JoinSpecification, child: SparkPlan) extends SparkPlan {
   override protected def doExecute(): RDD[InternalRow] = {
     val childRDD = child.execute()
-    val join = joinSpecification.build(childRDD)
-    val iter = new RowIterator {
-      var row: Array[Int]= null
-      override def advanceNext(): Boolean = {
-        if (join.atEnd) {
-          false
-        } else {
-          row = join.next()
-          true
+    childRDD.mapPartitions(rowIter => {
+      val tuples = rowIter.map(ir => (ir.getInt(0), ir.getInt(1))).toArray
+
+      val join = joinSpecification.build(tuples)
+      val iter = new RowIterator {
+        var row: Array[Int]= null
+        override def advanceNext(): Boolean = {
+          if (join.atEnd) {
+            false
+          } else {
+            row = join.next()
+            true
+          }
+        }
+
+        override def getRow: InternalRow = {
+          val gr = new GenericInternalRow(row.size)
+          row.zipWithIndex.foreach { case(b, i) => gr.update(i.toInt, b) }
+          gr
         }
       }
-
-      override def getRow: InternalRow = new GenericInternalRow(row.asInstanceOf[Array[Any]])
-    }
-    new RDD[InternalRow](childRDD) {
-      override def compute(split: Partition, context: TaskContext): Iterator[InternalRow] = {
-        iter.toScala
-      }
-
-      override protected def getPartitions: Array[Partition] = childRDD.partitions
-    }
+      iter.toScala
+    })
   }
 
   override def output: Seq[Attribute] = child.output

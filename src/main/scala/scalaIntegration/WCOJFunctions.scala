@@ -1,9 +1,8 @@
-package scalaIntegration
+package org.apache.spark.sql
 
-import org.apache.spark.sql.{DataFrame, Dataset}
-
+import scalaIntegration.{JoinSpecification, Pattern, WCOJ}
 class WCOJFunctions[T](ds: Dataset[T]) {
-  def cachedGraphTopology(): DataFrame = {
-    Dataset.ofRows(ds.sparkSession, WCOJ(ds.logicalPlan))
+  def findPattern(pattern: String, variableOrdering: Seq[String]) = {
+    Dataset.ofRows(ds.sparkSession, new WCOJ(new JoinSpecification(Pattern.parse(pattern), variableOrdering), ds.logicalPlan))
   }
 }
