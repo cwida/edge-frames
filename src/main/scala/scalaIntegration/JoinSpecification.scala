@@ -1,12 +1,18 @@
 package scalaIntegration
 
 import leapfrogTriejoin.{EdgeRelationship, LeapfrogTriejoin, TrieIterator}
-import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.catalyst.InternalRow
 import org.slf4j.LoggerFactory
 
 class JoinSpecification(joinPattern: Seq[Pattern], variableOrdering: Seq[String]) extends Serializable {
   private val logger = LoggerFactory.getLogger(classOf[JoinSpecification])
+
+  val allVariables: Seq[String] = variableOrdering
+
+  def bindsOnFirstLevel(variable: String): Boolean = {
+    joinPattern.exists { case AnonymousEdge(src: NamedVertex, dst: NamedVertex) => {
+      src.name == variable
+    }}
+  }
 
   def build(tuples: Array[(Int, Int)]): LeapfrogTriejoin = {
     val trieIterators = joinPattern.map(p => p match {

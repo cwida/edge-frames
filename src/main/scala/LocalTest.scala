@@ -35,8 +35,6 @@ object LocalTest {
 
     result.show()
 
-    readLine("Exit?")
-
     spark.stop()
   }
 }

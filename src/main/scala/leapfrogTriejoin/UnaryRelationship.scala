@@ -25,7 +25,6 @@ class UnaryRelationship(values: Array[Int]) extends LinearIterator {
   override def atEnd: Boolean = iteratorPosition >= values.length
 
   // TODO yes it is in O(log N). However, it is quite inefficient.
-  // TODO use iterator position to limit search space
   override def seek(key: Int): Unit = {
     val i = values.binarySearch(key, iteratorPosition, values.length)
     if (i >= 0) {

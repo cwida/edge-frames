@@ -3,8 +3,9 @@ package scalaIntegration
 import org.apache.spark.{Partition, TaskContext}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.catalyst.expressions.{Attribute, GenericInternalRow}
+import org.apache.spark.sql.catalyst.expressions.{Attribute, AttributeReference, GenericInternalRow}
 import org.apache.spark.sql.execution.{RowIterator, SparkPlan}
+import org.apache.spark.sql.types.IntegerType
 
 case class WCOJExec(joinSpecification: JoinSpecification, child: SparkPlan) extends SparkPlan {
   override protected def doExecute(): RDD[InternalRow] = {
@@ -34,8 +35,12 @@ case class WCOJExec(joinSpecification: JoinSpecification, child: SparkPlan) exte
     })
   }
 
-  override def output: Seq[Attribute] = child.output
-
   override def children: Seq[SparkPlan] = child :: Nil
 
+  override def output: Seq[Attribute] = {
+    joinSpecification.allVariables.map(name => {
+      val reference = if (joinSpecification.bindsOnFirstLevel(name)) child.output(0) else child.output(1)
+      AttributeReference(name, IntegerType, false)(reference.exprId)
+    })
+  }
 }
