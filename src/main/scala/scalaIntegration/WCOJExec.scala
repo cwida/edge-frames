@@ -3,11 +3,24 @@ package scalaIntegration
 import org.apache.spark.{Partition, TaskContext}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.catalyst.expressions.{Attribute, AttributeReference, GenericInternalRow}
+import org.apache.spark.sql.catalyst.expressions.{Attribute, AttributeReference, AttributeSet, GenericInternalRow}
 import org.apache.spark.sql.execution.{RowIterator, SparkPlan}
 import org.apache.spark.sql.types.IntegerType
 
 case class WCOJExec(joinSpecification: JoinSpecification, child: SparkPlan) extends SparkPlan {
+  override def children: Seq[SparkPlan] = child :: Nil
+
+  override def output: Seq[Attribute] = {
+    joinSpecification.allVariables.map(name => {
+      val reference = if (joinSpecification.bindsOnFirstLevel(name))
+        child.output.filter(a => a.name == "src").head
+      else
+        child.output.filter(a => a.name == "dst").head
+      AttributeReference(name, IntegerType, false)(reference.exprId)
+    })
+  }
+  override def references: AttributeSet = AttributeSet(child.output.filter(a => List("src", "dst").contains(a.name)))
+
   override protected def doExecute(): RDD[InternalRow] = {
     val childRDD = child.execute()
     childRDD.mapPartitions(rowIter => {
@@ -32,15 +45,6 @@ case class WCOJExec(joinSpecification: JoinSpecification, child: SparkPlan) exte
         }
       }
       iter.toScala
-    })
-  }
-
-  override def children: Seq[SparkPlan] = child :: Nil
-
-  override def output: Seq[Attribute] = {
-    joinSpecification.allVariables.map(name => {
-      val reference = if (joinSpecification.bindsOnFirstLevel(name)) child.output(0) else child.output(1)
-      AttributeReference(name, IntegerType, false)(reference.exprId)
     })
   }
 }

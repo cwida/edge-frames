@@ -24,9 +24,11 @@ object LocalTest {
     spark.experimental.extraStrategies = (Seq(WCOJ2WCOJExec) ++ spark.experimental.extraStrategies)
 
     val tuples1 = Array[(Int, Int)]((1, 2), (3, 3), (4, 2), (5, 1))
-    val ds : Dataset[(Int, Int)] = spark.sparkContext.parallelize(tuples1, 1).toDS()
+    val df: DataFrame = spark.sparkContext.parallelize(tuples1, 1).toDS()
+      .withColumnRenamed("_1", "src")
+      .withColumnRenamed("_2", "dst")
 
-    val result = ds.findPattern(
+    val result = df.findPattern(
       """
         |(a) - [] -> (b);
         |(b) - [] -> (c);
