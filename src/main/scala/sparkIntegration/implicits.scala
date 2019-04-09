@@ -1,4 +1,4 @@
-package scalaIntegration
+package sparkIntegration
 
 import org.apache.spark.sql.{Dataset, WCOJFunctions}
 

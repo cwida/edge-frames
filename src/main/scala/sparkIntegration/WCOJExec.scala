@@ -1,28 +1,29 @@
-package scalaIntegration
+package sparkIntegration
 
 import org.apache.spark.{Partition, TaskContext}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.{Attribute, AttributeReference, AttributeSet, GenericInternalRow}
 import org.apache.spark.sql.execution.{RowIterator, SparkPlan}
-import org.apache.spark.sql.types.IntegerType
+import org.apache.spark.sql.types.{IntegerType, LongType}
 
-case class WCOJExec(joinSpecification: JoinSpecification, child: SparkPlan) extends SparkPlan {
-  override def children: Seq[SparkPlan] = child :: Nil
+case class WCOJExec(joinSpecification: JoinSpecification, children: Seq[SparkPlan]) extends SparkPlan {
 
   override def output: Seq[Attribute] = {
-    joinSpecification.allVariables.map(name => {
-      val reference = if (joinSpecification.bindsOnFirstLevel(name))
-        child.output.filter(a => a.name == "src").head
-      else
-        child.output.filter(a => a.name == "dst").head
-      AttributeReference(name, IntegerType, false)(reference.exprId)
+    joinSpecification.allVariables.map(v => {
+      val relI = joinSpecification.variableToRelationshipIndex(v)
+      val aI = joinSpecification.variableToAttributeIndex(v)
+      val ref = children(relI).output.filter(a => a.name == (if (aI == 0) "src" else "dst")).head
+      new AttributeReference(v, IntegerType, false)(ref.exprId)
     })
   }
-  override def references: AttributeSet = AttributeSet(child.output.filter(a => List("src", "dst").contains(a.name)))
+
+  override def references: AttributeSet = AttributeSet(children.flatMap(c => c.output.filter(a => List("src", "dst").contains(a.name))))
 
   override protected def doExecute(): RDD[InternalRow] = {
-    val childRDD = child.execute()
+
+    // TODO mehtod copies all tuples from an RDD into an array -- not good. Should initialize the TrieIterator from RDD's instead.
+    val childRDD = children(0).execute()  // TODO not consistent with operator, assumes only one child or all children to be the same.
     childRDD.mapPartitions(rowIter => {
       val tuples = rowIter.map(ir => (ir.getInt(0), ir.getInt(1))).toArray
 

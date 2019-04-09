@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package scalaIntegration
+package sparkIntegration
 
 import scala.collection.mutable
 import scala.util.parsing.combinator._

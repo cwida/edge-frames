@@ -3,8 +3,8 @@ import java.io.File
 
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
-import scalaIntegration.WCOJ2WCOJExec
-import scalaIntegration.implicits._
+import sparkIntegration.WCOJ2WCOJExec
+import sparkIntegration.implicits._
 
 import scala.io.StdIn.readLine
 
@@ -23,7 +23,7 @@ object LocalTest {
     import spark.implicits._
     spark.experimental.extraStrategies = (Seq(WCOJ2WCOJExec) ++ spark.experimental.extraStrategies)
 
-    val tuples1 = Array[(Int, Int)]((1, 2), (3, 3), (4, 2), (5, 1))
+    val tuples1 = Array[(Int, Int)]((1, 2), (2, 5), (4, 2), (1, 5))
     val df: DataFrame = spark.sparkContext.parallelize(tuples1, 1).toDS()
       .withColumnRenamed("_1", "src")
       .withColumnRenamed("_2", "dst")
@@ -35,6 +35,7 @@ object LocalTest {
         |(a) - [] -> (c)
         |""".stripMargin, List("a", "b", "c"))
 
+    result.explain(true)
     result.show()
 
     spark.stop()
