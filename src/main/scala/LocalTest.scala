@@ -1,12 +1,8 @@
 // scalastyle:off println
-import java.io.File
-
 import org.apache.spark.SparkConf
-import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
+import org.apache.spark.sql.{DataFrame, SparkSession}
 import sparkIntegration.WCOJ2WCOJExec
 import sparkIntegration.implicits._
-
-import scala.io.StdIn.readLine
 
 object LocalTest {
   def main(args: Array[String]): Unit = {
@@ -36,7 +32,13 @@ object LocalTest {
         |""".stripMargin, List("a", "b", "c"))
 
     result.explain(true)
+    val r = result.filter("a == 2")
+    r.show()
+    r.collect()
     result.show()
+
+    result.collect()
+
 
     spark.stop()
   }

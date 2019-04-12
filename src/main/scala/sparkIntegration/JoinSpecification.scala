@@ -1,6 +1,6 @@
 package sparkIntegration
 
-import leapfrogTriejoin.{EdgeRelationship, LeapfrogTriejoin, TrieIterator}
+import leapfrogTriejoin.{EdgeRelationship, LeapfrogTriejoin, TreeTrieIterator, TrieIterable}
 import org.slf4j.LoggerFactory
 
 import scala.collection.mutable
@@ -39,15 +39,16 @@ class JoinSpecification(joinPattern: Seq[Pattern], variableOrdering: Seq[String]
     }}
   }
 
-  def build(tuples: Array[(Int, Int)]): LeapfrogTriejoin = {
+  def build(trieIterable: TrieIterable): LeapfrogTriejoin = {
     val trieIterators = joinPattern.map {
       case AnonymousEdge(src: NamedVertex, dst: NamedVertex) => {
-        new TrieIterator(new EdgeRelationship((src.name, dst.name), tuples))
+        (new EdgeRelationship((src.name, dst.name)), trieIterable.trieIterator)
       }
       case _ => throw new InvalidParseException("Use only anonymous edges with named vertices.")
       // TODO negated edges?
-    }
+    }.toMap
     // TODO general variable order
     new LeapfrogTriejoin(trieIterators, variableOrdering)
   }
+
 }

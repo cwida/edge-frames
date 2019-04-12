@@ -2,8 +2,10 @@ package org.apache.spark.sql
 
 import org.apache.spark.{SparkConf, SparkContext}
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
-import sparkIntegration.WCOJ2WCOJExec
+import sparkIntegration.{ToTrieIterableRDDExec, WCOJ2WCOJExec, WCOJExec}
 import sparkIntegration.implicits._
+
+import scala.collection
 
 class WCOJSparkIntegration extends FlatSpec with Matchers with BeforeAndAfterAll {
   val conf = new SparkConf()
@@ -42,7 +44,7 @@ class WCOJSparkIntegration extends FlatSpec with Matchers with BeforeAndAfterAll
     physicalPlan.references.map(_.name) should contain theSameElementsAs List("src", "src", "src", "dst", "dst", "dst")
   }
 
-  "Logical and physical plan" should "output the attributes as definend in the pattern" in {
+  "Logical and physical plan" should "output the attributes as defined in the pattern" in {
     val logicalPlan = result.logicalPlan
     val physicalPlan = result.queryExecution.sparkPlan
 
@@ -50,12 +52,23 @@ class WCOJSparkIntegration extends FlatSpec with Matchers with BeforeAndAfterAll
     physicalPlan.output.map(_.name) should contain theSameElementsAs List("a", "b", "c")
   }
 
-  "Logical and physical plan" should "output should be different attributes" in {
+  "Logical and physical plan" should "output should be different attributes than input attributes" in {
     val logicalPlan = result.logicalPlan
     val physicalPlan = result.queryExecution.sparkPlan
 
     logicalPlan.output.map(_.exprId).toList should have length logicalPlan.output.map(_.exprId).toSet.size
     physicalPlan.output.map(_.exprId).toList should have length physicalPlan.output.map(_.exprId).toSet.size
+  }
+
+  "Execution" should "triangle 1, 2, 5 in the input data" in {
+    result.collect().map(_.toSeq) should contain only Seq(1, 2, 5)
+  }
+
+  "WCOJExec" should "be preceded by an ToTrieIterableRDDExec" in {
+    val physicalPlan = result.queryExecution.sparkPlan
+
+    val firstChildOfWCOJ = physicalPlan.collect({case WCOJExec(_, c :: _) => c }).head
+    assert(firstChildOfWCOJ.isInstanceOf[ToTrieIterableRDDExec])
   }
 
 }
