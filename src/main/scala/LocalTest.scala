@@ -19,7 +19,7 @@ object LocalTest {
     import spark.implicits._
     spark.experimental.extraStrategies = (Seq(WCOJ2WCOJExec) ++ spark.experimental.extraStrategies)
 
-    val tuples1 = Array[(Int, Int)]((1, 2), (2, 5), (4, 2), (1, 5))
+    val tuples1 = Array[(Int, Int)]((1, 2), (4, 2), (1, 5), (2, 5))
     val df: DataFrame = spark.sparkContext.parallelize(tuples1, 1).toDS()
       .withColumnRenamed("_1", "src")
       .withColumnRenamed("_2", "dst")

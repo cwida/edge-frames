@@ -1,11 +1,10 @@
 package org.apache.spark.sql
 
-import org.apache.spark.{SparkConf, SparkContext}
+import org.apache.spark.SparkConf
+import org.apache.spark.rdd.OrderedRDDFunctions
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
-import sparkIntegration.{ToTrieIterableRDDExec, WCOJ2WCOJExec, WCOJExec}
 import sparkIntegration.implicits._
-
-import scala.collection
+import sparkIntegration.{ToTrieIterableRDDExec, WCOJ2WCOJExec, WCOJExec}
 
 class WCOJSparkIntegration extends FlatSpec with Matchers with BeforeAndAfterAll {
   val conf = new SparkConf()
@@ -69,6 +68,13 @@ class WCOJSparkIntegration extends FlatSpec with Matchers with BeforeAndAfterAll
 
     val firstChildOfWCOJ = physicalPlan.collect({case WCOJExec(_, c :: _) => c }).head
     assert(firstChildOfWCOJ.isInstanceOf[ToTrieIterableRDDExec])
+  }
+
+  "ToTrieIterableRDDExec" should "should require child ordering" in {
+    val physicalPlan = result.queryExecution.sparkPlan
+
+    val childOfToTrieIterableRDDExec = physicalPlan.collect({case ToTrieIterableRDDExec(c) => c }).head
+    childOfToTrieIterableRDDExec.outputOrdering.map(o => o.child.nodeName) should equal (Seq("src", "dst"))
   }
 
 }
