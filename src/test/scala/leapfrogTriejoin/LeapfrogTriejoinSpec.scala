@@ -16,17 +16,17 @@ class LeapfrogTriejoinSpec extends FlatSpec with Matchers with GeneratorDrivenPr
 
   "A join on a single relationship" should "be the relationship" in  {
     val tuples = Array((1, 1), (2, 1))
-    val rel = new EdgeRelationship(("a", "b"), tuples)
-    val trieIterator = new TrieIterator(rel)
-    val join = new LeapfrogTriejoin(List(trieIterator), List("a", "b"))
+    val rel = new EdgeRelationship(("a", "b"))
+    val trieIterator = new TreeTrieIterator(tuples)
+    val join = new LeapfrogTriejoin(Map(rel -> trieIterator), List("a", "b"))
     assertJoinEqual(join, tuples.map(t => List(t._1, t._2)).toSet)
   }
 
   "An empty relationship " should "produce an empty result" in {
     val tuples = Array[(Int, Int)]()
-    val rel = new EdgeRelationship(("a", "b"), tuples)
-    val trieIterator = new TrieIterator(rel)
-    val join = new LeapfrogTriejoin(List(trieIterator), List("a", "b"))
+    val rel = new EdgeRelationship(("a", "b"))
+    val trieIterator = new TreeTrieIterator(tuples)
+    val join = new LeapfrogTriejoin(Map(rel -> trieIterator), List("a", "b"))
     assert(join.atEnd)
   }
 
@@ -38,11 +38,11 @@ class LeapfrogTriejoinSpec extends FlatSpec with Matchers with GeneratorDrivenPr
         val tuples1 = tuples1Set.toArray.sorted
         val tuples2 = tuples2Set.toArray.sorted
 
-        val rel1 = new EdgeRelationship(("a", "b"), tuples1)
-        val rel2 = new EdgeRelationship(("a", "c"), tuples2)
-        val trieIterator1 = new TrieIterator(rel1)
-        val trieIterator2 = new TrieIterator(rel2)
-        val join = new LeapfrogTriejoin(List(trieIterator1, trieIterator2), List("a", "b", "c"))
+        val rel1 = new EdgeRelationship(("a", "b"))
+        val rel2 = new EdgeRelationship(("a", "c"))
+        val trieIterator1 = new TreeTrieIterator(tuples1)
+        val trieIterator2 = new TreeTrieIterator(tuples2)
+        val join = new LeapfrogTriejoin(Map(rel1 -> trieIterator1, rel2 -> trieIterator2), List("a", "b", "c"))
 
         val expectedResult = tuples1.flatMap(t1 => tuples2.filter(t2 => t2._1 == t1._1).map(t2 => List(t1._1, t1._2, t2._2))).toSet
         assertJoinEqual(join, expectedResult)
@@ -55,11 +55,11 @@ class LeapfrogTriejoinSpec extends FlatSpec with Matchers with GeneratorDrivenPr
     val tuples1 = Array[(Int, Int)]((1, 2), (3, 3), (4, 2), (5, 1))
     val tuples2 = Array[(Int, Int)]((2, 2), (3, 4), (5, 2))
 
-    val rel1 = new EdgeRelationship(("a", "b"), tuples1)
-    val rel2 = new EdgeRelationship(("c", "b"), tuples2)
-    val trieIterator1 = new TrieIterator(rel1)
-    val trieIterator2 = new TrieIterator(rel2)
-    val join = new LeapfrogTriejoin(List(trieIterator1, trieIterator2), List("a", "c", "b"))
+    val rel1 = new EdgeRelationship(("a", "b"))
+    val rel2 = new EdgeRelationship(("c", "b"))
+    val trieIterator1 = new TreeTrieIterator(tuples1)
+    val trieIterator2 = new TreeTrieIterator(tuples2)
+    val join = new LeapfrogTriejoin(Map(rel1 -> trieIterator1, rel2 -> trieIterator2), List("a", "c", "b"))
 
     assertJoinEqual(join, Set(List(1, 2, 2), List(1, 5, 2), List(4, 2, 2), List(4, 5, 2)))
   }
@@ -69,13 +69,13 @@ class LeapfrogTriejoinSpec extends FlatSpec with Matchers with GeneratorDrivenPr
     val tuples2 = Array[(Int, Int)]((2, 4), (3, 5), (5, 2))
     val tuples3 = Array[(Int, Int)]((1, 2), (3, 3), (3, 5), (5, 8))
 
-    val rel1 = new EdgeRelationship(("a", "b"), tuples1)
-    val rel2 = new EdgeRelationship(("b", "c"), tuples2)
-    val rel3 = new EdgeRelationship(("a", "c"), tuples3)
-    val trieIterator1 = new TrieIterator(rel1)
-    val trieIterator2 = new TrieIterator(rel2)
-    val trieIterator3 = new TrieIterator(rel3)
-    val join = new LeapfrogTriejoin(List(trieIterator1, trieIterator2, trieIterator3), List("a", "b", "c"))
+    val rel1 = new EdgeRelationship(("a", "b"))
+    val rel2 = new EdgeRelationship(("b", "c"))
+    val rel3 = new EdgeRelationship(("a", "c"))
+    val trieIterator1 = new TreeTrieIterator(tuples1)
+    val trieIterator2 = new TreeTrieIterator(tuples2)
+    val trieIterator3 = new TreeTrieIterator(tuples3)
+    val join = new LeapfrogTriejoin(Map(rel1 -> trieIterator1, rel2 -> trieIterator2, rel3 -> trieIterator3), List("a", "b", "c"))
 
     assertJoinEqual(join, Set(List(3, 3, 5)))
   }
