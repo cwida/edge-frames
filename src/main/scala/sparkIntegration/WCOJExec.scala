@@ -1,6 +1,6 @@
 package sparkIntegration
 
-import leapfrogTriejoin.ArrayTrieIterable
+import leapfrogTriejoin.{ArrayTrieIterable, TrieIterable}
 import org.apache.spark.{Partition, TaskContext}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.Row
@@ -23,8 +23,11 @@ case class WCOJExec(joinSpecification: JoinSpecification, children: Seq[SparkPla
   override def references: AttributeSet = AttributeSet(children.flatMap(c => c.output.filter(a => List("src", "dst").contains(a.name))))
 
   override protected def doExecute(): RDD[InternalRow] = {
+    val childRDD = children(0).execute()
+
     // TODO ask Bogdan if we can enforce that the child needs a specific RDD type
-    val trieIterableRDD = children(0).execute().asInstanceOf[TrieIterableRDD[ArrayTrieIterable]]
+    require(childRDD.isInstanceOf[TrieIterableRDD[TrieIterable]])
+    val trieIterableRDD = childRDD.asInstanceOf[TrieIterableRDD[TrieIterable]]
 
     trieIterableRDD.trieIterables.flatMap(trieIterable => {
       val join = joinSpecification.build(trieIterable)
