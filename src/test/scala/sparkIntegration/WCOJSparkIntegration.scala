@@ -70,11 +70,4 @@ class WCOJSparkIntegration extends FlatSpec with Matchers with BeforeAndAfterAll
     assert(firstChildOfWCOJ.isInstanceOf[ToTrieIterableRDDExec])
   }
 
-  "ToTrieIterableRDDExec" should "should require child ordering" in {
-    val physicalPlan = result.queryExecution.sparkPlan
-
-    val childOfToTrieIterableRDDExec = physicalPlan.collect({case ToTrieIterableRDDExec(c) => c }).head
-    childOfToTrieIterableRDDExec.outputOrdering.map(o => o.child.nodeName) should equal (Seq("src", "dst"))
-  }
-
 }
