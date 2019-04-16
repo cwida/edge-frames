@@ -8,12 +8,12 @@ import scala.collection.mutable
 class ArrayTrieIteratorSpec extends FlatSpec with Matchers with GeneratorDrivenPropertyChecks {
 
   "An empty testTrieIterator" should "be at end" in {
-    val iter = new ArrayTrieIterable(Array[(Int, Int)]()).testTrieIterator
+    val iter = new ArrayTrieIterable(Array[(Int, Int)]()).trieIterator
     assert(iter.atEnd)
   }
 
   "A TrieIterator" should "be linearly at end after reaching linear atEnd" in {
-    val iter = new ArrayTrieIterable(Array((1, 1))).testTrieIterator
+    val iter = new ArrayTrieIterable(Array((1, 1))).trieIterator
     assert(!iter.atEnd)
     iter.open()
     iter.next()
@@ -21,7 +21,7 @@ class ArrayTrieIteratorSpec extends FlatSpec with Matchers with GeneratorDrivenP
   }
 
   "open" should "go a level down and to the first element" in {
-    val iter = new ArrayTrieIterable(Array((1, 4), (1, 5), (2, 2))).testTrieIterator
+    val iter = new ArrayTrieIterable(Array((1, 4), (1, 5), (2, 2))).trieIterator
 
     iter.open()
     iter.key shouldBe 1
@@ -30,14 +30,14 @@ class ArrayTrieIteratorSpec extends FlatSpec with Matchers with GeneratorDrivenP
   }
 
   "open" should "be illegal after the last level" in {
-    val iter = new ArrayTrieIterable(Array((1, 1))).testTrieIterator
+    val iter = new ArrayTrieIterable(Array((1, 1))).trieIterator
     iter.open()
     iter.open()
     assertThrows[AssertionError](iter.open())
   }
 
   "up" should "not change to the next element" in {
-    val iter = new ArrayTrieIterable(Array((1, 1), (2, 2))).testTrieIterator
+    val iter = new ArrayTrieIterable(Array((1, 1), (2, 2))).trieIterator
     iter.open()
     iter.open()
     iter.up()
@@ -47,7 +47,7 @@ class ArrayTrieIteratorSpec extends FlatSpec with Matchers with GeneratorDrivenP
   }
 
   "A testTrieIterator" should "be linearly at end after the last tuple with certain value" in {
-    val iter = new ArrayTrieIterable(Array((1, 2), (2, 3))).testTrieIterator
+    val iter = new ArrayTrieIterable(Array((1, 2), (2, 3))).trieIterator
     iter.open()
     iter.key shouldBe 1
     iter.open()
@@ -57,7 +57,7 @@ class ArrayTrieIteratorSpec extends FlatSpec with Matchers with GeneratorDrivenP
   }
 
   "A testTrieIterator" should "serve a level linearly and jump over values in lower levels" in {
-    val iter = new ArrayTrieIterable(Array((1, 4), (1, 5), (2, 1))).testTrieIterator
+    val iter = new ArrayTrieIterable(Array((1, 4), (1, 5), (2, 1))).trieIterator
     iter.open()
     iter.key shouldBe 1
     iter.next()
@@ -67,7 +67,7 @@ class ArrayTrieIteratorSpec extends FlatSpec with Matchers with GeneratorDrivenP
   }
 
   "After seek for none-existent argument, a iterator" should "be at the next element" in {
-    val iter = new ArrayTrieIterable(Array((1, 1), (2, 3), (2, 4), (4, 0))).testTrieIterator
+    val iter = new ArrayTrieIterable(Array((1, 1), (2, 3), (2, 4), (4, 0))).trieIterator
     iter.open()
     iter.key shouldBe 1
     iter.seek(3)
@@ -94,7 +94,7 @@ class ArrayTrieIteratorSpec extends FlatSpec with Matchers with GeneratorDrivenP
   }
 
   "A testTrieIterator level that is reopened" should "start from the beginning again" in {
-    val iter = new ArrayTrieIterable(Array((1, 2))).testTrieIterator
+    val iter = new ArrayTrieIterable(Array((1, 2))).trieIterator
     iter.open()
     iter.open()
     iter.key shouldBe 2
@@ -108,7 +108,7 @@ class ArrayTrieIteratorSpec extends FlatSpec with Matchers with GeneratorDrivenP
 
   "test" should "be at the next element" in {
     val tuples = Array((12,1), (13,1), (13,2), (16,1))
-    val iter = new ArrayTrieIterable(tuples).testTrieIterator
+    val iter = new ArrayTrieIterable(tuples).trieIterator
 
     traverseTrieIterator(iter) should contain theSameElementsInOrderAs tuples
   }
@@ -123,7 +123,7 @@ class ArrayTrieIteratorSpec extends FlatSpec with Matchers with GeneratorDrivenP
     forAll (positiveIntTuples) { l =>
       whenever(l.forall(t => t._1 > 0 && t._2 > 0)) {  // Sad way to ensure numbers are actually positive
         val array = l.toArray.sorted
-        val iter = new ArrayTrieIterable(array).testTrieIterator
+        val iter = new ArrayTrieIterable(array).trieIterator
         traverseTrieIterator(iter) should contain theSameElementsInOrderAs (array)
       }
     }

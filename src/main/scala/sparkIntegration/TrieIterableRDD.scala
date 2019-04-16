@@ -10,12 +10,7 @@ class TrieIterableRDD[S <: TrieIterable](val trieIterableRDD: RDD[S])
   extends RDD[InternalRow](trieIterableRDD.context, List(new OneToOneDependency(trieIterableRDD))) {
 
   override def compute(split: Partition, context: TaskContext): Iterator[InternalRow] = {
-    trieIterableRDD.compute(split, context).flatMap(t => t.map(x => {
-      val gr = new GenericInternalRow(2)
-      gr.update(0, x._1)
-      gr.update(1, x._2)
-      gr
-    }))
+    trieIterableRDD.compute(split, context).flatMap(t => t.iterator)
   }
 
   override protected def getPartitions: Array[Partition] = trieIterableRDD.partitions

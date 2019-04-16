@@ -4,8 +4,7 @@ import scala.math.{min, floor}
 import org.apache.hadoop.yarn.webapp.hamlet.HamletSpec.A
 import org.apache.spark.sql.vectorized.ColumnVector
 
-object GaloppingSearch {
-
+object GallopingSearch {
 
   def find(values: ColumnVector, key: Int, start: Int, end: Int): Int = {
     assert(end != 0)

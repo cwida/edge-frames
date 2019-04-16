@@ -1,6 +1,8 @@
 package leapfrogTriejoin
 
-trait TrieIterable extends Iterable[(Int, Int)] {
+import org.apache.spark.sql.catalyst.InternalRow
+
+trait TrieIterable extends Iterable[InternalRow] {
 
   def trieIterator: TrieIterator
 

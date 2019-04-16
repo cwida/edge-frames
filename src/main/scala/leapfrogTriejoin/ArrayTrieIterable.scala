@@ -1,56 +1,36 @@
 package leapfrogTriejoin
 
 import org.apache.spark.sql.catalyst.InternalRow
+import org.apache.spark.sql.catalyst.expressions.GenericInternalRow
 import org.apache.spark.sql.execution.vectorized.OnHeapColumnVector
 import org.apache.spark.sql.types.IntegerType
 import org.apache.spark.sql.vectorized.ColumnarBatch
 
-class ArrayTrieIterable() extends TrieIterable {
-  private var tuples: Array[(Int, Int)] = null
-  private var tuples1: ColumnarBatch = null
+import collection.JavaConverters._
 
-  def this(iter: Iterator[(Int, Int)]) {
-    this()
-    tuples = iter.toArray
-  }
 
-  def this(iter: Iterator[InternalRow], columnar: Boolean) {
-    this()
+class ArrayTrieIterable(iter: Iterator[InternalRow]) extends TrieIterable {
     // TODO capacity optimization
-    val srcColumn = new OnHeapColumnVector(1000, IntegerType)
-    val dstColumn = new OnHeapColumnVector(1000, IntegerType)
-    var numRows = 0
+  private val srcColumn = new OnHeapColumnVector(1000, IntegerType)
+  private val dstColumn = new OnHeapColumnVector(1000, IntegerType)
+  private var numRows = 0
 
-    while (iter.hasNext) {
-      val row = iter.next()
-      srcColumn.appendInt(row.getInt(0))
-      dstColumn.appendInt(row.getInt(1)) // TODO sync field names and position
-      numRows += 1
-    }
-    tuples1 = new ColumnarBatch(Array(srcColumn, dstColumn))
-    tuples1.setNumRows(numRows)
+  while (iter.hasNext) {
+    val row = iter.next()
+    srcColumn.appendInt(row.getInt(0))
+    dstColumn.appendInt(row.getInt(1)) // TODO sync field names and position
+    numRows += 1
   }
+  private val tuples = new ColumnarBatch(Array(srcColumn, dstColumn))
+  tuples.setNumRows(numRows)
 
+  // For testing
   def this(a: Array[(Int, Int)]) {
-    this()
-    // TODO capacity optimization
-    val srcColumn = new OnHeapColumnVector(1000, IntegerType)
-    val dstColumn = new OnHeapColumnVector(1000, IntegerType)
-
-    for ((s, d) <- a) {
-      srcColumn.appendInt(s)
-      dstColumn.appendInt(d)
-    }
-    tuples1 = new ColumnarBatch(Array(srcColumn, dstColumn))
-    tuples1.setNumRows(a.size)
+    this(a.map(t => new GenericInternalRow(Array[Any](t._1, t._2))).iterator)
   }
 
-  def trieIterator: TrieIterator = {
-    new TreeTrieIterator(tuples) // TODO change to real implementation
-  }
-
-  def testTrieIterator: TrieIterator = {
-    new TrieIteratorImpl(tuples1)
+  override def trieIterator: TrieIterator = {
+    new TrieIteratorImpl(tuples)
   }
 
   class TrieIteratorImpl(val tuples: ColumnarBatch) extends TrieIterator {
@@ -104,7 +84,7 @@ class ArrayTrieIterable() extends TrieIterable {
     }
 
     override def seek(key: Int): Unit = {
-      position(depth) = GaloppingSearch.find(tuples.column(depth), key, position(depth), end(depth))
+      position(depth) = GallopingSearch.find(tuples.column(depth), key, position(depth), end(depth))
       updateAtEnd()
     }
 
@@ -117,7 +97,7 @@ class ArrayTrieIterable() extends TrieIterable {
     }
   }
 
-  override def iterator: Iterator[(Int, Int)] = {
-    tuples.iterator
+  override def iterator: Iterator[InternalRow] = {
+    tuples.rowIterator().asScala
   }
 }
