@@ -19,17 +19,38 @@ class ArrayTrieIterable() extends TrieIterable {
     // TODO capacity optimization
     val srcColumn = new OnHeapColumnVector(1000, IntegerType)
     val dstColumn = new OnHeapColumnVector(1000, IntegerType)
+    var numRows = 0
 
-    while(iter.hasNext) {
+    while (iter.hasNext) {
       val row = iter.next()
       srcColumn.appendInt(row.getInt(0))
-      dstColumn.appendInt(row.getInt(1))  // TODO sync field names and position
+      dstColumn.appendInt(row.getInt(1)) // TODO sync field names and position
+      numRows += 1
     }
     tuples1 = new ColumnarBatch(Array(srcColumn, dstColumn))
+    tuples1.setNumRows(numRows)
+  }
+
+  def this(a: Array[(Int, Int)]) {
+    this()
+    // TODO capacity optimization
+    val srcColumn = new OnHeapColumnVector(1000, IntegerType)
+    val dstColumn = new OnHeapColumnVector(1000, IntegerType)
+
+    for ((s, d) <- a) {
+      srcColumn.appendInt(s)
+      dstColumn.appendInt(d)
+    }
+    tuples1 = new ColumnarBatch(Array(srcColumn, dstColumn))
+    tuples1.setNumRows(a.size)
   }
 
   def trieIterator: TrieIterator = {
-    new TreeTrieIterator(tuples)  // TODO change to real implementation
+    new TreeTrieIterator(tuples) // TODO change to real implementation
+  }
+
+  def testTrieIterator: TrieIterator = {
+    new TrieIteratorImpl(tuples1)
   }
 
   class TrieIteratorImpl(val tuples: ColumnarBatch) extends TrieIterator {
@@ -37,12 +58,27 @@ class ArrayTrieIterable() extends TrieIterable {
 
     private var depth = -1
     private var position = Array.fill(tuples.numCols())(-1)
-    private var isAtEnd = false
+    private var end = Array.fill(tuples.numCols())(-1)
+    private var isAtEnd = tuples.numRows() == 0
 
     override def open(): Unit = {
       assert(depth < maxDepth, "Cannot open TrieIterator at maxDepth")
+
+      var newEnd = tuples.numRows()
+      if (depth >= 0) {
+        newEnd = position(depth)
+        do {
+          newEnd += 1
+        } while (newEnd + 1 <= tuples.numRows() && tuples.column(depth).getInt(newEnd) == tuples.column(depth).getInt(position(depth)))
+      }
+
       depth += 1
-      position(depth) = position(depth - 1)
+      end(depth) = newEnd
+      position(depth) = if (depth != 0) {
+        position(depth - 1)
+      } else {
+        0
+      }
       isAtEnd = false
     }
 
@@ -63,10 +99,12 @@ class ArrayTrieIterable() extends TrieIterable {
       seek(tuples.column(depth).getInt(position(depth)) + 1)
     }
 
-    override def atEnd: Boolean = atEnd
+    override def atEnd: Boolean = {
+      isAtEnd
+    }
 
     override def seek(key: Int): Unit = {
-      position(depth) = GaloppingSearch.find(tuples.column(depth), key, position(depth), tuples.numRows())
+      position(depth) = GaloppingSearch.find(tuples.column(depth), key, position(depth), end(depth))
       updateAtEnd()
     }
 
