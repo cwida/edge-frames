@@ -45,7 +45,8 @@ case class WCOJExec(joinSpecification: JoinSpecification, children: Seq[SparkPla
         override def getRow: InternalRow = {
           val gr = new GenericInternalRow(row.size)
           row.zipWithIndex.foreach { case(b, i) => gr.update(i.toInt, b) }
-          toUnsafeRow(gr, Array(IntegerType, IntegerType))
+//          toUnsafeRow(gr, Array(IntegerType, IntegerType))  // TODO Bogdan without this is throws a class cast exception when I collect the result, with it it's super slow.
+          gr
         }
       }
       iter.toScala
