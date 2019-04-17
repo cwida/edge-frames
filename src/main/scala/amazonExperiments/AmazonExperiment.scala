@@ -36,10 +36,11 @@ object AmazonExperiment extends App  {
       .option("inferSchema", true)
       .option("comment", "#")
       .csv(List(DATASET_PATH, AMAZON_DATASET_FILE_NAME).mkString("/"))
+      .limit(30000)
       .withColumnRenamed("_c0", "src")
       .withColumnRenamed("_c1", "dst")
-    println(df.count())
-    println(df.show(5))
+//    println(df.count())
+//    println(df.show(5))
     df
   }
 
@@ -63,12 +64,13 @@ object AmazonExperiment extends App  {
 
   println("Read dataset")
   val df = loadAmazonDataset()
+  StdIn.readLine("Dataset read, continue?")
 
-  println("Starting binary triangle join")
-  val startBinary = System.currentTimeMillis()
-  val countBySpark = findTriangles(sp, df)
-  val endBinary = System.currentTimeMillis()
-  println($"Count by binary joins $countBySpark took ${(endBinary - startBinary) / 1000}")
+//  println("Starting binary triangle join")
+//  val startBinary = System.currentTimeMillis()
+//  val countBySpark = findTriangles(sp, df)
+//  val endBinary = System.currentTimeMillis()
+//  println($"Count by binary joins $countBySpark took ${(endBinary - startBinary) / 1000}")
 
   println("Starting WCOJ triangle join")
   val startWCOJ = System.currentTimeMillis()
@@ -81,6 +83,7 @@ object AmazonExperiment extends App  {
   result.explain(true)
   val WCOJCount = result.count()
   val endWCOJ = System.currentTimeMillis()
+  result.collect()
   println(s"Count by WCOJ join: ${WCOJCount} took ${(endWCOJ - startWCOJ) / 1000}")
 
 
