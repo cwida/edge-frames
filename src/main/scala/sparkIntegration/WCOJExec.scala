@@ -31,7 +31,8 @@ case class WCOJExec(joinSpecification: JoinSpecification, children: Seq[SparkPla
 
 
     trieIterableRDD.trieIterables.flatMap(trieIterable => {
-      val toUnsafeProjection = UnsafeProjection.create(output, output)
+      // Do not use create(output, output), then it will use values multiple times in the output
+      val toUnsafeProjection = UnsafeProjection.create(output.map(_.dataType).toArray)
 
       val join = joinSpecification.build(trieIterable)
       val iter = new RowIterator {
