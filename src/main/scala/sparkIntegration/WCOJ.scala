@@ -24,7 +24,7 @@ case class WCOJ(joinSpecification: JoinSpecification, children: Seq[LogicalPlan]
       val relI = joinSpecification.variableToRelationshipIndex(v)
       val aI = joinSpecification.variableToAttributeIndex(v)
       val ref = children(relI).output.filter(a => a.name == (if (aI == 0) "src" else "dst")).head
-      new AttributeReference(v, IntegerType, false)(ref.exprId)
+      ref.withName(v)
     })
   }
 }
