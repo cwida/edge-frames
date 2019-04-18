@@ -36,7 +36,7 @@ object AmazonExperiment extends App  {
       .option("inferSchema", true)
       .option("comment", "#")
       .csv(List(DATASET_PATH, AMAZON_DATASET_FILE_NAME).mkString("/"))
-      .limit(30000)
+//      .limit(30000)
       .withColumnRenamed("_c0", "src")
       .withColumnRenamed("_c1", "dst")
 //    println(df.count())
@@ -64,7 +64,6 @@ object AmazonExperiment extends App  {
 
   println("Read dataset")
   val df = loadAmazonDataset()
-  StdIn.readLine("Dataset read, continue?")
 
 //  println("Starting binary triangle join")
 //  val startBinary = System.currentTimeMillis()
@@ -83,7 +82,7 @@ object AmazonExperiment extends App  {
   result.explain(true)
   val WCOJCount = result.count()
   val endWCOJ = System.currentTimeMillis()
-  result.collect()
+//  result.collect()
   println(s"Count by WCOJ join: ${WCOJCount} took ${(endWCOJ - startWCOJ) / 1000}")
 
 

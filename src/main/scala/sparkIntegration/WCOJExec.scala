@@ -29,7 +29,10 @@ case class WCOJExec(joinSpecification: JoinSpecification, children: Seq[SparkPla
     require(childRDD.isInstanceOf[TrieIterableRDD[TrieIterable]])
     val trieIterableRDD = childRDD.asInstanceOf[TrieIterableRDD[TrieIterable]]
 
+
     trieIterableRDD.trieIterables.flatMap(trieIterable => {
+      val toUnsafeProjection = UnsafeProjection.create(output, output)
+
       val join = joinSpecification.build(trieIterable)
       val iter = new RowIterator {
         var row: Array[Int]= null
@@ -43,25 +46,13 @@ case class WCOJExec(joinSpecification: JoinSpecification, children: Seq[SparkPla
         }
 
         override def getRow: InternalRow = {
+          // TODO can I maybe even safe to construct the generic row?
           val gr = new GenericInternalRow(row.size)
           row.zipWithIndex.foreach { case(b, i) => gr.update(i.toInt, b) }
-//          toUnsafeRow(gr, Array(IntegerType, IntegerType))  // TODO Bogdan without this is throws a class cast exception when I collect the result, with it it's super slow.
-          gr
+          toUnsafeProjection(gr)
         }
       }
       iter.toScala
     })
-  }
-
-  private def toUnsafeRow(row: InternalRow, schema: Array[DataType]): UnsafeRow = {
-    val converter = unsafeRowConverter(schema)
-    converter(row)
-  }
-
-  private def unsafeRowConverter(schema: Array[DataType]): InternalRow => UnsafeRow = {
-    val converter = UnsafeProjection.create(schema)
-    row: InternalRow => {
-      converter(CatalystTypeConverters.convertToCatalyst(row).asInstanceOf[InternalRow])
-    }
   }
 }
