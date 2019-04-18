@@ -37,6 +37,7 @@ object AmazonExperiment extends App  {
       .option("comment", "#")
       .csv(List(DATASET_PATH, AMAZON_DATASET_FILE_NAME).mkString("/"))
 //      .limit(30000)
+//      .cache()
       .withColumnRenamed("_c0", "src")
       .withColumnRenamed("_c1", "dst")
 //    println(df.count())
