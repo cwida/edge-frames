@@ -2,8 +2,7 @@ package leapfrogTriejoin
 
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.{FlatSpec, Matchers}
-
-import scala.collection.mutable
+import testing.Utils._
 
 class ArrayTrieIteratorSpec extends FlatSpec with Matchers with GeneratorDrivenPropertyChecks {
 
@@ -74,25 +73,6 @@ class ArrayTrieIteratorSpec extends FlatSpec with Matchers with GeneratorDrivenP
     iter.key shouldBe 4
   }
 
-  def traverseTrieIterator(iter: TrieIterator): Seq[(Int, Int)] = {
-    if (iter.atEnd) {
-      return List()
-    }
-    var ret: mutable.MutableList[(Int, Int)] = mutable.MutableList()
-    iter.open()
-    do {
-      val outer: Int = iter.key
-      iter.open()
-      do {
-        ret += ((outer, iter.key))
-        iter.next()
-      } while(!iter.atEnd)
-      iter.up()
-      iter.next()
-    } while(!iter.atEnd)
-    ret
-  }
-
   "A testTrieIterator level that is reopened" should "start from the beginning again" in {
     val iter = new ArrayTrieIterable(Array((1, 2))).trieIterator
     iter.open()
@@ -115,7 +95,6 @@ class ArrayTrieIteratorSpec extends FlatSpec with Matchers with GeneratorDrivenP
 
   "A testTrieIterator traversal, without seeks," should "enumerate all values in order" in {
     import org.scalacheck.Gen
-    import Ordering.Implicits._
 
     // Generates sets for uniqueness
     val positiveIntTuples = Gen.buildableOf[Set[(Int, Int)], (Int, Int)](Gen.zip(Gen.posNum[Int], Gen.posNum[Int]))

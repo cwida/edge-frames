@@ -2,8 +2,9 @@ package org.apache.spark.sql
 
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.types.IntegerType
-import sparkIntegration.{JoinSpecification, Pattern, WCOJ}
+import sparkIntegration.{JoinSpecification, Pattern, ToTrieIterableRDD, WCOJ}
 import org.apache.spark.sql.catalyst.encoders._
+import org.apache.spark.sql.catalyst.expressions.AttributeReference
 import org.apache.spark.sql.execution.RowIterator
 
 import Predef._
@@ -27,10 +28,14 @@ class WCOJFunctions[T](ds: Dataset[T]) {
     }
     }
 
-    Dataset.ofRows(ds.sparkSession, new WCOJ(joinSpecification, children))
+    val outputVariables = joinSpecification.variableOrdering.map(v => AttributeReference(v, IntegerType, nullable = false)())
+
+    Dataset.ofRows(ds.sparkSession, WCOJ(outputVariables, joinSpecification, children))
   }
 
   /**
+    * Currently, not used!
+    *
     * Creates an edge relationship from a dataset.
     *
     * The input dataset is required to have two integer attributes called `src` and `dst`.
@@ -110,5 +115,10 @@ class WCOJFunctions[T](ds: Dataset[T]) {
     } else {
       sorted
     }.withColumnRenamed("_1", "src").withColumnRenamed("_1", "dst").as[(Int, Int, Boolean)]
+  }
+
+  // For testing
+  def toTrieIterableRDD(variableOrdering: Seq[String]): DataFrame = {
+    Dataset.ofRows(ds.sparkSession, ToTrieIterableRDD(ds.logicalPlan, variableOrdering))
   }
 }

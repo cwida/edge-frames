@@ -3,11 +3,11 @@ package sparkIntegration
 import leapfrogTriejoin.ArrayTrieIterable
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.catalyst.expressions.{Ascending, Attribute, SortOrder}
-import org.apache.spark.sql.execution.SparkPlan
+import org.apache.spark.sql.catalyst.expressions.{Ascending, Attribute, GenericInternalRow, SortOrder}
+import org.apache.spark.sql.execution.{SparkPlan, UnaryExecNode}
 import org.apache.spark.sql.execution.metric.SQLMetrics
 
-case class ToTrieIterableRDDExec(child: SparkPlan) extends SparkPlan{
+case class ToTrieIterableRDDExec(child: SparkPlan, attributeOrdering: Seq[String]) extends UnaryExecNode {
   val MATERIALIZATION_TIME_METRIC = "materializationTime"
 
   override lazy val metrics = Map(
@@ -19,20 +19,25 @@ case class ToTrieIterableRDDExec(child: SparkPlan) extends SparkPlan{
     new TrieIterableRDD[ArrayTrieIterable](child.execute()
       .mapPartitions(iter => {
         val start = System.nanoTime()
-        val ret = Iterator(new ArrayTrieIterable(iter))
+        val ret = Iterator(new ArrayTrieIterable(iter.map(
+          ir => {
+            if (attributeOrdering == Seq("src", "dst")) {
+              new GenericInternalRow(Array[Any](ir.getInt(0), ir.getInt(1)))  // TODO should I safe this rewrite, e.g. by doing it in ArrayTrieIterable
+            } else {
+              new GenericInternalRow(Array[Any](ir.getInt(1), ir.getInt(0)))
+            }
+          }
+        )))
         val end = System.nanoTime()
         matTime += (end - start) / 1000000
         ret
       }))
   }
 
-  override def output: Seq[Attribute] = child.output
-
-  override def children: Seq[SparkPlan] = child :: Nil
+  override def output: Seq[Attribute] = if (attributeOrdering == Seq("dst", "src")) { child.output.reverse } else { child.output }
 
   override def requiredChildOrdering: Seq[Seq[SortOrder]] = {
-    val srcAtt = child.output.filter(att => att.name == "src").head  // TODO make src a constant
-    val dstAtt = child.output.filter(att => att.name == "dst").head
-    Seq(Seq(SortOrder(srcAtt, Ascending), SortOrder(dstAtt, Ascending)))
+    val columnNameToAttribute = (c: SparkPlan, n: String) => c.output.filter(att => att.name == n).head
+    Seq(attributeOrdering.map(n => SortOrder(columnNameToAttribute(child, n), Ascending)))
   }
 }

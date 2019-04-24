@@ -1,12 +1,10 @@
 package correctnessTesting
 
 import org.apache.spark.SparkConf
-import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
+import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.scalatest.{FlatSpec, Matchers}
 import sparkIntegration.WCOJ2WCOJExec
 import sparkIntegration.implicits._
-
-import scala.io.StdIn
 
 class AmazonDatasetTriangleQuery extends FlatSpec with Matchers {
   val DATASET_PATH = "file:///home/per/workspace/master-thesis/datasets"
@@ -94,6 +92,20 @@ class AmazonDatasetTriangleQuery extends FlatSpec with Matchers {
     } else {
       fail("Cannot run comparision to original data in FAST mode")
     }
+  }
+
+  "The variable ordering" should "not matter" in {
+    val otherDirection = df.findPattern(
+      """
+        |(a) - [] -> (b);
+        |(b) - [] -> (c);
+        |(a) - [] -> (c)
+        |""".stripMargin, List("c", "a", "b"))
+
+    val otherReordered = otherDirection.select("a", "b", "c")
+
+    val diff = actualResult.rdd.subtract(otherReordered.rdd)
+    diff.isEmpty() should be (true)
   }
 
 }

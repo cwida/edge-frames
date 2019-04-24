@@ -20,6 +20,7 @@ class WCOJSparkIntegration extends FlatSpec with Matchers with BeforeAndAfterAll
 
 
   val sp = spark
+
   import sp.implicits._
 
   val tuples1 = Array[(Int, Int)]((1, 2), (2, 5), (4, 2), (1, 5))
@@ -59,15 +60,7 @@ class WCOJSparkIntegration extends FlatSpec with Matchers with BeforeAndAfterAll
     physicalPlan.output.map(_.exprId).toList should have length physicalPlan.output.map(_.exprId).toSet.size
   }
 
-  "Execution" should "triangle 1, 2, 5 in the input data" in {
+  "Execution" should "triangle 1, 2, 5 in the output data" in {
     result.collect().map(_.toSeq) should contain only Seq(1, 2, 5)
   }
-
-  "WCOJExec" should "be preceded by an ToTrieIterableRDDExec" in {
-    val physicalPlan = result.queryExecution.sparkPlan
-
-    val firstChildOfWCOJ = physicalPlan.collect({case WCOJExec(_, c :: _) => c }).head
-    assert(firstChildOfWCOJ.isInstanceOf[ToTrieIterableRDDExec])
-  }
-
 }

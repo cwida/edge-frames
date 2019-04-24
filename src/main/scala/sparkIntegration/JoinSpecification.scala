@@ -5,7 +5,7 @@ import org.slf4j.LoggerFactory
 
 import scala.collection.mutable
 
-class JoinSpecification(joinPattern: Seq[Pattern], variableOrdering: Seq[String]) extends Serializable {
+class JoinSpecification(joinPattern: Seq[Pattern], val variableOrdering: Seq[String]) extends Serializable {
   private val logger = LoggerFactory.getLogger(classOf[JoinSpecification])
 
   val allVariables: Seq[String] = variableOrdering
@@ -25,6 +25,15 @@ class JoinSpecification(joinPattern: Seq[Pattern], variableOrdering: Seq[String]
     }
   }
 
+  private val dstAccessibleRelationships = joinPattern.zipWithIndex
+    .filter({ case (AnonymousEdge(src: NamedVertex, dst: NamedVertex), _) => {
+      variableOrdering.indexOf(dst.name) < variableOrdering.indexOf(src.name)
+    }
+    })
+    .map(_._2)
+
+  def dstAccessibleRelationship(rel: Int): Boolean = dstAccessibleRelationships.contains(rel)
+
   def variableToRelationshipIndex(variable: String): Int = {
     variable2RelationshipIndex(variable)._1
   }
@@ -39,15 +48,19 @@ class JoinSpecification(joinPattern: Seq[Pattern], variableOrdering: Seq[String]
     }}
   }
 
-  def build(trieIterable: TrieIterable): LeapfrogTriejoin = {
-    val trieIterators = joinPattern.map {
-      case AnonymousEdge(src: NamedVertex, dst: NamedVertex) => {
-        (new EdgeRelationship((src.name, dst.name)), trieIterable.trieIterator)
+  def build(trieIterables: Seq[TrieIterable]): LeapfrogTriejoin = {
+    val trieIterators = joinPattern.zipWithIndex.map( {
+      case (AnonymousEdge(src: NamedVertex, dst: NamedVertex), i) => {
+        if (dstAccessibleRelationship(i)) {
+          (new EdgeRelationship((dst.name, src.name)), trieIterables(i).trieIterator)
+
+        } else {
+          (new EdgeRelationship((src.name, dst.name)), trieIterables(i).trieIterator)
+        }
       }
       case _ => throw new InvalidParseException("Use only anonymous edges with named vertices.")
       // TODO negated edges?
-    }.toMap
-    // TODO general variable order
+    }).toMap
     new LeapfrogTriejoin(trieIterators, variableOrdering)
   }
 
