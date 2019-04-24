@@ -4,12 +4,13 @@ import org.slf4j.LoggerFactory
 
 import scala.collection.immutable.TreeMap
 import Ordering.Implicits._
-// TODO needs to be changed to a multimap
+
+// Only as reference implemenation and for testing. Otherwise, unused.
 class TreeTrieIterator(val values: Array[(Int, Int)]) extends TrieIterator {
   private val logger = LoggerFactory.getLogger(classOf[TreeTrieIterator])
 
   val HIGHEST_LEVEL = -1
-  var map = new TreeMap[Vector[Int], Int]()  // TODO do I want a mutable tree map?
+  var map = new TreeMap[Vector[Int], Int]()
 
   logger.error(values.map(t => t.toString()).mkString(", "))
 
@@ -47,7 +48,6 @@ class TreeTrieIterator(val values: Array[(Int, Int)]) extends TrieIterator {
   override def key: Int = triePath(depth)
 
   override def next(): Unit = {
-    // TODO can we simply proceed along the map instead of seeking?
     seek(triePath(depth) + 1)
   }
 
@@ -68,7 +68,7 @@ class TreeTrieIterator(val values: Array[(Int, Int)]) extends TrieIterator {
       possiblyNewNextVector = mapIterator.next()
       if (0 < depth && possiblyNewNextVector(depth - 1) != triePath(depth - 1)) {
         isAtEnd = true
-        mapIterator = temp  // TODO is that necessary? Yep, if one wants to have a linear and a tree part one could potentially go with a linear iterator changing depth on it's own
+        mapIterator = temp
       } else {
         triePath = triePath.updated(depth, possiblyNewNextVector(depth))
       }
