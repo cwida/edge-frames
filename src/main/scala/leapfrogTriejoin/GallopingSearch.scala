@@ -23,7 +23,7 @@ object GallopingSearch {
 
     var L = start
     var R = end
-    while (L <= R) {
+    while (L < R) {
       var M: Int = (L + R) / 2
       if (vector.getInt(M) < key) {
         L = M + 1
@@ -39,7 +39,7 @@ object GallopingSearch {
     while (start < L && vector.getInt(L - 1) == key) {
       L -= 1
     }
-    Math.min(L, end)
+    Math.min(if (L < end && vector.getInt(L) < key) { L + 1} else { L }, end)
   }
 
 }

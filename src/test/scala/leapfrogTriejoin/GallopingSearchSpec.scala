@@ -95,4 +95,12 @@ class GallopingSearchSpec extends FlatSpec with Matchers with GeneratorDrivenPro
       }
     }
   }
+
+  "Regression 1: it" should "never access the array at end" in {
+    val filledVector = new OnHeapColumnVector(2, IntegerType)
+    filledVector.appendInt(1)
+    filledVector.appendInt(2)
+
+    GallopingSearch.find(filledVector, 3, 0, 2) should be (2)
+  }
 }

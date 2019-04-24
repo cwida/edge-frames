@@ -59,7 +59,6 @@ class AmazonDatasetTriangleQuery extends FlatSpec with Matchers {
       .repartition(1)
       .cache()
     if (FAST) {
-      // TODO produces bug with 1000
       df.limit(200)
     } else {
       df
@@ -95,14 +94,14 @@ class AmazonDatasetTriangleQuery extends FlatSpec with Matchers {
   }
 
   "The variable ordering" should "not matter" in {
-    val otherDirection = df.findPattern(
+    val otherVariableOrdering = df.findPattern(
       """
         |(a) - [] -> (b);
         |(b) - [] -> (c);
         |(a) - [] -> (c)
         |""".stripMargin, List("c", "a", "b"))
 
-    val otherReordered = otherDirection.select("a", "b", "c")
+    val otherReordered = otherVariableOrdering.select("a", "b", "c")
 
     val diff = actualResult.rdd.subtract(otherReordered.rdd)
     diff.isEmpty() should be (true)
