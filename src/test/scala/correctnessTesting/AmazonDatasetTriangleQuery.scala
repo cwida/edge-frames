@@ -54,10 +54,10 @@ class AmazonDatasetTriangleQuery extends FlatSpec with Matchers {
       .option("inferSchema", true)
       .option("comment", "#")
       .csv(List(DATASET_PATH, AMAZON_DATASET_FILE_NAME).mkString("/"))
-      .cache()
       .withColumnRenamed("_c0", "src")
       .withColumnRenamed("_c1", "dst")
       .repartition(1)
+      .cache()
     if (FAST) {
       // TODO produces bug with 1000
       df.limit(200)
@@ -105,6 +105,28 @@ class AmazonDatasetTriangleQuery extends FlatSpec with Matchers {
     val otherReordered = otherDirection.select("a", "b", "c")
 
     val diff = actualResult.rdd.subtract(otherReordered.rdd)
+    diff.isEmpty() should be (true)
+  }
+
+  "Circular triangles" should "be found correctly" in {
+    import sp.implicits._
+
+    val circular = df.findPattern(
+      """
+        |(a) - [] -> (b);
+        |(b) - [] -> (c);
+        |(c) - [] -> (a)
+        |""".stripMargin, List("a", "b", "c"))
+
+    val duos = df.as("R")
+      .joinWith(df.as("S"), $"R.dst" === $"S.src")
+    val triangles = duos.joinWith(df.as("T"),
+      condition = $"_2.dst" === $"T.src" && $"_1.src" === $"T.dst")
+
+    val goldStandard = triangles.selectExpr("_2.dst AS a", "_1._1.dst AS b", "_2.src AS c")
+
+
+    val diff = goldStandard.rdd.subtract(circular.rdd)
     diff.isEmpty() should be (true)
   }
 
