@@ -8,7 +8,7 @@ import org.scalatest.prop.GeneratorDrivenPropertyChecks
 
 import scala.util.Random
 
-class GallopingSearchTest extends FlatSpec with Matchers with GeneratorDrivenPropertyChecks {
+class GallopingSearchSpec extends FlatSpec with Matchers with GeneratorDrivenPropertyChecks {
   def buildColumnVector(a: Array[Int]): ColumnVector = {
     val v = new OnHeapColumnVector(1000, IntegerType)
     for (i <- a) {
