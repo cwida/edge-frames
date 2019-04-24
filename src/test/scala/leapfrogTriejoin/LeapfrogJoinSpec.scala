@@ -28,7 +28,6 @@ class LeapfrogJoinSpec extends FlatSpec {
     assert(join.atEnd)
   }
 
-  // TODO express interator as scala iterator and use iterator/list equal?
   "A join over a single relationship" should "equal the relationship" in {
     val values = Array(1, 2, 3)
 

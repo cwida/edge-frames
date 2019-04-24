@@ -1,6 +1,9 @@
 package testing
 
 import leapfrogTriejoin.TrieIterator
+import org.apache.spark.SparkConf
+import org.apache.spark.sql.SparkSession
+import sparkIntegration.{ToTrieIterableRDD2ToTrieIterableRDDExec, WCOJ2WCOJExec}
 
 import scala.collection.mutable
 
@@ -26,4 +29,20 @@ object Utils {
   }
 
 
+}
+
+object TestSparkSession {
+  val conf = new SparkConf()
+    .setMaster("local[1]")
+    .setAppName("Spark test")
+    .set("spark.executor.memory", "2g")
+    .set("spark.driver.memory", "2g")
+
+  val spark = SparkSession.builder().config(conf).getOrCreate()
+
+  spark.experimental.extraStrategies = Seq(ToTrieIterableRDD2ToTrieIterableRDDExec, WCOJ2WCOJExec) ++ spark.experimental.extraStrategies
+}
+
+trait SparkTest {
+  val sp = TestSparkSession.spark
 }

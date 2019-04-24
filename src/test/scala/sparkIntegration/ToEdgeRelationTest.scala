@@ -7,25 +7,9 @@ import org.scalacheck.Gen
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 import sparkIntegration.implicits._
+import testing.SparkTest
 
-class ToEdgeRelationTest extends FlatSpec with Matchers with BeforeAndAfterAll with GeneratorDrivenPropertyChecks {
-  val sp: SparkSession = setupSpark()
-
-  def setupSpark(): SparkSession = {
-    val conf = new SparkConf()
-      .setMaster("local[1]")
-      .setAppName("Spark test")
-      .set("spark.executor.memory", "2g")
-      .set("spark.driver.memory", "2g")
-      .set("spark.default.parallelism", "1")
-
-    val spark = SparkSession.builder()
-      .config(conf)
-      .getOrCreate()
-
-    spark.experimental.extraStrategies = (Seq(WCOJ2WCOJExec) ++ spark.experimental.extraStrategies)
-    spark
-  }
+class ToEdgeRelationTest extends FlatSpec with Matchers with BeforeAndAfterAll with GeneratorDrivenPropertyChecks with SparkTest {
 
   "ToEdgeRelation" should "add edges in the other direction" in {
     import sp.implicits._

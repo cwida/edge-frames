@@ -74,7 +74,6 @@ class GallopingSearchSpec extends FlatSpec with Matchers with GeneratorDrivenPro
   "It" should "return the first higher index if an element is not in the list" in {
     import org.scalacheck.Gen
 
-    // TODO array not set once it finds the first
     val array = Gen.buildableOfN[Array[Int], Int](100, Gen.posNum[Int])
 
     forAll(array) { a =>

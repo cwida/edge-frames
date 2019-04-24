@@ -5,8 +5,9 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.scalatest.{FlatSpec, Matchers}
 import sparkIntegration.WCOJ2WCOJExec
 import sparkIntegration.implicits._
+import testing.SparkTest
 
-class AmazonDatasetTriangleQuery extends FlatSpec with Matchers {
+class AmazonDatasetTriangleQuery extends FlatSpec with Matchers with SparkTest {
   val DATASET_PATH = "file:///home/per/workspace/master-thesis/datasets"
   val AMAZON_DATASET_FILE_NAME = "amazon-0302.txt"
   val OFFICIAL_NUMBERS_OF_TRIANGLES = 717719L
@@ -16,7 +17,6 @@ class AmazonDatasetTriangleQuery extends FlatSpec with Matchers {
     System.err.println("Running correctness test in fast mode")
   }
 
-  val sp = setupSpark()
   val df = loadAmazonDataset()
 
   val goldStandard = goldStandardFindTriangles(sp, df)
