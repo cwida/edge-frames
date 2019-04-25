@@ -9,47 +9,15 @@ import sparkIntegration.implicits._
 
 import scala.io.StdIn
 import experiments.Datasets.loadAmazonDataset
-import experiments.Queries.{trianglePattern,triangleBinaryJoins}
+import experiments.GenericExperiment
+import experiments.Queries.{triangleBinaryJoins, trianglePattern}
 
-object AmazonExperiment extends App  {
+object AmazonExperiment extends App with GenericExperiment {
+  override def loadDataset(sp: SparkSession) = loadAmazonDataset(sp)
 
-  def setupSpark(): SparkSession = {
-    val conf = new SparkConf()
-      .setMaster("local[1]")
-      .setAppName("Spark test")
-      .set("spark.executor.memory", "2g")
-      .set("spark.driver.memory", "2g")
+  override def runWCOJ(sp: SparkSession, dataSet: DataFrame) = triangleBinaryJoins(sp, dataSet).count()
 
-    val spark = SparkSession.builder()
-      .config(conf)
-      .getOrCreate()
+  override def runBinaryJoins(sp: SparkSession, dataSet: DataFrame) = trianglePattern(dataSet).count()
 
-    spark.experimental.extraStrategies = (Seq(WCOJ2WCOJExec) ++ spark.experimental.extraStrategies)
-    spark
-  }
-
-  val sp = setupSpark()
-  import sp.implicits._
-
-  println("Read dataset")
-  val df = loadAmazonDataset(sp).limit(1000)
-
-  println("Starting binary triangle join")
-  val startBinary = System.currentTimeMillis()
-  val countBySpark = triangleBinaryJoins(sp, df)
-  val endBinary = System.currentTimeMillis()
-  println($"Count by binary joins $countBySpark took ${(endBinary - startBinary) / 1000}")
-
-  println("Starting WCOJ triangle join")
-  val startWCOJ = System.currentTimeMillis()
-  val result = trianglePattern(df)
-  result.explain(true)
-  val WCOJCount = result.count()
-  val endWCOJ = System.currentTimeMillis()
-  println(s"Count by WCOJ join: ${WCOJCount} took ${(endWCOJ - startWCOJ) / 1000}")
-
-
-  StdIn.readLine("Should stop?")
-  sp.stop()
-
+  run()
 }
