@@ -7,10 +7,9 @@ import sparkIntegration.WCOJ2WCOJExec
 import sparkIntegration.implicits._
 import testing.SparkTest
 import experiments.Queries._
+import experiments.Datasets.loadAmazonDataset
 
 class AmazonDatasetTriangleQuery extends FlatSpec with Matchers with SparkTest {
-  val DATASET_PATH = "file:///home/per/workspace/master-thesis/datasets"
-  val AMAZON_DATASET_FILE_NAME = "amazon-0302.txt"
   val OFFICIAL_NUMBERS_OF_TRIANGLES = 717719L
 
   val FAST = true
@@ -18,7 +17,11 @@ class AmazonDatasetTriangleQuery extends FlatSpec with Matchers with SparkTest {
     System.err.println("Running correctness test in fast mode")
   }
 
-  val ds = loadAmazonDataset().cache()
+  val ds = if (FAST) {
+    loadAmazonDataset(sp).limit(200).cache()
+  } else {
+    loadAmazonDataset(sp).cache()
+  }
 
   val goldStandardTriangles = triangleBinaryJoins(sp, ds).cache()
   val actualResultTriangles = trianglePattern(ds).cache()
@@ -26,24 +29,6 @@ class AmazonDatasetTriangleQuery extends FlatSpec with Matchers with SparkTest {
   val (nodeSet1, nodeSet2) = pathQueryNodeSets(ds)
   nodeSet1.cache()
   nodeSet2.cache()
-
-  def loadAmazonDataset(): DataFrame = {
-    val df = sp.read
-      .format("csv")
-      .option("delimiter", "\t")
-      .option("inferSchema", true)
-      .option("comment", "#")
-      .csv(List(DATASET_PATH, AMAZON_DATASET_FILE_NAME).mkString("/"))
-      .withColumnRenamed("_c0", "src")
-      .withColumnRenamed("_c1", "dst")
-      .repartition(1)
-      .cache()
-    if (FAST) {
-      df.limit(200)
-    } else {
-      df
-    }
-  }
 
   "WCOJ implementation" should "find the same two-paths as Spark's original joins" in {
     val a = twoPathPattern(ds, nodeSet1, nodeSet2).cache()
