@@ -22,6 +22,7 @@ class AmazonDatasetTriangleQuery extends FlatSpec with Matchers with SparkTest {
   } else {
     loadAmazonDataset(sp).cache()
   }
+  println(ds.count())
 
   val goldStandardTriangles = triangleBinaryJoins(sp, ds).cache()
   val actualResultTriangles = trianglePattern(ds).cache()
@@ -29,15 +30,18 @@ class AmazonDatasetTriangleQuery extends FlatSpec with Matchers with SparkTest {
   val (nodeSet1, nodeSet2) = pathQueryNodeSets(ds)
   nodeSet1.cache()
   nodeSet2.cache()
+  println(nodeSet1.count(), nodeSet2.count())
+
+
 
   "WCOJ implementation" should "find the same two-paths as Spark's original joins" in {
     val a = twoPathPattern(ds, nodeSet1, nodeSet2).cache()
     val e = twoPathBinaryJoins(ds, nodeSet1, nodeSet2).cache()
 
     val diff = a.rdd.subtract(e.rdd)
-    diff.isEmpty() should be (true)
-    a.isEmpty should be (false)
-    e.isEmpty should be (false)
+    diff.isEmpty() should be(true)
+    a.isEmpty should be(false)
+    e.isEmpty should be(false)
   }
 
   "WCOJ implementation" should "find the same three-paths as Spark's original joins" in {
@@ -45,28 +49,30 @@ class AmazonDatasetTriangleQuery extends FlatSpec with Matchers with SparkTest {
     val e = threePathBinaryJoins(ds, nodeSet1, nodeSet2).cache()
 
     val diff = a.rdd.subtract(e.rdd)
-    diff.isEmpty() should be (true)
-    a.isEmpty should be (false)
-    e.isEmpty should be (false)
+    diff.isEmpty() should be(true)
+    a.isEmpty should be(false)
+    e.isEmpty should be(false)
   }
 
   "WCOJ implementation" should "find the same four-paths as Spark's original joins" in {
-    val startA = System.nanoTime()
-    val a = fourPathPattern(ds, nodeSet1, nodeSet2).cache()
-    print("a ", a.count())
-    val endA = System.nanoTime() - startA
-    println("WCOJ four-path ", endA / 1000000000)
-
     val startE = System.nanoTime()
-    val e = fourPathBinaryJoins(ds, nodeSet1, nodeSet2).cache()
-    println("e", e.count())
+    val e = fourPathBinaryJoins(ds, nodeSet1, nodeSet2)
+    val countE = e.count()
     val endE = System.nanoTime() - startE
-    println("Spark four-path ", endE / 1000000000)
+    println("e", countE)
+    println("Spark four-path ", endE.toDouble / 1000000000)
+
+    val startA = System.nanoTime()
+    val a = fourPathPattern(ds, nodeSet1, nodeSet2)
+    val countA = a.count()
+    val endA = System.nanoTime() - startA
+    print("a ", countA)
+    println("WCOJ four-path ", endA.toDouble / 1000000000)
 
     val diff = a.rdd.subtract(e.rdd)
-    diff.isEmpty() should be (true)
-    a.isEmpty should be (false)
-    e.isEmpty should be (false)
+    diff.isEmpty() should be(true)
+    a.isEmpty should be(false)
+    e.isEmpty should be(false)
   }
 
   "WCOJ implementation" should "find same triangles as Spark's original joins" in {

@@ -8,31 +8,30 @@ import scala.io.StdIn
 
 trait GenericExperiment {
 
+  val sp = setupSpark()
+
+  println("Loading dataset")
+  val ds = loadDataset(sp).cache()
+  ds.count() // Trigger execution
+
   def loadDataset(sp: SparkSession): DataFrame
   def runWCOJ(sp: SparkSession, dataSet: DataFrame): Long
   def runBinaryJoins(sp: SparkSession, dataSet: DataFrame): Long
 
   def run(): Unit = {
-    val sp = setupSpark()
-
-    println("Loading dataset")
-    val ds = loadDataset(sp)
-    ds.cache()
-
     println("Starting binary join")
-    val startBinary = System.currentTimeMillis()
+    val startBinary = System.nanoTime()
     val countBySpark = runBinaryJoins(sp, ds)
-    val endBinary = System.currentTimeMillis()
-    println(s"Count by binary joins $countBySpark took ${(endBinary - startBinary) / 1000}")
+    val endBinary = System.nanoTime()
+    println(s"Count by binary joins $countBySpark took ${(endBinary - startBinary).toDouble / 1000000000}")
 
-    println("Starting WCOJ triangle join")
-    val startWCOJ = System.currentTimeMillis()
+    println("Starting WCOJ join")
+    val startWCOJ = System.nanoTime()
     val WCOJCount = runWCOJ(sp, ds)
-    val endWCOJ = System.currentTimeMillis()
-    println(s"Count by WCOJ join: $WCOJCount took ${(endWCOJ - startWCOJ) / 1000}")
+    val endWCOJ = System.nanoTime()
+    println(s"Count by WCOJ join: $WCOJCount took ${(endWCOJ - startWCOJ).toDouble / 1000000000}")
 
-
-    StdIn.readLine("Should stop?")
+//    StdIn.readLine("Should stop?")
     sp.stop()
   }
 

@@ -12,7 +12,7 @@ import experiments.Datasets.loadAmazonDataset
 import experiments.GenericExperiment
 import experiments.Queries.{triangleBinaryJoins, trianglePattern}
 
-object AmazonExperiment extends App with GenericExperiment {
+object AmazonTriangleExperiment extends App with GenericExperiment {
   override def loadDataset(sp: SparkSession) = loadAmazonDataset(sp)
 
   override def runWCOJ(sp: SparkSession, dataSet: DataFrame) = triangleBinaryJoins(sp, dataSet).count()
