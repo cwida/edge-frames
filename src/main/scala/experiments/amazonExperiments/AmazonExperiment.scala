@@ -1,4 +1,4 @@
-package amazonExperiments
+package experiments.amazonExperiments
 
 import java.util.Timer
 
