@@ -1,13 +1,13 @@
 package correctnessTesting
 
-import org.apache.spark.SparkConf
-import org.apache.spark.sql.{Column, DataFrame, SparkSession}
 import org.scalatest.{FlatSpec, Matchers}
-import sparkIntegration.WCOJ2WCOJExec
 import sparkIntegration.implicits._
 import testing.SparkTest
 import experiments.Queries._
 import experiments.Datasets.loadAmazonDataset
+import org.apache.spark.rdd.RDD
+
+import scala.reflect.ClassTag
 
 class AmazonDatasetTriangleQuery extends FlatSpec with Matchers with SparkTest {
   val OFFICIAL_NUMBERS_OF_TRIANGLES = 717719L
@@ -33,6 +33,11 @@ class AmazonDatasetTriangleQuery extends FlatSpec with Matchers with SparkTest {
   println(nodeSet1.count(), nodeSet2.count())
 
 
+  private def assertRDDEqual[A: ClassTag](rdd1: RDD[A], rdd2: RDD[A]) = {
+    rdd1.subtract(rdd2).isEmpty() should be (true)
+    rdd2.subtract(rdd1).isEmpty() should be (true)
+  }
+
 
   "WCOJ implementation" should "find the same two-paths as Spark's original joins" in {
     val a = twoPathPattern(ds, nodeSet1, nodeSet2).cache()
@@ -48,8 +53,7 @@ class AmazonDatasetTriangleQuery extends FlatSpec with Matchers with SparkTest {
     val a = threePathPattern(ds, nodeSet1, nodeSet2).cache()
     val e = threePathBinaryJoins(ds, nodeSet1, nodeSet2).cache()
 
-    val diff = a.rdd.subtract(e.rdd)
-    diff.isEmpty() should be(true)
+    assertRDDEqual(a.rdd, e.rdd)
     a.isEmpty should be(false)
     e.isEmpty should be(false)
   }
@@ -69,8 +73,8 @@ class AmazonDatasetTriangleQuery extends FlatSpec with Matchers with SparkTest {
     print("a ", countA)
     println("WCOJ four-path ", endA.toDouble / 1000000000)
 
-    val diff = a.rdd.subtract(e.rdd)
-    diff.isEmpty() should be(true)
+    assertRDDEqual(a.rdd, e.rdd)
+
     a.isEmpty should be(false)
     e.isEmpty should be(false)
   }
@@ -78,8 +82,7 @@ class AmazonDatasetTriangleQuery extends FlatSpec with Matchers with SparkTest {
   "WCOJ implementation" should "find same triangles as Spark's original joins" in {
     actualResultTriangles.count() should equal(goldStandardTriangles.count())
 
-    val difference = goldStandardTriangles.rdd.subtract(actualResultTriangles.rdd)
-    difference.isEmpty() should be(true)
+    assertRDDEqual(actualResultTriangles.rdd, goldStandardTriangles.rdd)
   }
 
   "WCOJ implementation" should "produce roughly as many triangles as on the official website" in {
@@ -101,8 +104,7 @@ class AmazonDatasetTriangleQuery extends FlatSpec with Matchers with SparkTest {
 
     val otherReordered = otherVariableOrdering.select("a", "b", "c")
 
-    val diff = actualResultTriangles.rdd.subtract(otherReordered.rdd)
-    diff.isEmpty() should be(true)
+    assertRDDEqual(otherReordered.rdd, actualResultTriangles.rdd)
   }
 
   "Circular triangles" should "be found correctly" in {
@@ -122,9 +124,7 @@ class AmazonDatasetTriangleQuery extends FlatSpec with Matchers with SparkTest {
 
     val goldStandard = triangles.selectExpr("_2.dst AS a", "_1._1.dst AS b", "_2.src AS c")
 
-
-    val diff = goldStandard.rdd.subtract(circular.rdd)
-    diff.isEmpty() should be(true)
+    assertRDDEqual(circular.rdd, goldStandard.rdd)
   }
 
 }
