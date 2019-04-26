@@ -76,13 +76,23 @@ object Queries {
   }
 
   def fourPathPattern(rel: DataFrame, nodeSet1: DataFrame, nodeSet2: DataFrame) = {
+    val leftRel = rel.join(nodeSet1.selectExpr("a AS src"), Seq("src"), "left_semi")
+    val rightRel = rel.join(nodeSet2.selectExpr("z AS dst"), Seq("dst"), "left_semi")
+      .select("src", "dst")  // Necessary because Spark reorders the columns
+
     val fourPath = rel.findPattern(
       """
         |(a) - [] -> (b);
         |(b) - [] -> (c);
         |(c) - [] -> (d);
         |(d) - [] -> (z)
-      """.stripMargin, Seq("a", "z", "c", "b", "d"))
+      """.stripMargin, Seq("a", "z", "b", "d", "c"),
+      Seq(leftRel,
+        rel.alias("edges_2"),
+        rel.alias("edges_3"),
+        rightRel
+      )
+    )
 
     withDistinctColumns(fourPath.join(nodeSet1, Seq("a"), "left_semi")
       .join(nodeSet2, Seq("z"), "left_semi")
@@ -100,7 +110,7 @@ object Queries {
     triangles.selectExpr("_2.src AS a", "_1._1.dst AS b", "_2.dst AS c")
   }
 
-  def trianglePattern(rel: DataFrame): DataFrame =  {
+  def trianglePattern(rel: DataFrame): DataFrame = {
     rel.findPattern(
       """
         |(a) - [] -> (b);

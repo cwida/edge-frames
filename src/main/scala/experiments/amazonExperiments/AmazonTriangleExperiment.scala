@@ -1,16 +1,9 @@
 package experiments.amazonExperiments
 
-import java.util.Timer
-
-import org.apache.spark.SparkConf
-import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
-import sparkIntegration.WCOJ2WCOJExec
-import sparkIntegration.implicits._
-
-import scala.io.StdIn
 import experiments.Datasets.loadAmazonDataset
 import experiments.GenericExperiment
 import experiments.Queries.{triangleBinaryJoins, trianglePattern}
+import org.apache.spark.sql.{DataFrame, SparkSession}
 
 object AmazonTriangleExperiment extends App with GenericExperiment {
   override def loadDataset(sp: SparkSession) = loadAmazonDataset(sp)

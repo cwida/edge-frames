@@ -10,7 +10,21 @@ import org.apache.spark.sql.execution.RowIterator
 import Predef._
 
 class WCOJFunctions[T](ds: Dataset[T]) {
-  def findPattern(pattern: String, variableOrdering: Seq[String]) = {
+  def findPattern(pattern: String, variableOrdering: Seq[String]): DataFrame = {
+    val edges = Pattern.parse(pattern)
+
+    val children = edges.zipWithIndex.map { case (_, i) => {
+      ds.alias(s"edges_${i.toString}")
+        // TODO can I remove this now?
+        .withColumnRenamed("src", s"src") // Needed to guarantee that src and dst on the aliases are referenced by different attributes.
+        .withColumnRenamed("dst", s"dst")
+    }
+    }
+    findPattern(pattern, variableOrdering, children)
+  }
+
+  def findPattern(pattern: String, variableOrdering: Seq[String], children: Seq[DataFrame]): DataFrame = {
+
     require(ds.columns.contains("src"), "Edge table should have a column called `src`")
     require(ds.columns.contains("dst"), "Edge table should have a column called `dst`")
 
@@ -19,18 +33,13 @@ class WCOJFunctions[T](ds: Dataset[T]) {
 
     val edges = Pattern.parse(pattern)
 
+    require(edges.size == children.size, "WCOJ needs as many children as edges in the pattern.")
+
     val joinSpecification = new JoinSpecification(edges, variableOrdering)
-    val children = edges.zipWithIndex.map { case (p, i) => {
-      ds.alias(s"edges_${i.toString}")
-        .withColumnRenamed("src", s"src") // Needed to guarantee that src and dst on the aliases are referenced by different attributes.
-        .withColumnRenamed("dst", s"dst")
-        .logicalPlan
-    }
-    }
 
     val outputVariables = joinSpecification.variableOrdering.map(v => AttributeReference(v, IntegerType, nullable = false)())
 
-    Dataset.ofRows(ds.sparkSession, WCOJ(outputVariables, joinSpecification, children))
+    Dataset.ofRows(ds.sparkSession, WCOJ(outputVariables, joinSpecification, children.map(_.logicalPlan)))
   }
 
   /**
