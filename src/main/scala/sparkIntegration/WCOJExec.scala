@@ -1,15 +1,13 @@
 package sparkIntegration
 
-import leapfrogTriejoin.{ArrayTrieIterable, TrieIterable}
-import org.apache.spark.{Partition, TaskContext}
+import leapfrogTriejoin.TrieIterable
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.Row
-import org.apache.spark.sql.catalyst.{CatalystTypeConverters, InternalRow}
-import org.apache.spark.sql.catalyst.expressions.{Attribute, AttributeReference, AttributeSet, GenericInternalRow, UnsafeProjection, UnsafeRow}
+import org.apache.spark.sql.catalyst.InternalRow
+import org.apache.spark.sql.catalyst.expressions.{Attribute, AttributeSet, GenericInternalRow, UnsafeProjection}
 import org.apache.spark.sql.execution.{RowIterator, SparkPlan}
-import org.apache.spark.sql.types.{DataType, IntegerType, LongType}
+import sparkIntegration.implicits._
 
-import scala.collection.mutable
+import scala.reflect.ClassTag
 
 case class WCOJExec(outputVariables: Seq[Attribute], joinSpecification: JoinSpecification, children: Seq[SparkPlan]) extends SparkPlan {
 
@@ -61,9 +59,7 @@ case class WCOJExec(outputVariables: Seq[Attribute], joinSpecification: JoinSpec
     trieIterableRDDs match {
       case Nil => throw new UnsupportedOperationException("Cannot join without any child.")
       case c1 :: Nil => c1.mapPartitions(i => zipPartitions(List(i)))
-      case c1 :: c2 :: Nil => c1.zipPartitions(c2)((i1, i2) => zipPartitions(List(i1, i2)))
-      case c1 :: c2 :: c3 :: Nil => c1.zipPartitions(c2, c3)((i1, i2, i3) => zipPartitions(List(i1, i2, i3)))
-      case c1 :: c2 :: c3 :: c4 :: Nil => c1.zipPartitions(c2, c3, c4)((i1, i2, i3, i4) => zipPartitions(List(i1, i2, i3, i4)))
+      case c1 :: c2 :: t => generalZipPartitions(c1 :: c2 :: t)(zipPartitions)
       case _ => throw new UnsupportedOperationException("Currently, due to Sparks limited zipping functionality we do not support WCOJ joins with more than 4 children.")
     }
   }
@@ -75,4 +71,7 @@ case class WCOJExec(outputVariables: Seq[Attribute], joinSpecification: JoinSpec
     case h1 :: t => h1.zip(generalZip(t)).map ( { case (l, r) => l :: r})
   }
 
+  private def generalZipPartitions[A: ClassTag, V: ClassTag](rdds: List[RDD[A]])(f: (List[Iterator[A]]) => Iterator[V]): RDD[V] = {
+    rdds.head.generalZippedPartitions(sparkContext, rdds.tail)(f)
+  }
 }
