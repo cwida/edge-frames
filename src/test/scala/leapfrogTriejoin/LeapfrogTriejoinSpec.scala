@@ -8,10 +8,10 @@ import leapfrogTriejoin.implicits._
 
 class LeapfrogTriejoinSpec extends FlatSpec with Matchers with GeneratorDrivenPropertyChecks {
 
-  def assertJoinEqual(join: LeapfrogTriejoin, values: Set[List[Int]]) ={
+  def assertJoinEqual(join: LeapfrogTriejoin, values: Set[List[Int]]) = {
     for (i <- 0 until values.size) {
       assert(!join.atEnd)
-      values should contain (join.next())
+      values should contain(join.next())
     }
     assert(join.atEnd)
   }
@@ -27,7 +27,7 @@ class LeapfrogTriejoinSpec extends FlatSpec with Matchers with GeneratorDrivenPr
       .map(l => (l(0), l(1)))
   }
 
-  "A join on a single relationship" should "be the relationship" in  {
+  "A join on a single relationship" should "be the relationship" in {
     val tuples = Array((1, 1), (2, 1))
     val rel = new EdgeRelationship(("a", "b"))
     val trieIterator = new TreeTrieIterator(tuples)
@@ -108,27 +108,21 @@ class LeapfrogTriejoinSpec extends FlatSpec with Matchers with GeneratorDrivenPr
   "Regression 1: " should "work if LeapFrog Join actually sorts its iterators" in {
     val ds = parseRegressionTestDataset(regression1Dataset)
 
-    val edges: List[EdgeRelationship]  = ('a' to 'd')
+    val edges: List[EdgeRelationship] = ('a' to 'd')
       .combinations(2)
       .filter(l => l(0) < l(1))
       .map(l => new EdgeRelationship((s"${l(0)}", s"${l(1)}")))
-        .toList
+      .toList
 
     val rels: List[TrieIterator] = edges
       .map(e => new ArrayTrieIterable(ds).trieIterator)
 
-    edges.map(_.variables) should contain (List("b", "d"))
-    edges.size should be (rels.size)
-
-//    assert(edges.size == rels.size)
-
     val join = new LeapfrogTriejoin(edges.zip(rels).toMap, Seq("a", "b", "c", "d"))
 
     val result = join.toList
+    val resultAsSets = result.map(_.toSet)
 
-    val setwise = result.map(_.toSet).filter(_.size == 4)
-
-    setwise should not contain Set(19, 4, 16, 7)
+    resultAsSets should not contain Set(19, 4, 16, 7)
   }
 
 }
