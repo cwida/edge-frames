@@ -1,5 +1,7 @@
 package testing
 
+import java.io.File
+
 import leapfrogTriejoin.TrieIterator
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.SparkSession
@@ -26,6 +28,16 @@ object Utils {
       iter.next()
     } while (!iter.atEnd)
     ret
+  }
+
+  // Stackoverflow: https://stackoverflow.com/questions/25999255/delete-directory-recursively-in-scala
+  def deleteRecursively(file: File): Unit = {
+    if (file.isDirectory) {
+      file.listFiles.foreach(deleteRecursively)
+    }
+    if (file.exists && !file.delete) {
+      throw new Exception(s"Unable to delete ${file.getAbsolutePath}")
+    }
   }
 
 
