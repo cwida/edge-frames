@@ -3,6 +3,8 @@ package leapfrogTriejoin
 import org.scalacheck.Gen
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.{FlatSpec, Matchers}
+import testing.Utils
+import leapfrogTriejoin.implicits._
 
 class LeapfrogTriejoinSpec extends FlatSpec with Matchers with GeneratorDrivenPropertyChecks {
 
@@ -12,6 +14,17 @@ class LeapfrogTriejoinSpec extends FlatSpec with Matchers with GeneratorDrivenPr
       values should contain (join.next())
     }
     assert(join.atEnd)
+  }
+
+  private def parseRegressionTestDataset(ds: String): Array[(Int, Int)] = {
+    ds.replace("[", "")
+      .replace("]", "")
+      .split("\n")
+      .map(_.trim)
+      .filter(_ != "")
+      .map(_.split(","))
+      .map(_.map(_.toInt))
+      .map(l => (l(0), l(1)))
   }
 
   "A join on a single relationship" should "be the relationship" in  {
@@ -78,6 +91,44 @@ class LeapfrogTriejoinSpec extends FlatSpec with Matchers with GeneratorDrivenPr
     val join = new LeapfrogTriejoin(Map(rel1 -> trieIterator1, rel2 -> trieIterator2, rel3 -> trieIterator3), List("a", "b", "c"))
 
     assertJoinEqual(join, Set(List(3, 3, 5)))
+  }
+
+  val regression1Dataset =
+    """
+      |[4,7]
+      |[4,16]
+      |[4,19]
+      |[16,4]
+      |[16,7]
+      |[16,19]
+      |[19,4]
+      |[19,16]
+    """.stripMargin
+
+  "Regression 1: " should "work if LeapFrog Join actually sorts its iterators" in {
+    val ds = parseRegressionTestDataset(regression1Dataset)
+
+    val edges: List[EdgeRelationship]  = ('a' to 'd')
+      .combinations(2)
+      .filter(l => l(0) < l(1))
+      .map(l => new EdgeRelationship((s"${l(0)}", s"${l(1)}")))
+        .toList
+
+    val rels: List[TrieIterator] = edges
+      .map(e => new ArrayTrieIterable(ds).trieIterator)
+
+    edges.map(_.variables) should contain (List("b", "d"))
+    edges.size should be (rels.size)
+
+//    assert(edges.size == rels.size)
+
+    val join = new LeapfrogTriejoin(edges.zip(rels).toMap, Seq("a", "b", "c", "d"))
+
+    val result = join.toList
+
+    val setwise = result.map(_.toSet).filter(_.size == 4)
+
+    setwise should not contain Set(19, 4, 16, 7)
   }
 
 }

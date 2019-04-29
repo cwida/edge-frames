@@ -1,6 +1,6 @@
 package leapfrogTriejoin
 
-class LeapfrogJoin(iterators: Array[LinearIterator] ) {
+class LeapfrogJoin(var iterators: Array[LinearIterator] ) {
   if (iterators.isEmpty) {
     throw new IllegalArgumentException("iterators cannot be empty")
   }
@@ -15,7 +15,7 @@ class LeapfrogJoin(iterators: Array[LinearIterator] ) {
     key = 0
 
     if (!atEnd) {
-      iterators.sortBy(i => i.key)
+      iterators = iterators.sortBy(i => i.key)
       leapfrogSearch()
     }
   }

@@ -1,24 +1,27 @@
 package correctnessTesting
 
+import java.nio.file.{Files, Path, Paths}
+
 import org.scalatest.{FlatSpec, Matchers}
 import sparkIntegration.implicits._
-import testing.SparkTest
+import testing.{SparkTest, Utils}
 import experiments.Queries._
 import experiments.Datasets.loadAmazonDataset
 import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.{DataFrame, Row}
 
 import scala.reflect.ClassTag
 
 class AmazonDatasetTriangleQuery extends FlatSpec with Matchers with SparkTest {
   val OFFICIAL_NUMBERS_OF_TRIANGLES = 717719L
 
-  val FAST = true
+  val FAST = false
   if (FAST) {
     System.err.println("Running correctness test in fast mode")
   }
 
   val ds = if (FAST) {
-    loadAmazonDataset(sp).limit(200).cache()
+    loadAmazonDataset(sp).limit(100).cache()
   } else {
     loadAmazonDataset(sp).cache()
   }
@@ -30,16 +33,36 @@ class AmazonDatasetTriangleQuery extends FlatSpec with Matchers with SparkTest {
   val (nodeSet1, nodeSet2) = pathQueryNodeSets(ds)
   nodeSet1.cache()
   nodeSet2.cache()
-  println(nodeSet1.count(), nodeSet2.count())
-
 
   private def assertRDDEqual[A: ClassTag](rdd1: RDD[A], rdd2: RDD[A]) = {
-    rdd1.subtract(rdd2).isEmpty() should be (true)
-    rdd2.subtract(rdd1).isEmpty() should be (true)
+    val diff1 = rdd1.subtract(rdd2)
+
+    val diff2 = rdd2.subtract(rdd1)
+
+    diff1.isEmpty() should be(true)
+    diff2.isEmpty() should be(true)
   }
 
+  private def assertRDDSetEqual(rdd1: RDD[Row], rdd2: RDD[Row]) = {
+    val rdd1Set = rdd1.map(r => r.toSeq.toSet)
+    val rdd2Set = rdd2.map(r => r.toSeq.toSet)
+
+    rdd1Set.subtract(rdd2Set).isEmpty() should be (true)
+    rdd2Set.subtract(rdd1Set).isEmpty() should be (true)
+  }
+
+  private def getPathQueryDataset(): DataFrame = {
+    // TODO remove once path queries are fast enough
+    if (FAST) {
+      ds
+    } else {
+      ds.limit(1000)
+    }
+  }
 
   "WCOJ implementation" should "find the same two-paths as Spark's original joins" in {
+    val ds = getPathQueryDataset()
+
     val a = twoPathPattern(ds, nodeSet1, nodeSet2).cache()
     val e = twoPathBinaryJoins(ds, nodeSet1, nodeSet2).cache()
 
@@ -50,6 +73,8 @@ class AmazonDatasetTriangleQuery extends FlatSpec with Matchers with SparkTest {
   }
 
   "WCOJ implementation" should "find the same three-paths as Spark's original joins" in {
+    val ds = getPathQueryDataset()
+
     val a = threePathPattern(ds, nodeSet1, nodeSet2).cache()
     val e = threePathBinaryJoins(ds, nodeSet1, nodeSet2).cache()
 
@@ -59,19 +84,10 @@ class AmazonDatasetTriangleQuery extends FlatSpec with Matchers with SparkTest {
   }
 
   "WCOJ implementation" should "find the same four-paths as Spark's original joins" in {
-    val startE = System.nanoTime()
-    val e = fourPathBinaryJoins(ds, nodeSet1, nodeSet2)
-    val countE = e.count()
-    val endE = System.nanoTime() - startE
-    println("e", countE)
-    println("Spark four-path ", endE.toDouble / 1000000000)
+    val ds = getPathQueryDataset()
 
-    val startA = System.nanoTime()
+    val e = fourPathBinaryJoins(ds, nodeSet1, nodeSet2)
     val a = fourPathPattern(ds, nodeSet1, nodeSet2)
-    val countA = a.count()
-    val endA = System.nanoTime() - startA
-    print("a ", countA)
-    println("WCOJ four-path ", endA.toDouble / 1000000000)
 
     assertRDDEqual(a.rdd, e.rdd)
 
@@ -125,6 +141,20 @@ class AmazonDatasetTriangleQuery extends FlatSpec with Matchers with SparkTest {
     val goldStandard = triangles.selectExpr("_2.dst AS a", "_1._1.dst AS b", "_2.src AS c")
 
     assertRDDEqual(circular.rdd, goldStandard.rdd)
+  }
+
+  "Four clique" should "be the same" in {
+    val a = cliquePattern(4, ds)
+    val e = fourCliqueBinaryJoins(sp, ds)
+
+    assertRDDSetEqual(a.rdd, e.rdd)
+  }
+
+  "Diamond query" should "be the same" in {
+    val a = diamondPattern(ds)
+    val e = diamondBinaryJoins(ds)
+
+    assertRDDSetEqual(a.rdd, e.rdd)
   }
 
 }

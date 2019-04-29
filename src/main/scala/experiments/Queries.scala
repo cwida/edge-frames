@@ -78,7 +78,7 @@ object Queries {
   def fourPathPattern(rel: DataFrame, nodeSet1: DataFrame, nodeSet2: DataFrame) = {
     val leftRel = rel.join(nodeSet1.selectExpr("a AS src"), Seq("src"), "left_semi")
     val rightRel = rel.join(nodeSet2.selectExpr("z AS dst"), Seq("dst"), "left_semi")
-      .select("src", "dst")  // Necessary because Spark reorders the columns
+      .select("src", "dst") // Necessary because Spark reorders the columns
 
     val fourPath = rel.findPattern(
       """
@@ -117,5 +117,44 @@ object Queries {
         |(b) - [] -> (c);
         |(a) - [] -> (c)
         |""".stripMargin, List("a", "b", "c"))
+  }
+
+  def diamondPattern(rel: DataFrame): DataFrame = {
+    withDistinctColumns(rel.findPattern(
+      """
+        |(a) - [] -> (b);
+        |(b) - [] -> (c);
+        |(c) - [] -> (d);
+        |(d) - [] -> (a)
+        |""".stripMargin, List("a", "b", "c", "d")), List("a", "b", "c", "d"))
+  }
+
+  def diamondBinaryJoins(rel: DataFrame): DataFrame = {
+    withDistinctColumns(rel.selectExpr("src AS a", "dst AS b")
+      .join(rel.selectExpr("src AS b", "dst AS c"), "b")
+      .join(rel.selectExpr("src AS c", "dst AS d"), "c")
+      .join(rel.selectExpr("src AS d", "dst AS a"), Seq("a", "d"), "left_semi"), Seq("a", "b", "c", "d"))
+  }
+
+  def fourCliqueBinaryJoins(sp: SparkSession, rel: DataFrame): DataFrame = {
+    import sp.implicits._
+    val triangles = triangleBinaryJoins(sp, rel)
+
+    val fourClique =
+      triangles.join(rel.alias("ad"), $"src" === $"a")
+        .selectExpr("a", "b", "c", "dst AS d")
+        .join(rel.alias("bd"), $"src" === $"b" && $"dst" === $"d", "left_semi")
+        .join(rel.alias("cd"), $"src" === $"c" && $"dst" === $"d", "left_semi")
+    fourClique.select("a", "b", "c", "d")
+  }
+
+  def cliquePattern(size: Int, rel: DataFrame): DataFrame = {
+    val alphabet = 'a' to 'z'
+    val verticeNames = alphabet.slice(0, size).map(_.toString)
+
+    val pattern = verticeNames.combinations(2).filter(e => e(0) < e(1))
+      .map(e => s"(${e(0)}) - [] -> (${e(1)})")
+      .mkString(";")
+    withDistinctColumns(rel.findPattern(pattern, verticeNames), Seq("a", "b", "c", "d"))
   }
 }
