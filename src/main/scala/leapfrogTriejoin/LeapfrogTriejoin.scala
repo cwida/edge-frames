@@ -9,11 +9,11 @@ class LeapfrogTriejoin(trieIterators: Map[EdgeRelationship, TrieIterator], varia
   val allVariables = trieIterators.keys.flatMap(
     e => e.variables).toSet
 
-  assert(allVariables == variableOrdering.toSet,
+  require(allVariables == variableOrdering.toSet,
     s"The set of all variables in the relationships needs to equal the variable ordering. All variables: $allVariables, variableOrdering: $variableOrdering"
   )
 
-  assert(trieIterators.keys
+  require(trieIterators.keys
     .forall(r => {
       val relevantVars = variableOrdering.filter(v => r.variables.contains(v)).toList
       relevantVars == relevantVars.sortBy(v => r.variables.indexOf(v))
