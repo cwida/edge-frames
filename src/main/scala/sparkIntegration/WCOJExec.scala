@@ -4,12 +4,22 @@ import leapfrogTriejoin.TrieIterable
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.{Attribute, AttributeSet, GenericInternalRow, UnsafeProjection}
+import org.apache.spark.sql.execution.metric.SQLMetrics
 import org.apache.spark.sql.execution.{RowIterator, SparkPlan}
 import sparkIntegration.implicits._
 
 import scala.reflect.ClassTag
 
 case class WCOJExec(outputVariables: Seq[Attribute], joinSpecification: JoinSpecification, children: Seq[SparkPlan]) extends SparkPlan {
+  val JOIN_TIME_METRIC = "wcoj_join_time"
+  val COPY_OUTPUT_TIME_METRIC = "copy_time"
+  val BEFORE_AFTER_TIME_METRIC = "before_after_time"
+
+  override lazy val metrics = Map(
+    JOIN_TIME_METRIC -> SQLMetrics.createTimingMetric(sparkContext, "wcoj time"),
+    COPY_OUTPUT_TIME_METRIC -> SQLMetrics.createTimingMetric(sparkContext, "copy"),
+    BEFORE_AFTER_TIME_METRIC -> SQLMetrics.createTimingMetric(sparkContext, "before after time"))
+
 
   override def output: Seq[Attribute] = {
     outputVariables
@@ -18,6 +28,15 @@ case class WCOJExec(outputVariables: Seq[Attribute], joinSpecification: JoinSpec
   override def references: AttributeSet = AttributeSet(children.flatMap(c => c.output.filter(a => List("src", "dst").contains(a.name))))
 
   override protected def doExecute(): RDD[InternalRow] = {
+    val joinTime = longMetric(JOIN_TIME_METRIC)
+    val copyTime = longMetric(COPY_OUTPUT_TIME_METRIC)
+    val beforeAfter = longMetric(BEFORE_AFTER_TIME_METRIC)
+
+    var copyTimeAcc: Long = 0L
+    var joinTimeAcc: Long = 0L
+
+    val beforeTime = System.nanoTime()
+
     val childRDDs = children.map(_.execute())
 
     // TODO ask Bogdan if we can enforce that the child needs a specific RDD type
@@ -32,23 +51,34 @@ case class WCOJExec(outputVariables: Seq[Attribute], joinSpecification: JoinSpec
 
       zippedIters.flatMap( a => {
         val join = joinSpecification.build(a)
+
         val iter = new RowIterator {
           var row: Array[Int] = null
 
           override def advanceNext(): Boolean = {
             if (join.atEnd) {
+
+              beforeAfter += (System.nanoTime() - beforeTime) / 1000000
+              joinTime.set(joinTimeAcc / 1000000)
+              copyTime.set(copyTimeAcc / 1000000)
+
               false
             } else {
+              val start = System.nanoTime()
               row = join.next()
+              joinTimeAcc += (System.nanoTime() - start)
               true
             }
           }
 
           override def getRow: InternalRow = {
+            val start = System.nanoTime()
             // TODO can I maybe even safe to construct the generic row?
             val gr = new GenericInternalRow(row.size)
             row.zipWithIndex.foreach { case (b, i) => gr.update(i.toInt, b) }
-            toUnsafeProjection(gr)
+            val ur = toUnsafeProjection(gr)
+            copyTimeAcc += (System.nanoTime() - start)
+            ur
           }
         }
         iter.toScala
