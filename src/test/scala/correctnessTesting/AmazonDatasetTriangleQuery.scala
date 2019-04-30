@@ -21,11 +21,11 @@ class AmazonDatasetTriangleQuery extends FlatSpec with Matchers with SparkTest {
   }
 
   val ds = if (FAST) {
-    loadAmazonDataset(sp).limit(100).cache()
+    loadAmazonDataset(sp).limit(1000).cache()
   } else {
     loadAmazonDataset(sp).cache()
   }
-  println(ds.count())
+  println(s"Testing on the first ${ds.count()} edges of the Amazon set")
 
   val goldStandardTriangles = triangleBinaryJoins(sp, ds).cache()
   val actualResultTriangles = trianglePattern(ds).cache()
@@ -36,7 +36,6 @@ class AmazonDatasetTriangleQuery extends FlatSpec with Matchers with SparkTest {
 
   private def assertRDDEqual[A: ClassTag](rdd1: RDD[A], rdd2: RDD[A]) = {
     val diff1 = rdd1.subtract(rdd2)
-
     val diff2 = rdd2.subtract(rdd1)
 
     diff1.isEmpty() should be(true)
@@ -47,8 +46,19 @@ class AmazonDatasetTriangleQuery extends FlatSpec with Matchers with SparkTest {
     val rdd1Set = rdd1.map(r => r.toSeq.toSet)
     val rdd2Set = rdd2.map(r => r.toSeq.toSet)
 
-    rdd1Set.subtract(rdd2Set).isEmpty() should be (true)
-    rdd2Set.subtract(rdd1Set).isEmpty() should be (true)
+    val diff1 = rdd1Set.subtract(rdd2Set)
+    val diff2 = rdd2Set.subtract(rdd1Set)
+
+    val empty1 = diff1.isEmpty()
+    val empty2 = diff2.isEmpty()
+
+    if (!(empty1 && empty2)) {
+      Utils.printSetRDD(50, diff1)
+      Utils.printSetRDD(50, diff2)
+    }
+
+    empty1 should be (true)
+    empty2 should be (true)
   }
 
   private def getPathQueryDataset(): DataFrame = {
@@ -153,6 +163,27 @@ class AmazonDatasetTriangleQuery extends FlatSpec with Matchers with SparkTest {
   "Diamond query" should "be the same" in {
     val a = diamondPattern(ds)
     val e = diamondBinaryJoins(ds)
+
+    assertRDDSetEqual(a.rdd, e.rdd)
+  }
+
+  "House query" should "be the same" in {
+    val a = housePattern(ds)
+    val e = houseBinaryJoins(sp, ds)
+
+    assertRDDSetEqual(a.rdd, e.rdd)
+  }
+
+  "5-clique query" should "be the same" in {
+    val a = cliquePattern(5, ds)
+    val e = fiveCliqueBinaryJoins(sp, ds)
+
+    assertRDDSetEqual(a.rdd, e.rdd)
+  }
+
+  "6-clique query" should "be the same" in {
+    val a = cliquePattern(6, ds)
+    val e = sixCliqueBinaryJoins(sp, ds)
 
     assertRDDSetEqual(a.rdd, e.rdd)
   }

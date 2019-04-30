@@ -4,10 +4,12 @@ import java.io.File
 
 import leapfrogTriejoin.TrieIterator
 import org.apache.spark.SparkConf
+import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.SparkSession
 import sparkIntegration.{ToTrieIterableRDD2ToTrieIterableRDDExec, WCOJ2WCOJExec}
 
 import scala.collection.mutable
+import scala.reflect.ClassTag
 
 object Utils {
 
@@ -37,6 +39,14 @@ object Utils {
     }
     if (file.exists && !file.delete) {
       throw new Exception(s"Unable to delete ${file.getAbsolutePath}")
+    }
+  }
+
+  def printSetRDD[A: ClassTag](n: Int, rdd: RDD[Set[A]]): Unit = {
+    println(rdd.take(n).map(s => s.mkString(", ")).mkString("\n"))
+    val size = rdd.count()
+    if (size > n) {
+      println(s"Showing only $n out of $size rows.")
     }
   }
 

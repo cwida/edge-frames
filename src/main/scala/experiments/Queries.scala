@@ -157,4 +157,55 @@ object Queries {
       .mkString(";")
     withDistinctColumns(rel.findPattern(pattern, verticeNames), Seq("a", "b", "c", "d"))
   }
+
+  def houseBinaryJoins(sp: SparkSession, rel: DataFrame): DataFrame =  {
+    import sp.implicits._
+
+    withDistinctColumns(fourCliqueBinaryJoins(sp, rel)
+      .join(rel.alias("ce"), $"src" === $"c")
+      .selectExpr("a", "b", "c", "d", "dst AS e")
+      .join(rel.alias("de"), $"src" === $"d" && $"dst" === $"e", "left_semi")
+      .select("a", "b", "c", "d", "e"),
+      Seq("a", "b", "c", "d", "e"))
+  }
+
+  def housePattern(rel: DataFrame): DataFrame = {
+    withDistinctColumns(rel.findPattern("""
+      |(a) - [] -> (b);
+      |(b) - [] -> (c);
+      |(c) - [] -> (d);
+      |(a) - [] -> (d);
+      |(a) - [] -> (c);
+      |(b) - [] -> (d);
+      |(c) - [] -> (e);
+      |(d) - [] -> (e)
+      |""".stripMargin, List("a", "b", "c", "d", "e")), List("a", "b", "c", "d", "e"))
+  }
+
+  def fiveCliqueBinaryJoins(sp: SparkSession, rel: DataFrame): DataFrame = {
+    import sp.implicits._
+
+
+    fourCliqueBinaryJoins(sp, rel)
+      .join(rel.alias("ae"), $"src" === $"a")
+      .selectExpr("a", "b", "c", "d", "dst AS e")
+      .join(rel.alias("be"), $"src" === $"b" && $"dst" === $"e", "left_semi")
+      .join(rel.alias("ce"), $"src" === $"c" && $"dst" === $"e", "left_semi")
+      .join(rel.alias("de"), $"src" === $"d" && $"dst" === $"e", "left_semi")
+      .select("a", "b", "c", "d", "e")
+  }
+
+  def sixCliqueBinaryJoins(sp: SparkSession, rel: DataFrame): DataFrame = {
+    import sp.implicits._
+
+
+    fiveCliqueBinaryJoins(sp, rel)
+      .join(rel.alias("af"), $"src" === $"a")
+      .selectExpr("a", "b", "c", "d", "e", "dst AS f")
+      .join(rel.alias("bf"), $"src" === $"b" && $"dst" === $"f", "left_semi")
+      .join(rel.alias("cf"), $"src" === $"c" && $"dst" === $"f", "left_semi")
+      .join(rel.alias("df"), $"src" === $"d" && $"dst" === $"f", "left_semi")
+      .join(rel.alias("ef"), $"src" === $"e" && $"dst" === $"f", "left_semi")
+      .select("a", "b", "c", "d", "e", "f")
+  }
 }
