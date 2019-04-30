@@ -188,4 +188,25 @@ class AmazonDatasetTriangleQuery extends FlatSpec with Matchers with SparkTest {
     assertRDDSetEqual(a.rdd, e.rdd)
   }
 
+  "4-cylce" should "be the same" in {
+    val a = cyclePattern(4, ds)
+    val e = cycleBinaryJoins(4, ds)
+
+    assertRDDSetEqual(a.rdd, e.rdd)
+  }
+
+  "5-cylce" should "be the same" in {
+    val a = cyclePattern(5, ds)
+    val e = cycleBinaryJoins(5, ds)
+
+    assertRDDSetEqual(a.rdd, e.rdd)
+  }
+
+  "6-cylce" should "be the same" in {
+    val a = cyclePattern(6, ds)
+    val e = cycleBinaryJoins(6, ds)
+
+    assertRDDSetEqual(a.rdd, e.rdd)
+  }
+
 }

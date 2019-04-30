@@ -208,4 +208,29 @@ object Queries {
       .join(rel.alias("ef"), $"src" === $"e" && $"dst" === $"f", "left_semi")
       .select("a", "b", "c", "d", "e", "f")
   }
+
+  def cycleBinaryJoins(size: Int, rel: DataFrame): DataFrame = {
+    require(3 < size, "Use this method only for cyclics of four nodes and above")
+
+    val verticeNames = ('a' to 'z').toList.map(c => s"$c")
+
+    var ret = rel.selectExpr("src AS a", "dst AS b")
+    for (i <- 1 until (size - 1)) {
+      ret = ret.join(rel.selectExpr(s"src AS ${verticeNames(i)}", s"dst AS ${verticeNames(i + 1)}"), verticeNames(i))
+    }
+    ret = ret.join(rel.selectExpr(s"src AS ${verticeNames(size - 1)}", s"dst AS a"), Seq("a", verticeNames(size - 1)), "left_semi")
+      .select(verticeNames.head, verticeNames.slice(1, size):_*)
+    withDistinctColumns(ret, verticeNames.slice(0, size))
+  }
+
+  def cyclePattern(size: Int, rel: DataFrame): DataFrame = {
+    require(3 < size, "Use this method only for cyclics of four nodes and above")
+
+    val verticeNames = ('a' to 'z').toList.map(c => s"$c").slice(0, size)
+
+    val pattern = verticeNames.zipWithIndex.map( { case (v1, i) => s"($v1) - [] -> (${verticeNames((i + 1) % size)})"}).mkString(";")
+
+    withDistinctColumns(rel.findPattern(pattern, verticeNames), verticeNames)
+  }
+
 }
