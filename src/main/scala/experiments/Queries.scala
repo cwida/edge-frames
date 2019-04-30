@@ -26,6 +26,22 @@ object Queries {
     r
   }
 
+  def pathBinaryJoins(size: Int, ds: DataFrame, ns1: DataFrame, ns2: DataFrame): DataFrame = {
+    size match {
+      case 2 => twoPathBinaryJoins(ds, ns1, ns2)
+      case 3 => threePathBinaryJoins(ds, ns1, ns2)
+      case 4 => fourPathBinaryJoins(ds, ns1, ns2)
+    }
+  }
+
+  def pathPattern(size: Int, ds: DataFrame, ns1: DataFrame, ns2: DataFrame): DataFrame = {
+    size match {
+      case 2 => twoPathPattern(ds, ns1, ns2)
+      case 3 => threePathPattern(ds, ns1, ns2)
+      case 4 => fourPathBinaryJoins(ds, ns1, ns2)
+    }
+  }
+
   def twoPathBinaryJoins(rel: DataFrame, nodeSet1: DataFrame, nodeSet2: DataFrame): DataFrame = {
     val relLeft = rel.selectExpr("src AS a", "dst AS b").join(nodeSet1, Seq("a"), "left_semi")
     val relRight = rel.selectExpr("dst AS z", "src AS b").join(nodeSet2, Seq("z"), "left_semi")
@@ -110,7 +126,19 @@ object Queries {
     triangles.selectExpr("_2.src AS a", "_1._1.dst AS b", "_2.dst AS c")
   }
 
+  def cliqueBinaryJoins(size: Int, sp: SparkSession, ds: DataFrame): DataFrame = {
+    println("Running binary joins")
+    size match {
+      case 3 => triangleBinaryJoins(sp, ds)
+      case 4 => fourCliqueBinaryJoins(sp, ds)
+      case 5 => fiveCliqueBinaryJoins(sp, ds)
+      case 6 => sixCliqueBinaryJoins(sp, ds)
+    }
+  }
+
   def trianglePattern(rel: DataFrame): DataFrame = {
+    println("Running pattern joins")
+
     rel.findPattern(
       """
         |(a) - [] -> (b);
@@ -155,7 +183,7 @@ object Queries {
     val pattern = verticeNames.combinations(2).filter(e => e(0) < e(1))
       .map(e => s"(${e(0)}) - [] -> (${e(1)})")
       .mkString(";")
-    withDistinctColumns(rel.findPattern(pattern, verticeNames), Seq("a", "b", "c", "d"))
+    rel.findPattern(pattern, verticeNames)
   }
 
   def houseBinaryJoins(sp: SparkSession, rel: DataFrame): DataFrame =  {
