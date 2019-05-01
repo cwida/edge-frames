@@ -7,6 +7,8 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 import scopt.OParser
 import sparkIntegration.WCOJ2WCOJExec
 
+import scala.collection.mutable.ListBuffer
+
 object Readers {
   implicit def algorithmRead: scopt.Read[Algorithm] = {
     scopt.Read.reads({
@@ -116,6 +118,7 @@ case class ExperimentConfig(
                              datasetFilePath: File = new File("."),
                              queries: Seq[Query] = Seq.empty,
                              outputPath: File = new File("."),
+                             reps: Int = 1,
                              limitDataset: Int = -1
                            )
 
@@ -164,7 +167,10 @@ object ExperimentRunner extends App {
           .action((x, c) => c.copy(queries = x)),
         opt[Int]('l', "limit")
           .optional
-          .action((x, c) => c.copy(limitDataset = x))
+          .action((x, c) => c.copy(limitDataset = x)),
+        opt[Int]('r', "reps")
+          .optional()
+          .action((x, c) => c.copy(reps = x))
       )
     }
     OParser.parse(parser1, args, ExperimentConfig())
@@ -250,11 +256,17 @@ object ExperimentRunner extends App {
         }
       }
 
-      println("Starting ...") // TODO
-      val start = System.nanoTime()
-      val count = queryDataFrame.count()
-      val end = System.nanoTime()
-      println(s"Count by $algoritm $count took ${(end - start).toDouble / 1000000000}")
+      val times = ListBuffer[Double]()
+      for (i <- 1 to config.reps) {
+        println("Starting ...") // TODO
+        val start = System.nanoTime()
+        val count = queryDataFrame.count()
+        val end = System.nanoTime()
+        val time = (end - start).toDouble / 1000000000
+        println(s"Count by $algoritm $count took $time")
+        times += time
+      }
+      println(s"Using $algoritm, $query took ${times.sum / times.size} in average over ${config.reps} repetitions.")
     }
   }
 
