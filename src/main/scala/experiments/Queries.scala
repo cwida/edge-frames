@@ -127,7 +127,6 @@ object Queries {
   }
 
   def cliqueBinaryJoins(size: Int, sp: SparkSession, ds: DataFrame): DataFrame = {
-    println("Running binary joins")
     size match {
       case 3 => triangleBinaryJoins(sp, ds)
       case 4 => fourCliqueBinaryJoins(sp, ds)
@@ -137,7 +136,6 @@ object Queries {
   }
 
   def trianglePattern(rel: DataFrame): DataFrame = {
-    println("Running pattern joins")
 
     rel.findPattern(
       """
