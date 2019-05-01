@@ -14,6 +14,7 @@ import scala.reflect.ClassTag
 
 class AmazonDatasetTriangleQuery extends FlatSpec with Matchers with SparkTest {
   val OFFICIAL_NUMBERS_OF_TRIANGLES = 717719L
+  val DATASET_PATH = "/home/per/workspace/master-thesis/datasets/amazon-0302"
 
   val FAST = false
   if (FAST) {
@@ -21,9 +22,9 @@ class AmazonDatasetTriangleQuery extends FlatSpec with Matchers with SparkTest {
   }
 
   val ds = if (FAST) {
-    loadAmazonDataset(sp).limit(1000).cache()
+    loadAmazonDataset(DATASET_PATH, sp).limit(1000).cache()
   } else {
-    loadAmazonDataset(sp).cache()
+    loadAmazonDataset(DATASET_PATH, sp).cache()
   }
   println(s"Testing on the first ${ds.count()} edges of the Amazon set")
 

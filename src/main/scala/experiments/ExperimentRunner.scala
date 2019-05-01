@@ -30,6 +30,9 @@ object Readers {
       case "snb" => {
         SNB
       }
+      case "liv" => {
+        LiveJournal2010
+      }
       case _ => {
         throw new IllegalArgumentException("Dataset type can be only `ama` or `snb`")
       }
@@ -55,7 +58,7 @@ object Readers {
             }
             case "path" => {
               val parts = parameter.split("|")
-              Path(parts(0).toInt, parts(1).toDouble)
+              PathQuery(parts(0).toInt, parts(1).toDouble)
             }
             case _ => {
               throw new IllegalArgumentException(s"Unknown query: $s")
@@ -70,18 +73,33 @@ object Readers {
   }
 }
 
-sealed trait Algorithm
+sealed trait Algorithm {
+  def name: String
+}
 
-case object WCOJ extends Algorithm
+case object WCOJ extends Algorithm {
+  override def name: String = "WCOJ"
+}
 
-case object BinaryJoins extends Algorithm
+case object BinaryJoins extends Algorithm {
+  override def name: String = "Binary join"
+}
 
+sealed trait DatasetType {
+  def name: String
+}
 
-sealed trait DatasetType
+case object AmazonCoPurchase extends DatasetType {
+  override def name: String = "Amazon-co-purchase"
+}
 
-case object AmazonCoPurchase extends DatasetType
+case object SNB extends DatasetType {
+  override def name: String = "SNB"
+}
 
-case object SNB extends DatasetType
+case object LiveJournal2010 extends DatasetType {
+  override def name: String = "LiveJournal2010"
+}
 
 sealed trait Query
 
@@ -89,7 +107,7 @@ case class Clique(size: Int) extends Query
 
 case class Cycle(size: Int) extends Query
 
-case class Path(size: Int, selectivity: Double) extends Query
+case class PathQuery(size: Int, selectivity: Double) extends Query
 
 
 case class ExperimentConfig(
@@ -111,9 +129,7 @@ object ExperimentRunner extends App {
 
   val ds = loadDataset()
 
-
   runQueries()
-
 
   scala.io.StdIn.readLine("Stop?")
 
@@ -163,9 +179,11 @@ object ExperimentRunner extends App {
     val conf = new SparkConf()
       .setMaster("local[1]")
       .setAppName("Spark test")
-      .set("spark.executor.memory", "2g")
+      .set("spark.executor.memory", "5g")
       .set("spark.driver.memory", "2g")
-      .set("spark.sql.codegen.wholeStage", "false")
+//      .set("spark.sql.autoBroadcastJoinThreshold", "104857600")  // High threshold
+//      .set("spark.sql.autoBroadcastJoinThreshold", "-1")  // No broadcast
+//      .set("spark.sql.codegen.wholeStage", "false")
     val spark = SparkSession.builder()
       .config(conf)
       .getOrCreate()
@@ -175,13 +193,17 @@ object ExperimentRunner extends App {
   }
 
   private def loadDataset(): DataFrame = {
+    val dt = config.datasetType
+    println(s"Loading ${dt.name} dataset from ${config.datasetFilePath}")
     var d = config.datasetType match {
       case AmazonCoPurchase => {
-        println(s"Loading amazon dataset from ${config.datasetFilePath}")
-        Datasets.loadAmazonDataset(sp) // TODO use filepath
+        Datasets.loadAmazonDataset(config.datasetFilePath.toString, sp)
       }
       case SNB => {
-        ???
+        Datasets.loadSNBDataset(sp, config.datasetFilePath.toString)
+      }
+      case LiveJournal2010 => {
+        Datasets.loadLiveJournalDataset(sp, config.datasetFilePath.toString)
       }
     }
     if (config.limitDataset != -1) {
@@ -210,7 +232,7 @@ object ExperimentRunner extends App {
           case Cycle(s) => {
             Queries.cycleBinaryJoins(s, ds)
           }
-          case Path(s, selectivity) => {
+          case PathQuery(s, selectivity) => {
             val (ns1, ns2) = Queries.pathQueryNodeSets(ds, selectivity)
             Queries.pathBinaryJoins(s, ds, ns1, ns2)
           }
@@ -224,7 +246,7 @@ object ExperimentRunner extends App {
           case Cycle(s) => {
             Queries.cyclePattern(s, ds)
           }
-          case Path(s, selectivity) => {
+          case PathQuery(s, selectivity) => {
             val (ns1, ns2) = Queries.pathQueryNodeSets(ds, selectivity)
             Queries.pathPattern(s, ds, ns1, ns2)
           }
@@ -234,9 +256,9 @@ object ExperimentRunner extends App {
 
     println("Starting ...") // TODO
     val start = System.nanoTime()
-    val countBySpark = queryDataFrame.foreach(r => r)
+    val count = queryDataFrame.count()
     val end = System.nanoTime()
-    println(s"Count by binary joins $countBySpark took ${(end - start).toDouble / 1000000000}")
+    println(s"Count by ${config.algorithm} $count took ${(end - start).toDouble / 1000000000}")
   }
 
 

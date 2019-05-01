@@ -13,7 +13,7 @@ object AmazonPathExperiment extends App with GenericExperiment {
 
   run()
 
-  override def loadDataset(sp: SparkSession) = loadAmazonDataset(sp).limit(1000)
+  override def loadDataset(sp: SparkSession) = loadAmazonDataset("/home/per/workspace/master-thesis/datasets/amazon-0302.csv", sp).limit(1000)
 
   override def runWCOJ(sp: SparkSession, dataSet: DataFrame) = fourPathPattern(dataSet, nodeSet1, nodeSet2).count()
 
