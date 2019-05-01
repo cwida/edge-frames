@@ -9,17 +9,23 @@ import org.apache.spark.sql.execution.metric.SQLMetrics
 
 case class ToTrieIterableRDDExec(child: SparkPlan, attributeOrdering: Seq[String]) extends UnaryExecNode {
   val MATERIALIZATION_TIME_METRIC = "materializationTime"
+  val MEMORY_USAGE_METRIC = "memoryConsumption"
 
   override lazy val metrics = Map(
-    MATERIALIZATION_TIME_METRIC -> SQLMetrics.createTimingMetric(sparkContext, "materialization time"))
+    MATERIALIZATION_TIME_METRIC -> SQLMetrics.createTimingMetric(sparkContext, "materialization time"),
+    MEMORY_USAGE_METRIC -> SQLMetrics.createSizeMetric(sparkContext, "materialized memory consumption")
+  )
+
+
 
   override protected def doExecute(): RDD[InternalRow] = {
     val matTime = longMetric(MATERIALIZATION_TIME_METRIC)
+    val memoryUsage = longMetric(MEMORY_USAGE_METRIC)
 
     new TrieIterableRDD[ArrayTrieIterable](child.execute()
       .mapPartitions(iter => {
         val start = System.nanoTime()
-        val ret = Iterator(new ArrayTrieIterable(iter.map(
+        val trieIterable = new ArrayTrieIterable(iter.map(
           ir => {
             if (attributeOrdering == Seq("src", "dst")) {
               new GenericInternalRow(Array[Any](ir.getInt(0), ir.getInt(1)))  // TODO should I safe this rewrite, e.g. by doing it in ArrayTrieIterable
@@ -27,10 +33,12 @@ case class ToTrieIterableRDDExec(child: SparkPlan, attributeOrdering: Seq[String
               new GenericInternalRow(Array[Any](ir.getInt(1), ir.getInt(0)))
             }
           }
-        )))
-        val end = System.nanoTime()
-        matTime += (end - start) / 1000000
-        ret
+        ))
+
+        matTime += (System.nanoTime() - start) / 1000000
+        memoryUsage += trieIterable.getMemoryUsage()
+
+        Iterator(trieIterable)
       }))
   }
 

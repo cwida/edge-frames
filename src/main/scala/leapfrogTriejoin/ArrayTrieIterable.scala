@@ -33,6 +33,10 @@ class ArrayTrieIterable(iter: Iterator[InternalRow]) extends TrieIterable {
     new TrieIteratorImpl(tuples)
   }
 
+  def getMemoryUsage(): Long = {
+    numRows * 2 * 4
+  }
+
   class TrieIteratorImpl(val tuples: ColumnarBatch) extends TrieIterator {
     private val maxDepth = tuples.numCols() - 1
 
