@@ -3,9 +3,14 @@ package experiments
 import java.io.File
 
 import org.apache.spark.SparkConf
+import org.apache.spark.scheduler.{AccumulableInfo, SparkListener, SparkListenerEvent, SparkListenerExecutorMetricsUpdate, SparkListenerJobEnd, SparkListenerStageCompleted, SparkListenerTaskEnd}
+import org.apache.spark.sql.execution.metric.SQLMetrics
+import org.apache.spark.sql.execution.ui.{SQLAppStatusListener, SQLAppStatusStore, SparkListenerSQLExecutionEnd}
 import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.status.{ElementTrackingStore, PublicElementTrackingStore}
+import org.apache.spark.util.kvstore.InMemoryStore
 import scopt.OParser
-import sparkIntegration.WCOJ2WCOJExec
+import sparkIntegration.{WCOJ2WCOJExec, WCOJExec}
 
 import scala.collection.mutable.ListBuffer
 
@@ -76,31 +81,24 @@ object Readers {
 }
 
 sealed trait Algorithm {
-  def name: String
 }
 
 case object WCOJ extends Algorithm {
-  override def name: String = "WCOJ"
 }
 
 case object BinaryJoins extends Algorithm {
-  override def name: String = "Binary join"
 }
 
 sealed trait DatasetType {
-  def name: String
 }
 
 case object AmazonCoPurchase extends DatasetType {
-  override def name: String = "Amazon-co-purchase"
 }
 
 case object SNB extends DatasetType {
-  override def name: String = "SNB"
 }
 
 case object LiveJournal2010 extends DatasetType {
-  override def name: String = "LiveJournal2010"
 }
 
 sealed trait Query
@@ -131,6 +129,11 @@ object ExperimentRunner extends App {
   val sp = setupSpark()
 
   val ds = loadDataset()
+
+  val wcojTimes = ListBuffer[Double]()
+  val copyTimes = ListBuffer[Double]()
+  val materializationTimes = ListBuffer[Double]()
+  setupMetricListener(wcojTimes, materializationTimes, copyTimes)
 
   runQueries()
 
@@ -182,9 +185,9 @@ object ExperimentRunner extends App {
       .setAppName("Spark test")
       .set("spark.executor.memory", "5g")
       .set("spark.driver.memory", "2g")
-      .set("spark.sql.autoBroadcastJoinThreshold", "104857600")  // High threshold
-//      .set("spark.sql.autoBroadcastJoinThreshold", "-1")  // No broadcast
-//      .set("spark.sql.codegen.wholeStage", "false")
+      .set("spark.sql.autoBroadcastJoinThreshold", "104857600") // High threshold
+    //      .set("spark.sql.autoBroadcastJoinThreshold", "-1")  // No broadcast
+    //      .set("spark.sql.codegen.wholeStage", "false")
     val spark = SparkSession.builder()
       .config(conf)
       .getOrCreate()
@@ -195,7 +198,8 @@ object ExperimentRunner extends App {
 
   private def loadDataset(): DataFrame = {
     val dt = config.datasetType
-    println(s"Loading ${dt.name} dataset from ${config.datasetFilePath}")
+
+    println(s"Loading ${dt} dataset from ${config.datasetFilePath}")
     var d = config.datasetType match {
       case AmazonCoPurchase => {
         Datasets.loadAmazonDataset(config.datasetFilePath.toString, sp)
@@ -257,18 +261,54 @@ object ExperimentRunner extends App {
       }
 
       val times = ListBuffer[Double]()
+      wcojTimes.clear()
+      materializationTimes.clear()
+      copyTimes.clear()
+
       for (i <- 1 to config.reps) {
-        println("Starting ...") // TODO
+        print(".")
         val start = System.nanoTime()
         val count = queryDataFrame.count()
         val end = System.nanoTime()
         val time = (end - start).toDouble / 1000000000
-        println(s"Count by $algoritm $count took $time")
         times += time
       }
+      println()
+
       println(s"Using $algoritm, $query took ${times.sum / times.size} in average over ${config.reps} repetitions.")
+      if (wcojTimes.nonEmpty) {
+        assert(wcojTimes.size == config.reps)
+        assert(materializationTimes.size == config.reps)
+        assert(copyTimes.size == config.reps)
+
+        println(s"WCOJ took ${wcojTimes.sum / wcojTimes.size}, copying took ${copyTimes.sum / copyTimes.size} took ${materializationTimes.sum / materializationTimes.size}")
+      }
     }
   }
 
+  private def setupMetricListener(wcojTimes: ListBuffer[Double], materializationTimes: ListBuffer[Double], copyTimes: ListBuffer[Double]): Unit = {
+    sp.sparkContext.addSparkListener(new SparkListener {
+      override def onStageCompleted(stageCompleted: SparkListenerStageCompleted): Unit = {
+        var materializationTimeTotal = 0L
+
+        stageCompleted.stageInfo.accumulables.foreach({
+          case (_, AccumulableInfo(_, Some(name), _, Some(value), _, _, _)) => {
+            if (name.startsWith("wcoj time")) {
+              wcojTimes += value.asInstanceOf[Long].toDouble / 1000
+            } else if (name.startsWith("materialization time")) {
+              materializationTimeTotal += value.asInstanceOf[Long]
+            } else if (name.startsWith("copy")) {
+              copyTimes += value.asInstanceOf[Long].toDouble / 1000
+            }
+          }
+        })
+
+        if (materializationTimeTotal != 0) {
+          materializationTimes += materializationTimeTotal.toDouble / 1000
+        }
+      }
+    })
+
+  }
 
 }
