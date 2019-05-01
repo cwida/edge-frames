@@ -111,7 +111,7 @@ case class PathQuery(size: Int, selectivity: Double) extends Query
 
 
 case class ExperimentConfig(
-                             algorithm: Algorithm = WCOJ,
+                             algorithms: Seq[Algorithm] = Seq(WCOJ, BinaryJoins),
                              datasetType: DatasetType = AmazonCoPurchase,
                              datasetFilePath: File = new File("."),
                              queries: Seq[Query] = Seq.empty,
@@ -144,9 +144,9 @@ object ExperimentRunner extends App {
       OParser.sequence(
         programName("experiment-runner"),
         head("experiment-runner", "0.1"),
-        opt[Algorithm]('a', "algorithm")
+        opt[Seq[Algorithm]]('a', "algorithms")
           .required()
-          .action((x, c) => c.copy(algorithm = x))
+          .action((x, c) => c.copy(algorithms = x))
           .text("The algorithm to run experiments with, `bin` or `WCOJ`"),
         opt[DatasetType]('d', "dataset-type")
           .required()
@@ -157,12 +157,7 @@ object ExperimentRunner extends App {
           .action((x, c) => c.copy(outputPath = x)),
         opt[File]('i', "dataset-path")
           .required()
-          .action((x, c) => c.copy(datasetFilePath = x))
-          .validate(x => if (x.exists()) {
-            success
-          } else {
-            failure("Input path does not exist")
-          }),
+          .action((x, c) => c.copy(datasetFilePath = x)),
         opt[Seq[Query]]('q', "queries")
           .valueName("<query1>,<query2>...")
           .required()
@@ -181,7 +176,7 @@ object ExperimentRunner extends App {
       .setAppName("Spark test")
       .set("spark.executor.memory", "5g")
       .set("spark.driver.memory", "2g")
-//      .set("spark.sql.autoBroadcastJoinThreshold", "104857600")  // High threshold
+      .set("spark.sql.autoBroadcastJoinThreshold", "104857600")  // High threshold
 //      .set("spark.sql.autoBroadcastJoinThreshold", "-1")  // No broadcast
 //      .set("spark.sql.codegen.wholeStage", "false")
     val spark = SparkSession.builder()
@@ -218,47 +213,49 @@ object ExperimentRunner extends App {
 
   private def runQueries() = {
     for (q <- config.queries) {
-      runQuery(q)
+      runQuery(config.algorithms, q)
     }
   }
 
-  private def runQuery(query: Query): Unit = {
-    val queryDataFrame = config.algorithm match {
-      case BinaryJoins => {
-        query match {
-          case Clique(s) => {
-            Queries.cliqueBinaryJoins(s, sp, ds)
+  private def runQuery(algorithms: Seq[Algorithm], query: Query): Unit = {
+    for (algoritm <- algorithms) {
+      val queryDataFrame = algoritm match {
+        case BinaryJoins => {
+          query match {
+            case Clique(s) => {
+              Queries.cliqueBinaryJoins(s, sp, ds)
+            }
+            case Cycle(s) => {
+              Queries.cycleBinaryJoins(s, ds)
+            }
+            case PathQuery(s, selectivity) => {
+              val (ns1, ns2) = Queries.pathQueryNodeSets(ds, selectivity)
+              Queries.pathBinaryJoins(s, ds, ns1, ns2)
+            }
           }
-          case Cycle(s) => {
-            Queries.cycleBinaryJoins(s, ds)
-          }
-          case PathQuery(s, selectivity) => {
-            val (ns1, ns2) = Queries.pathQueryNodeSets(ds, selectivity)
-            Queries.pathBinaryJoins(s, ds, ns1, ns2)
+        }
+        case WCOJ => {
+          query match {
+            case Clique(s) => {
+              Queries.cliquePattern(s, ds)
+            }
+            case Cycle(s) => {
+              Queries.cyclePattern(s, ds)
+            }
+            case PathQuery(s, selectivity) => {
+              val (ns1, ns2) = Queries.pathQueryNodeSets(ds, selectivity)
+              Queries.pathPattern(s, ds, ns1, ns2)
+            }
           }
         }
       }
-      case WCOJ => {
-        query match {
-          case Clique(s) => {
-            Queries.cliquePattern(s, ds)
-          }
-          case Cycle(s) => {
-            Queries.cyclePattern(s, ds)
-          }
-          case PathQuery(s, selectivity) => {
-            val (ns1, ns2) = Queries.pathQueryNodeSets(ds, selectivity)
-            Queries.pathPattern(s, ds, ns1, ns2)
-          }
-        }
-      }
-    }
 
-    println("Starting ...") // TODO
-    val start = System.nanoTime()
-    val count = queryDataFrame.count()
-    val end = System.nanoTime()
-    println(s"Count by ${config.algorithm} $count took ${(end - start).toDouble / 1000000000}")
+      println("Starting ...") // TODO
+      val start = System.nanoTime()
+      val count = queryDataFrame.count()
+      val end = System.nanoTime()
+      println(s"Count by $algoritm $count took ${(end - start).toDouble / 1000000000}")
+    }
   }
 
 
