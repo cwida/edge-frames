@@ -24,8 +24,13 @@ class LeapfrogTriejoin(trieIterators: Map[EdgeRelationship, TrieIterator], varia
   val leapfrogJoins = allVariables
     .map(v =>
         (v, new LeapfrogJoin(
-          trieIterators.filter({ case (r, _) => r.variables.contains(v) }).map(_._2).toArray)))
+          trieIterators.filter({ case (r, _) => r.variables.contains(v) }).values.toArray)))
     .toMap
+
+  val variable2TrieIterators = allVariables
+    .map( v =>
+      (v, trieIterators.filter( { case (r, _) => r.variables.contains(v)}).values)
+    ).toMap
 
   var depth = -1
   var bindings = Array.fill(allVariables.size)(-1)
@@ -103,16 +108,12 @@ class LeapfrogTriejoin(trieIterators: Map[EdgeRelationship, TrieIterator], varia
   private def triejoinOpen() ={
     depth += 1
     val variable = variableOrdering(depth)
-    trieIterators
-      .filter( { case (r, _) => r.variables.contains(variable) })
-      .foreach( { case (_, i) => i.open() })
+    variable2TrieIterators(variable).foreach(_.open())
     leapfrogJoins(variable).init()
   }
 
   private def triejoinUp() = {
-    trieIterators
-      .filter( { case (r, _) => r.variables.contains(variableOrdering(depth)) })
-      .foreach( { case (r, i) => i.up() })
+    variable2TrieIterators(variableOrdering(depth)).foreach(_.up())
     bindings(depth) = -1
     depth -= 1
   }

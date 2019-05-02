@@ -270,7 +270,7 @@ object ExperimentRunner extends App {
         val count = queryDataFrame.count()
         val end = System.nanoTime()
         val time = (end - start).toDouble / 1000000000
-        println(s"$algoritm $count")
+//        println(s"$algoritm $count")
         times += time
       }
       println()
