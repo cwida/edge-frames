@@ -1,10 +1,12 @@
 package leapfrogTriejoin
 
-import org.scalatest.FlatSpec
+import org.scalacheck.Gen
+import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.prop.GeneratorDrivenPropertyChecks
 
-class LeapfrogJoinSpec extends FlatSpec {
+class LeapfrogJoinSpec extends FlatSpec with GeneratorDrivenPropertyChecks with Matchers {
 
-  def assertJoinEqual(join: LeapfrogJoin, values: Seq[Int]) ={
+  def assertJoinEqual(join: LeapfrogJoin, values: Seq[Int]) = {
     for (v <- values) {
       assert(join.key == v)
       join.leapfrogNext()
@@ -51,5 +53,37 @@ class LeapfrogJoinSpec extends FlatSpec {
       trieIteratorFromUnaryRelationship(values2)))
     join.init()
     assert(join.atEnd)
+  }
+
+
+  "sortIterators1" should "sort the iterators" in {
+    val join = new LeapfrogJoin(Array(
+      trieIteratorFromUnaryRelationship(Array(3)),
+      trieIteratorFromUnaryRelationship(Array(22)),
+      trieIteratorFromUnaryRelationship(Array(1))))
+
+    val expected = join.iterators.sortBy(_.key)
+    join.sortIterators()
+    join.iterators.map(_.key) should contain theSameElementsInOrderAs expected.map(_.key)
+  }
+
+  "sortIterators" should "sort the iterators" in {
+
+    val positiveInts1 = Gen.nonEmptyListOf(Gen.posNum[Int])
+    val positiveInts2 = Gen.nonEmptyListOf(Gen.posNum[Int])
+    val positiveInts3 = Gen.nonEmptyListOf(Gen.posNum[Int])
+
+    forAll(positiveInts1, positiveInts2, positiveInts3) { (rel1, rel2, rel3) =>
+      whenever(rel1.union(rel2).union(rel3).forall(_ > 0)) {
+        val join = new LeapfrogJoin(Array(
+          trieIteratorFromUnaryRelationship(rel1.toArray),
+          trieIteratorFromUnaryRelationship(rel2.toArray),
+          trieIteratorFromUnaryRelationship(rel3.toArray)))
+
+        val expected = join.iterators.sortBy(_.key)
+        join.sortIterators()
+        join.iterators should contain theSameElementsInOrderAs expected
+      }
+    }
   }
 }

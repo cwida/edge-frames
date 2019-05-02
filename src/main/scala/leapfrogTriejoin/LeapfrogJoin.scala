@@ -15,8 +15,25 @@ class LeapfrogJoin(var iterators: Array[LinearIterator] ) {
     key = 0
 
     if (!atEnd) {
-      iterators = iterators.sortBy(i => i.key)
+      sortIterators()
       leapfrogSearch()
+    }
+  }
+
+  // Public for testing
+  def sortIterators(): Unit = {
+//    iterators = iterators.sortBy(i => i.key)
+    var i = 1
+    while (i < iterators.size) {
+      val iteratorToSort = iterators(i)
+      val keyToSort = iterators(i).key
+      var j = i
+      while (j > 0 && iterators(j - 1).key > keyToSort) {
+        iterators(j) = iterators(j - 1)
+        j -= 1
+      }
+      iterators(j) = iteratorToSort
+      i += 1
     }
   }
 
