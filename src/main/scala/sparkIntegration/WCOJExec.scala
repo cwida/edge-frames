@@ -3,9 +3,12 @@ package sparkIntegration
 import leapfrogTriejoin.TrieIterable
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.catalyst.expressions.{Attribute, AttributeSet, GenericInternalRow, UnsafeProjection}
+import org.apache.spark.sql.catalyst.expressions.{Attribute, AttributeSet, BaseGenericInternalRow, GenericInternalRow, UnsafeProjection}
+import org.apache.spark.sql.catalyst.util.{ArrayData, MapData}
 import org.apache.spark.sql.execution.metric.SQLMetrics
 import org.apache.spark.sql.execution.{RowIterator, SparkPlan}
+import org.apache.spark.sql.types.{DataType, Decimal}
+import org.apache.spark.unsafe.types.{CalendarInterval, UTF8String}
 import sparkIntegration.implicits._
 
 import scala.reflect.ClassTag
@@ -54,6 +57,8 @@ case class WCOJExec(outputVariables: Seq[Attribute], joinSpecification: JoinSpec
 
         val iter = new RowIterator {
           var row: Array[Int] = null
+          val rowSize = joinSpecification.allVariables.size
+          val internalRowBuffer = new WCOJInternalRow(new Array[Int](rowSize))
 
           override def advanceNext(): Boolean = {
             if (join.atEnd) {
@@ -73,10 +78,8 @@ case class WCOJExec(outputVariables: Seq[Attribute], joinSpecification: JoinSpec
 
           override def getRow: InternalRow = {
             val start = System.nanoTime()
-            // TODO can I maybe even safe to construct the generic row?
-            val gr = new GenericInternalRow(row.size)
-            row.zipWithIndex.foreach { case (b, i) => gr.update(i.toInt, b) }
-            val ur = toUnsafeProjection(gr)
+            internalRowBuffer.row = row
+            val ur = toUnsafeProjection(internalRowBuffer)
             copyTimeAcc += (System.nanoTime() - start)
             ur
           }
