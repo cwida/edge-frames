@@ -12,8 +12,6 @@ class TreeTrieIterator(val values: Array[(Int, Int)]) extends TrieIterator {
   val HIGHEST_LEVEL = -1
   var map = new TreeMap[Vector[Int], Int]()
 
-  logger.error(values.map(t => t.toString()).mkString(", "))
-
   for ((t, i) <- values.zipWithIndex) {
     map = map.updated(Vector(t._1, t._2), i)
   }
