@@ -7,7 +7,6 @@ import org.apache.spark.scheduler.{AccumulableInfo, SparkListener, SparkListener
 import org.apache.spark.sql.execution.metric.SQLMetrics
 import org.apache.spark.sql.execution.ui.{SQLAppStatusListener, SQLAppStatusStore, SparkListenerSQLExecutionEnd}
 import org.apache.spark.sql.{DataFrame, SparkSession}
-import org.apache.spark.status.{ElementTrackingStore, PublicElementTrackingStore}
 import org.apache.spark.util.kvstore.InMemoryStore
 import scopt.OParser
 import sparkIntegration.{WCOJ2WCOJExec, WCOJExec}
@@ -113,7 +112,7 @@ case class PathQuery(size: Int, selectivity: Double) extends Query
 case class ExperimentConfig(
                              algorithms: Seq[Algorithm] = Seq(WCOJ, BinaryJoins),
                              datasetType: DatasetType = AmazonCoPurchase,
-                             datasetFilePath: File = new File("."),
+                             datasetFilePath: String = ".",
                              queries: Seq[Query] = Seq.empty,
                              outputPath: File = new File("."),
                              reps: Int = 1,
@@ -161,7 +160,7 @@ object ExperimentRunner extends App {
           .valueName("<measurements-output-folder>")
           .required()
           .action((x, c) => c.copy(outputPath = x)),
-        opt[File]('i', "dataset-path")
+        opt[String]('i', "dataset-path")
           .required()
           .action((x, c) => c.copy(datasetFilePath = x)),
         opt[Seq[Query]]('q', "queries")
@@ -183,10 +182,10 @@ object ExperimentRunner extends App {
     val conf = new SparkConf()
       .setMaster("local[1]")
       .setAppName("Spark test")
-      .set("spark.executor.memory", "5g")
+      .set("spark.executor.memory", "40g")
       .set("spark.driver.memory", "2g")
       .set("spark.sql.autoBroadcastJoinThreshold", "104857600") // High threshold
-    //      .set("spark.sql.autoBroadcastJoinThreshold", "-1")  // No broadcast
+//          .set("spark.sql.autoBroadcastJoinThreshold", "-1")  // No broadcast
     //      .set("spark.sql.codegen.wholeStage", "false")
     val spark = SparkSession.builder()
       .config(conf)
@@ -202,13 +201,13 @@ object ExperimentRunner extends App {
     println(s"Loading ${dt} dataset from ${config.datasetFilePath}")
     var d = config.datasetType match {
       case AmazonCoPurchase => {
-        Datasets.loadAmazonDataset(config.datasetFilePath.toString, sp)
+        Datasets.loadAmazonDataset(config.datasetFilePath, sp)
       }
       case SNB => {
-        Datasets.loadSNBDataset(sp, config.datasetFilePath.toString)
+        Datasets.loadSNBDataset(sp, config.datasetFilePath)
       }
       case LiveJournal2010 => {
-        Datasets.loadLiveJournalDataset(sp, config.datasetFilePath.toString)
+        Datasets.loadLiveJournalDataset(sp, config.datasetFilePath)
       }
     }
     if (config.limitDataset != -1) {
@@ -271,6 +270,7 @@ object ExperimentRunner extends App {
         val count = queryDataFrame.count()
         val end = System.nanoTime()
         val time = (end - start).toDouble / 1000000000
+        println(s"$algoritm $count")
         times += time
       }
       println()

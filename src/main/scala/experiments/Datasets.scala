@@ -45,7 +45,7 @@ object Datasets {
 
   def loadAndCacheAsParquet(datasetFilePath: String, csvReader: DataFrameReader, sp: SparkSession): DataFrame = {
     val parquetFile = datasetFilePath + ".parquet"
-    if (Files.exists(Paths.get(parquetFile))) {
+    if (Files.exists(Paths.get(parquetFile.replace("file://", "")))) {
       sp.read.parquet(parquetFile)
     } else {
       println("Parquet file not existing")
