@@ -3,7 +3,7 @@ package sparkIntegration
 import leapfrogTriejoin.TrieIterable
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.catalyst.expressions.{Attribute, AttributeSet, BaseGenericInternalRow, GenericInternalRow, UnsafeProjection}
+import org.apache.spark.sql.catalyst.expressions.{Attribute, AttributeSet, BaseGenericInternalRow, BoundReference, GenericInternalRow, UnsafeProjection}
 import org.apache.spark.sql.catalyst.util.{ArrayData, MapData}
 import org.apache.spark.sql.execution.metric.SQLMetrics
 import org.apache.spark.sql.execution.{RowIterator, SparkPlan}
@@ -48,7 +48,9 @@ case class WCOJExec(outputVariables: Seq[Attribute], joinSpecification: JoinSpec
     val trieIterableRDDs = childRDDs.map(_.asInstanceOf[TrieIterableRDD[TrieIterable]].trieIterables)
 
     def zipPartitions(is : List[Iterator[TrieIterable]]): Iterator[InternalRow] = {
-      val toUnsafeProjection = UnsafeProjection.create(output.map(_.dataType).toArray)
+      val toUnsafeProjection = UnsafeProjection.create(output.zipWithIndex.map( {
+        case (a, i) => BoundReference(i, a.dataType, a.nullable)
+      }))
 
       val zippedIters: Iterator[List[TrieIterable]] = generalZip(is)
 
