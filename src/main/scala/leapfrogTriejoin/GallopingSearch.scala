@@ -14,12 +14,15 @@ object GallopingSearch {
     while (bound < end && values.getInt(bound) < key) {
       bound *= 2
     }
+    // TODO if less than 50 or 60 go linear
     binarySearch(values, key, Math.max(start, bound / 2), min(bound + 1, end))
   }
 
   def binarySearch(vector: ColumnVector, key: Int, start: Int, end: Int): Int = {
     assert(0 <= start)
     assert(start < end)
+
+    // TODO could be used with summary
 
     var L = start
     var R = end

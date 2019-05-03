@@ -64,6 +64,11 @@ class LeapfrogTriejoin(trieIterators: Map[EdgeRelationship, TrieIterator], varia
       action = UP_ACTION
     }
     var done = false
+    // TODO unrolling
+    // TODO factor out all variables
+    // TODO use compiler optimizer
+
+
     while (!done) {
       if (action == NEXT_ACTION) {
         currentLeapfrogJoin.leapfrogNext()
@@ -72,7 +77,7 @@ class LeapfrogTriejoin(trieIterators: Map[EdgeRelationship, TrieIterator], varia
         } else {
           bindings(depth) = currentLeapfrogJoin.key
           if (depth == allVariables.size - 1) {
-            done = true
+            done = true  // TODO predicatable?
           } else {
             action = DOWN_ACTION
           }

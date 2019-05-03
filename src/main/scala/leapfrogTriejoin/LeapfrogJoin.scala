@@ -21,6 +21,8 @@ class LeapfrogJoin(var iterators: Array[LinearIterator] ) {
   }
 
   // Public for testing
+
+  // TODO look at ways to avoid that sort.
   def sortIterators(): Unit = {
 //    iterators = iterators.sortBy(i => i.key)
     var i = 1

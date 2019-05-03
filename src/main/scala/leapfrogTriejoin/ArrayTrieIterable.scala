@@ -4,7 +4,7 @@ import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.GenericInternalRow
 import org.apache.spark.sql.execution.vectorized.OnHeapColumnVector
 import org.apache.spark.sql.types.IntegerType
-import org.apache.spark.sql.vectorized.ColumnarBatch
+import org.apache.spark.sql.vectorized.{ColumnVector, ColumnarBatch}
 
 import collection.JavaConverters._
 
@@ -45,6 +45,9 @@ class ArrayTrieIterable(iter: Iterator[InternalRow]) extends TrieIterable {
     private var end = Array.fill(tuples.numCols())(-1)
     private var isAtEnd = tuples.numRows() == 0
 
+    private var currentColumn: ColumnVector = null
+//    private var currentPosition
+
     override def open(): Unit = {
       assert(depth < maxDepth, "Cannot open TrieIterator at maxDepth")
 
@@ -75,6 +78,8 @@ class ArrayTrieIterable(iter: Iterator[InternalRow]) extends TrieIterable {
 
     override def key: Int = {
       assert(!atEnd, "Calling key on TrieIterator atEnd is illegal.")
+
+      // TODO use column reference and position
       tuples.column(depth).getInt(position(depth))
     }
 
