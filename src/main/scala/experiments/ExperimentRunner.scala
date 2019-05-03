@@ -272,6 +272,7 @@ object ExperimentRunner extends App {
         val time = (end - start).toDouble / 1000000000
 //        println(s"$algoritm $count")
         times += time
+        System.gc()
       }
       println()
 
