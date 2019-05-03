@@ -162,6 +162,7 @@ object Queries {
       .join(rel.selectExpr("src AS d", "dst AS a"), Seq("a", "d"), "left_semi"), Seq("a", "b", "c", "d"))
   }
 
+  // TODO run binaries on worst order
   def fourCliqueBinaryJoins(sp: SparkSession, rel: DataFrame): DataFrame = {
     import sp.implicits._
     val triangles = triangleBinaryJoins(sp, rel)
@@ -174,13 +175,19 @@ object Queries {
     fourClique.select("a", "b", "c", "d")
   }
 
+  val fiveVerticePermuations = ('a' to 'e').map(c => s"$c").permutations.toList
+  var permCounter = 0
+
   def cliquePattern(size: Int, rel: DataFrame): DataFrame = {
+//    val perm = fiveVerticePermuations(permCounter)
+//    permCounter += 1
     val alphabet = 'a' to 'z'
     val verticeNames = alphabet.slice(0, size).map(_.toString)
 
     val pattern = verticeNames.combinations(2).filter(e => e(0) < e(1))
       .map(e => s"(${e(0)}) - [] -> (${e(1)})")
       .mkString(";")
+//    println(s"Perm: ${perm.mkString(",")} at position $permCounter")
     rel.findPattern(pattern, verticeNames)
   }
 
