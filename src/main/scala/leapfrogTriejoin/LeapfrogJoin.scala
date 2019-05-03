@@ -24,7 +24,6 @@ class LeapfrogJoin(var iterators: Array[LinearIterator] ) {
 
   // TODO look at ways to avoid that sort.
   def sortIterators(): Unit = {
-//    iterators = iterators.sortBy(i => i.key)
     var i = 1
     while (i < iterators.size) {
       val iteratorToSort = iterators(i)

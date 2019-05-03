@@ -21,16 +21,16 @@ class LeapfrogTriejoin(trieIterators: Map[EdgeRelationship, TrieIterator], varia
     "Variable ordering differs for some relationships."
   )
 
-  val leapfrogJoins = allVariables
+  val leapfrogJoins: Array[LeapfrogJoin] = variableOrdering
     .map(v =>
-        (v, new LeapfrogJoin(
-          trieIterators.filter({ case (r, _) => r.variables.contains(v) }).values.toArray)))
-    .toMap
+        new LeapfrogJoin(trieIterators
+          .filter({ case (r, _) => r.variables.contains(v) }).values.toArray))
+    .toArray
 
-  val variable2TrieIterators = allVariables
+  val variable2TrieIterators: Array[Array[TrieIterator]] = variableOrdering
     .map( v =>
-      (v, trieIterators.filter( { case (r, _) => r.variables.contains(v)}).values)
-    ).toMap
+      trieIterators.filter( { case (r, _) => r.variables.contains(v)}).values.toArray
+    ).toArray
 
   var depth = -1
   var bindings = Array.fill(allVariables.size)(-1)
@@ -49,8 +49,6 @@ class LeapfrogTriejoin(trieIterators: Map[EdgeRelationship, TrieIterator], varia
 
     tuple
   }
-
-
 
   private def moveToNextTuple() = {
     val DOWN_ACTION: Int = 0
@@ -110,20 +108,20 @@ class LeapfrogTriejoin(trieIterators: Map[EdgeRelationship, TrieIterator], varia
       }
     }
   }
+
   private def triejoinOpen() ={
     depth += 1
-    val variable = variableOrdering(depth)
-    variable2TrieIterators(variable).foreach(_.open())
-    leapfrogJoins(variable).init()
+    variable2TrieIterators(depth).foreach(_.open())
+    leapfrogJoins(depth).init()
   }
 
   private def triejoinUp() = {
-    variable2TrieIterators(variableOrdering(depth)).foreach(_.up())
+    variable2TrieIterators(depth).foreach(_.up())
     bindings(depth) = -1
     depth -= 1
   }
 
   private def currentLeapfrogJoin: LeapfrogJoin = {
-    leapfrogJoins(variableOrdering(depth))
+    leapfrogJoins(depth)
   }
 }
