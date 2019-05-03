@@ -39,53 +39,64 @@ class ArrayTrieIterable(iter: Iterator[InternalRow]) extends TrieIterable {
 
   class TrieIteratorImpl(val tuples: ColumnarBatch) extends TrieIterator {
     private val maxDepth = tuples.numCols() - 1
+    private val numRows = tuples.numRows()
 
     private var depth = -1
     private var position = Array.fill(tuples.numCols())(-1)
     private var end = Array.fill(tuples.numCols())(-1)
-    private var isAtEnd = tuples.numRows() == 0
+    private var isAtEnd = numRows == 0
 
     private var currentColumn: ColumnVector = null
-//    private var currentPosition
+    private var currentPosition: Int = -1
 
     override def open(): Unit = {
       assert(depth < maxDepth, "Cannot open TrieIterator at maxDepth")
 
-      var newEnd = tuples.numRows()
-      if (depth >= 0) {
-        newEnd = position(depth)
+      var newEnd = numRows
+      if (depth >= 0) {  // TODO remove ifs?
+        newEnd = currentPosition
+
+        val beginValue = currentColumn.getInt(currentPosition)
         do {
           newEnd += 1
-        } while (newEnd + 1 <= tuples.numRows() && tuples.column(depth).getInt(newEnd) == tuples.column(depth).getInt(position(depth)))
+        } while (newEnd + 1 <= numRows
+          && currentColumn.getInt(newEnd) == beginValue)
+
+        position(depth) = currentPosition
       }
 
       depth += 1
+
       end(depth) = newEnd
-      position(depth) = if (depth != 0) {
+      currentColumn = tuples.column(depth)
+      isAtEnd = false
+
+      currentPosition = if (depth != 0) {
         position(depth - 1)
       } else {
         0
       }
-      isAtEnd = false
     }
 
     override def up(): Unit = {
       assert(-1 <= depth, "Cannot up TrieIterator at root level")
-      position(depth) = -1
+
       depth -= 1
+      if (depth >= 0) {
+        currentPosition = position(depth)
+        currentColumn = tuples.column(depth)
+      }
       isAtEnd = false
     }
 
     override def key: Int = {
       assert(!atEnd, "Calling key on TrieIterator atEnd is illegal.")
-
-      // TODO use column reference and position
-      tuples.column(depth).getInt(position(depth))
+      currentColumn.getInt(currentPosition)
     }
 
     override def next(): Unit = {
-      assert(tuples.numRows() > position(depth), "No next value, check atEnd before calling next")
-      seek(tuples.column(depth).getInt(position(depth)) + 1)
+      assert(numRows > currentPosition, "No next value, check atEnd before calling next")
+      seek(currentColumn.getInt(currentPosition) + 1)
     }
 
     override def atEnd: Boolean = {
@@ -93,14 +104,15 @@ class ArrayTrieIterable(iter: Iterator[InternalRow]) extends TrieIterable {
     }
 
     override def seek(key: Int): Unit = {
-      position(depth) = GallopingSearch.find(tuples.column(depth), key, position(depth), end(depth))
+      currentPosition = GallopingSearch.find(currentColumn, key, currentPosition, end(depth))
       updateAtEnd()
     }
 
     private def updateAtEnd() {
-      if (position(depth) >= tuples.numRows()) {
+      if (currentPosition >= numRows) {
         isAtEnd = true
-      } else if (depth != 0 && tuples.column(depth - 1).getInt(position(depth - 1)) != tuples.column(depth - 1).getInt(position(depth))) {
+      } else if (depth != 0
+        && tuples.column(depth - 1).getInt(position(depth - 1)) != tuples.column(depth - 1).getInt(currentPosition)) {
         isAtEnd = true
       }
     }

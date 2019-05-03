@@ -16,7 +16,7 @@ class AmazonDatasetTriangleQuery extends FlatSpec with Matchers with SparkTest {
   val OFFICIAL_NUMBERS_OF_TRIANGLES = 717719L
   val DATASET_PATH = "/home/per/workspace/master-thesis/datasets/amazon-0302"
 
-  val FAST = false
+  val FAST = true
   if (FAST) {
     System.err.println("Running correctness test in fast mode")
   }
