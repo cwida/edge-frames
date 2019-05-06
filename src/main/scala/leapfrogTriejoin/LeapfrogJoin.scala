@@ -10,13 +10,26 @@ class LeapfrogJoin(var iterators: Array[LinearIterator] ) {
   var key = 0
 
   def init(): Unit = {
-    atEnd = iterators.exists(i => i.atEnd)
+    iteratorAtEndExists()
+
     p = 0
     key = 0
 
     if (!atEnd) {
       sortIterators()
       leapfrogSearch()
+    }
+  }
+
+  @inline
+  private def iteratorAtEndExists(): Unit = {
+    atEnd = false
+    var i = 0
+    while (i < iterators.length) {
+      if (iterators(i).atEnd) {
+        atEnd = true
+      }
+      i += 1
     }
   }
 
