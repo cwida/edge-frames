@@ -2,7 +2,7 @@ package leapfrogTriejoin
 
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.GenericInternalRow
-import org.apache.spark.sql.execution.vectorized.OnHeapColumnVector
+import org.apache.spark.sql.execution.vectorized.{OffHeapColumnVector, OnHeapColumnVector}
 import org.apache.spark.sql.types.IntegerType
 import org.apache.spark.sql.vectorized.{ColumnVector, ColumnarBatch}
 
@@ -11,8 +11,8 @@ import collection.JavaConverters._
 
 class ArrayTrieIterable(iter: Iterator[InternalRow]) extends TrieIterable {
     // TODO capacity optimization
-  private val srcColumn = new OnHeapColumnVector(1000, IntegerType)
-  private val dstColumn = new OnHeapColumnVector(1000, IntegerType)
+  private val srcColumn = new OffHeapColumnVector(1000, IntegerType)
+  private val dstColumn = new OffHeapColumnVector(1000, IntegerType)
   private var numRows = 0
 
   while (iter.hasNext) {

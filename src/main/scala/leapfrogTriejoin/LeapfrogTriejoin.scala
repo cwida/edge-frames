@@ -126,7 +126,7 @@ class LeapfrogTriejoin(trieIterators: Map[EdgeRelationship, TrieIterator], varia
 
 
   @inline  // Faster than Scala's foreach because it actually gets inlined
-  private def whileForeach(ts : Array[TrieIterator], f: TrieIterator => Unit) = {
+  private def whileForeach(ts : Array[TrieIterator], f: TrieIterator => Unit): Unit = {
     var i = 0
     while (i < ts.length) {
       f(ts(i))
