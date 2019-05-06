@@ -43,7 +43,7 @@ case class WCOJExec(outputVariables: Seq[Attribute], joinSpecification: JoinSpec
     val childRDDs = children.map(_.execute())
 
     // TODO ask Bogdan if we can enforce that the child needs a specific RDD type
-    require(childRDDs.forall(_.isInstanceOf[TrieIterableRDD[TrieIterable]]))
+//    require(childRDDs.forall(_.isInstanceOf[TrieIterableRDD[TrieIterable]]))
 
     val trieIterableRDDs = childRDDs.map(_.asInstanceOf[TrieIterableRDD[TrieIterable]].trieIterables)
 
