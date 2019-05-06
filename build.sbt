@@ -13,7 +13,8 @@ scalacOptions ++= Seq(
 //  "-language:higherKinds",
 //  "-language:existentials",
 //  "-language:postfixOps",
-  "-optimize"
+  "-optimize",
+//  "-Xdisable-assertions"
 )
 
 libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.5" % "test"
