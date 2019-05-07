@@ -79,7 +79,7 @@ object Queries {
     val relRight = rel.selectExpr("dst AS z", "src AS c").join(nodeSet2, Seq("z"), "left_semi")
 
     val middleLeft = relLeft.join(rel.selectExpr("src AS b", "dst AS c"), Seq("b")).selectExpr("a", "b", "c")
-    relRight.join(middleLeft, "c").select("a", "b", "c", "z")
+    withDistinctColumns(relRight.join(middleLeft, "c").select("a", "b", "c", "z"), Seq("a", "b", "c", "z"))
   }
 
   private def threePathPattern(rel: DataFrame, nodeSet1: DataFrame, nodeSet2: DataFrame): DataFrame = {
@@ -89,9 +89,9 @@ object Queries {
         |(b) - [] -> (c);
         |(c) - [] -> (z)
       """.stripMargin, Seq("a", "z", "c", "b"))
-    threePath.join(nodeSet1, Seq("a"), "left_semi")
+    withDistinctColumns(threePath.join(nodeSet1, Seq("a"), "left_semi")
       .join(nodeSet2, Seq("z"), "left_semi")
-      .select("a", "b", "c", "z")
+      .select("a", "b", "c", "z"), Seq("a", "b", "c", "z"))
   }
 
   private def fourPathBinaryJoins(rel: DataFrame, nodeSet1: DataFrame, nodeSet2: DataFrame): DataFrame = {

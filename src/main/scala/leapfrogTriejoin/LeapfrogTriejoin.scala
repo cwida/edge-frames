@@ -70,6 +70,7 @@ class LeapfrogTriejoin(trieIterators: Map[EdgeRelationship, TrieIterator], varia
     while (!done) {
       if (action == NEXT_ACTION) {
         currentLeapfrogJoin.leapfrogNext()
+//        leapfrogDistinctNext()
         if (currentLeapfrogJoin.atEnd) {
           action = UP_ACTION
         } else {
@@ -82,6 +83,7 @@ class LeapfrogTriejoin(trieIterators: Map[EdgeRelationship, TrieIterator], varia
         }
       } else if (action == DOWN_ACTION) {
         triejoinOpen()
+//        leapfrogDistinctNext()
         if (currentLeapfrogJoin.atEnd) {
           action = UP_ACTION
         } else {
@@ -107,6 +109,24 @@ class LeapfrogTriejoin(trieIterators: Map[EdgeRelationship, TrieIterator], varia
         }
       }
     }
+  }
+
+  @inline
+  private def leapfrogDistinctNext(): Unit = {
+    while (!currentLeapfrogJoin.atEnd && bindingsContains(currentLeapfrogJoin.key)) {
+      currentLeapfrogJoin.leapfrogNext()
+    }
+  }
+
+  @inline
+  private def bindingsContains(key: Int): Boolean = {
+    var i = 0
+    var contains = false
+    while (i < bindings.length) {
+      contains |= bindings(i) == key
+      i += 1
+    }
+    contains
   }
 
   private def triejoinOpen() ={

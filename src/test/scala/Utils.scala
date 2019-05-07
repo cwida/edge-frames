@@ -50,6 +50,14 @@ object Utils {
     }
   }
 
+  def printSeqRDD[A: ClassTag](n: Int, rdd: RDD[Seq[A]]): Unit = {
+    println(rdd.take(n).map(s => s.mkString(", ")).mkString("\n"))
+    val size = rdd.count()
+    if (size > n) {
+      println(s"Showing only $n out of $size rows.")
+    }
+  }
+
 
 }
 
