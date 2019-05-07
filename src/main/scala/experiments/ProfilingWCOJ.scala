@@ -9,11 +9,11 @@ import scala.io.Source
 
 object ProfilingWCOJ extends App {
 
-  val DATASET_PATH = "/home/per/workspace/master-thesis/datasets/amazon-0302.csv"
+  val DATASET_PATH = "/home/per/workspace/master-thesis/datasets/amazon-0601.csv"
 
   val ds: Array[(Int, Int)] = loadDataset(DATASET_PATH)
 
-  val edges: List[EdgeRelationship] = ('a' to 'c')
+  val edges: List[EdgeRelationship] = ('a' to 'e')
     .combinations(2)
     .filter(l => l(0) < l(1))
     .map(l => new EdgeRelationship((s"${l(0)}", s"${l(1)}")))
@@ -22,15 +22,20 @@ object ProfilingWCOJ extends App {
   val rels: List[TrieIterator] = edges
     .map(e => new ArrayTrieIterable(ds).trieIterator)
 
-  val join = new LeapfrogTriejoin(edges.zip(rels).toMap, Seq("a", "b", "c"))
+  val join = new LeapfrogTriejoin(edges.zip(rels).toMap, Seq("a", "b", "c", "d", "e"))
 
   doJoin(join)
 
   def doJoin(join: LeapfrogTriejoin) = {
+    System.gc()
     val start = System.nanoTime()
-    val result = join.toList
+    var i = 0
+    while (!join.atEnd) {
+      join.next()
+      i += 1
+    }
     val end = System.nanoTime()
-    println(s"Result size: ${result.size}, ${(end - start).toDouble / 1000000000}")
+    println(s"Result size: ${i}, ${(end - start).toDouble / 1000000000}")
   }
 
   def loadDataset(datasetPath: String): Array[(Int, Int)] = {

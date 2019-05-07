@@ -6,7 +6,7 @@ class LeapfrogJoin(var iterators: Array[LinearIterator] ) {
   }
 
   var atEnd: Boolean = false
-  var p = 0
+  private[this] var p = 0
   var key = 0
 
   def init(): Unit = {

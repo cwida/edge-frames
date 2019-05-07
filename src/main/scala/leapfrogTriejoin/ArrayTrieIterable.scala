@@ -10,10 +10,10 @@ import collection.JavaConverters._
 
 
 class ArrayTrieIterable(iter: Iterator[InternalRow]) extends TrieIterable {
-    // TODO capacity optimization
-  private val srcColumn = new OffHeapColumnVector(1000, IntegerType)
-  private val dstColumn = new OffHeapColumnVector(1000, IntegerType)
-  private var numRows = 0
+  // TODO capacity optimizatio
+  private[this] val srcColumn = new OffHeapColumnVector(1000, IntegerType)
+  private[this]  val dstColumn = new OffHeapColumnVector(1000, IntegerType)
+  private[this]  var numRows = 0
 
   while (iter.hasNext) {
     val row = iter.next()
@@ -21,7 +21,7 @@ class ArrayTrieIterable(iter: Iterator[InternalRow]) extends TrieIterable {
     dstColumn.appendInt(row.getInt(1)) // TODO sync field names and position
     numRows += 1
   }
-  private val tuples = new ColumnarBatch(Array(srcColumn, dstColumn))
+  private[this]  val tuples = new ColumnarBatch(Array(srcColumn, dstColumn))
   tuples.setNumRows(numRows)
 
   // For testing
@@ -38,22 +38,22 @@ class ArrayTrieIterable(iter: Iterator[InternalRow]) extends TrieIterable {
   }
 
   class TrieIteratorImpl(val tuples: ColumnarBatch) extends TrieIterator {
-    private val maxDepth = tuples.numCols() - 1
-    private val numRows = tuples.numRows()
+    private[this]  val maxDepth = tuples.numCols() - 1
+    private[this]  val numRows = tuples.numRows()
 
-    private var depth = -1
-    private var position = Array.fill(tuples.numCols())(-1)
-    private var end = Array.fill(tuples.numCols())(-1)
-    private var isAtEnd = numRows == 0
+    private[this]  var depth = -1
+    private[this]  var position = Array.fill(tuples.numCols())(-1)
+    private[this]  var end = Array.fill(tuples.numCols())(-1)
+    private[this]  var isAtEnd = numRows == 0
 
-    private var currentColumn: ColumnVector = null
-    private var currentPosition: Int = -1
+    private[this]  var currentColumn: ColumnVector = null
+    private[this]  var currentPosition: Int = -1
 
     override def open(): Unit = {
       assert(depth < maxDepth, "Cannot open TrieIterator at maxDepth")
 
       var newEnd = numRows
-      if (depth >= 0) {  // TODO remove ifs?
+      if (depth >= 0) { // TODO remove ifs?
         newEnd = currentPosition
 
         val beginValue = currentColumn.getInt(currentPosition)

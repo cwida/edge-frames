@@ -6,15 +6,15 @@ import Predef._
 
 class LeapfrogTriejoin(trieIterators: Map[EdgeRelationship, TrieIterator], variableOrdering: Seq[String]) {
 
-  val DONE: Int = 0
-  val DOWN_ACTION: Int = 1
-  val NEXT_ACTION: Int = 2
-  val UP_ACTION: Int = 3
+  private[this] val DONE: Int = 0
+  private[this] val DOWN_ACTION: Int = 1
+  private[this]  val NEXT_ACTION: Int = 2
+  private[this] val UP_ACTION: Int = 3
 
   val allVariables = trieIterators.keys.flatMap(
     e => e.variables).toSet
 
-  val maxDepth = allVariables.size - 1
+  private[this] val maxDepth = allVariables.size - 1
 
   require(allVariables == variableOrdering.toSet,
     s"The set of all variables in the relationships needs to equal the variable ordering. All variables: $allVariables, variableOrdering: $variableOrdering"
@@ -28,19 +28,19 @@ class LeapfrogTriejoin(trieIterators: Map[EdgeRelationship, TrieIterator], varia
     "Variable ordering differs for some relationships."
   )
 
-  val leapfrogJoins: Array[LeapfrogJoin] = variableOrdering
+  private[this] val leapfrogJoins: Array[LeapfrogJoin] = variableOrdering
     .map(v =>
       new LeapfrogJoin(trieIterators
         .filter({ case (r, _) => r.variables.contains(v) }).values.toArray))
     .toArray
 
-  val variable2TrieIterators: Array[Array[TrieIterator]] = variableOrdering
+  private[this] val variable2TrieIterators: Array[Array[TrieIterator]] = variableOrdering
     .map( v =>
       trieIterators.filter( { case (r, _) => r.variables.contains(v)}).values.toArray
     ).toArray
 
-  var depth = -1
-  var bindings = Array.fill(allVariables.size)(-1)
+  private[this] var depth = -1
+  private[this] var bindings = Array.fill(allVariables.size)(-1)
   var atEnd = trieIterators.values.exists(i => i.atEnd)  // Assumes connected join?
 
   if (!atEnd) {
