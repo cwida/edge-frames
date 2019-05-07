@@ -6,8 +6,15 @@ import Predef._
 
 class LeapfrogTriejoin(trieIterators: Map[EdgeRelationship, TrieIterator], variableOrdering: Seq[String]) {
 
+  val DONE: Int = 0
+  val DOWN_ACTION: Int = 1
+  val NEXT_ACTION: Int = 2
+  val UP_ACTION: Int = 3
+
   val allVariables = trieIterators.keys.flatMap(
     e => e.variables).toSet
+
+  val maxDepth = allVariables.size - 1
 
   require(allVariables == variableOrdering.toSet,
     s"The set of all variables in the relationships needs to equal the variable ordering. All variables: $allVariables, variableOrdering: $variableOrdering"
@@ -51,37 +58,22 @@ class LeapfrogTriejoin(trieIterators: Map[EdgeRelationship, TrieIterator], varia
   }
 
   private def moveToNextTuple() = {
-    val DOWN_ACTION: Int = 0
-    val NEXT_ACTION: Int = 1
-    val UP_ACTION: Int = 2
-
     var action: Int = NEXT_ACTION
-    if (depth == -1) {
+    if (depth == -1) {  // TODO true only once can be moved out of moveToNextTuple
       action = DOWN_ACTION
     } else if (currentLeapfrogJoin.atEnd) {
       action = UP_ACTION
     }
-    var done = false
+    if (action == NEXT_ACTION) {
+      action = nextAction()
+    }
     // TODO unrolling
     // TODO factor out all variables
     // TODO use compiler optimizer
 
 
-    while (!done) {
-      if (action == NEXT_ACTION) {
-        currentLeapfrogJoin.leapfrogNext()
-//        leapfrogDistinctNext()
-        if (currentLeapfrogJoin.atEnd) {
-          action = UP_ACTION
-        } else {
-          bindings(depth) = currentLeapfrogJoin.key
-          if (depth == allVariables.size - 1) {
-            done = true  // TODO predicatable?
-          } else {
-            action = DOWN_ACTION
-          }
-        }
-      } else if (action == DOWN_ACTION) {
+    while (action != DONE) {
+      if (action == DOWN_ACTION) {
         triejoinOpen()
 //        leapfrogDistinctNext()
         if (currentLeapfrogJoin.atEnd) {
@@ -89,26 +81,43 @@ class LeapfrogTriejoin(trieIterators: Map[EdgeRelationship, TrieIterator], varia
         } else {
           bindings(depth) = currentLeapfrogJoin.key
 
-          if (depth == allVariables.size - 1) {
-            done = true
+          if (depth == maxDepth) {
+            action = DONE
           } else {
             action = DOWN_ACTION
           }
         }
       } else if (action == UP_ACTION) {
         if (depth == 0) {
-          done = true
+          action = DONE
           atEnd = true
         } else {
           triejoinUp()
           if (currentLeapfrogJoin.atEnd) {
             action = UP_ACTION
           } else {
-            action = NEXT_ACTION
+            action = nextAction()
           }
         }
       }
     }
+  }
+
+  @inline
+  private def nextAction(): Int = {
+    currentLeapfrogJoin.leapfrogNext()
+    //        leapfrogDistinctNext()
+    if (currentLeapfrogJoin.atEnd) {
+      UP_ACTION
+    } else {
+      bindings(depth) = currentLeapfrogJoin.key
+      if (depth == maxDepth) {
+        DONE
+      } else {
+        DOWN_ACTION
+      }
+    }
+
   }
 
   @inline
