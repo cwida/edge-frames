@@ -1,0 +1,492 @@
+Index: src/main/scala/experiments/amazonExperiments/AmazonDiamondExperiment.scala
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/scala/experiments/amazonExperiments/AmazonDiamondExperiment.scala	(date 1556291823000)
++++ src/main/scala/experiments/amazonExperiments/AmazonDiamondExperiment.scala	(date 1556291823000)
+@@ -0,0 +1,16 @@
++package experiments.amazonExperiments
++
++import experiments.Datasets.loadAmazonDataset
++import experiments.GenericExperiment
++import experiments.Queries.{diamondPattern, diamondBinaryJoins}
++import org.apache.spark.sql.{DataFrame, SparkSession}
++
++object AmazonDiamondExperiment extends App with GenericExperiment {
++  override def loadDataset(sp: SparkSession) = loadAmazonDataset(sp)
++
++  override def runWCOJ(sp: SparkSession, dataSet: DataFrame) = diamondPattern(dataSet).count()
++
++  override def runBinaryJoins(sp: SparkSession, dataSet: DataFrame) = diamondBinaryJoins(dataSet).count()
++
++  run()
++}
+Index: src/test/scala/Utils.scala
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>package testing\n\nimport leapfrogTriejoin.TrieIterator\nimport org.apache.spark.SparkConf\nimport org.apache.spark.sql.SparkSession\nimport sparkIntegration.{ToTrieIterableRDD2ToTrieIterableRDDExec, WCOJ2WCOJExec}\n\nimport scala.collection.mutable\n\nobject Utils {\n\n  def traverseTrieIterator(iter: TrieIterator): Seq[(Int, Int)] = {\n    if (iter.atEnd) {\n      return List()\n    }\n    var ret: mutable.MutableList[(Int, Int)] = mutable.MutableList()\n    iter.open()\n    do {\n      val outer: Int = iter.key\n      iter.open()\n      do {\n        ret += ((outer, iter.key))\n        iter.next()\n      } while (!iter.atEnd)\n      iter.up()\n      iter.next()\n    } while (!iter.atEnd)\n    ret\n  }\n\n\n}\n\nobject TestSparkSession {\n  val conf = new SparkConf()\n    .setMaster(\"local[1]\")\n    .setAppName(\"Spark test\")\n    .set(\"spark.executor.memory\", \"2g\")\n    .set(\"spark.driver.memory\", \"2g\")\n\n  val spark = SparkSession.builder().config(conf).getOrCreate()\n\n  spark.experimental.extraStrategies = Seq(ToTrieIterableRDD2ToTrieIterableRDDExec, WCOJ2WCOJExec) ++ spark.experimental.extraStrategies\n}\n\ntrait SparkTest {\n  val sp = TestSparkSession.spark\n}\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/test/scala/Utils.scala	(revision 2c7cd73764f1e5dd19c85581bd8af8aa3b26c5ac)
++++ src/test/scala/Utils.scala	(date 1556529789000)
+@@ -1,5 +1,7 @@
+ package testing
+ 
++import java.io.File
++
+ import leapfrogTriejoin.TrieIterator
+ import org.apache.spark.SparkConf
+ import org.apache.spark.sql.SparkSession
+@@ -28,6 +30,16 @@
+     ret
+   }
+ 
++  // Stackoverflow: https://stackoverflow.com/questions/25999255/delete-directory-recursively-in-scala
++  def deleteRecursively(file: File): Unit = {
++    if (file.isDirectory) {
++      file.listFiles.foreach(deleteRecursively)
++    }
++    if (file.exists && !file.delete) {
++      throw new Exception(s"Unable to delete ${file.getAbsolutePath}")
++    }
++  }
++
+ 
+ }
+ 
+Index: src/test/scala/correctnessTesting/AmazonDatasetTriangleQuery.scala
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>package correctnessTesting\n\nimport org.scalatest.{FlatSpec, Matchers}\nimport sparkIntegration.implicits._\nimport testing.SparkTest\nimport experiments.Queries._\nimport experiments.Datasets.loadAmazonDataset\nimport org.apache.spark.rdd.RDD\n\nimport scala.reflect.ClassTag\n\nclass AmazonDatasetTriangleQuery extends FlatSpec with Matchers with SparkTest {\n  val OFFICIAL_NUMBERS_OF_TRIANGLES = 717719L\n\n  val FAST = true\n  if (FAST) {\n    System.err.println(\"Running correctness test in fast mode\")\n  }\n\n  val ds = if (FAST) {\n    loadAmazonDataset(sp).limit(200).cache()\n  } else {\n    loadAmazonDataset(sp).cache()\n  }\n  println(ds.count())\n\n  val goldStandardTriangles = triangleBinaryJoins(sp, ds).cache()\n  val actualResultTriangles = trianglePattern(ds).cache()\n\n  val (nodeSet1, nodeSet2) = pathQueryNodeSets(ds)\n  nodeSet1.cache()\n  nodeSet2.cache()\n  println(nodeSet1.count(), nodeSet2.count())\n\n\n  private def assertRDDEqual[A: ClassTag](rdd1: RDD[A], rdd2: RDD[A]) = {\n    rdd1.subtract(rdd2).isEmpty() should be (true)\n    rdd2.subtract(rdd1).isEmpty() should be (true)\n  }\n\n\n  \"WCOJ implementation\" should \"find the same two-paths as Spark's original joins\" in {\n    val a = twoPathPattern(ds, nodeSet1, nodeSet2).cache()\n    val e = twoPathBinaryJoins(ds, nodeSet1, nodeSet2).cache()\n\n    val diff = a.rdd.subtract(e.rdd)\n    diff.isEmpty() should be(true)\n    a.isEmpty should be(false)\n    e.isEmpty should be(false)\n  }\n\n  \"WCOJ implementation\" should \"find the same three-paths as Spark's original joins\" in {\n    val a = threePathPattern(ds, nodeSet1, nodeSet2).cache()\n    val e = threePathBinaryJoins(ds, nodeSet1, nodeSet2).cache()\n\n    assertRDDEqual(a.rdd, e.rdd)\n    a.isEmpty should be(false)\n    e.isEmpty should be(false)\n  }\n\n  \"WCOJ implementation\" should \"find the same four-paths as Spark's original joins\" in {\n    val startE = System.nanoTime()\n    val e = fourPathBinaryJoins(ds, nodeSet1, nodeSet2)\n    val countE = e.count()\n    val endE = System.nanoTime() - startE\n    println(\"e\", countE)\n    println(\"Spark four-path \", endE.toDouble / 1000000000)\n\n    val startA = System.nanoTime()\n    val a = fourPathPattern(ds, nodeSet1, nodeSet2)\n    val countA = a.count()\n    val endA = System.nanoTime() - startA\n    print(\"a \", countA)\n    println(\"WCOJ four-path \", endA.toDouble / 1000000000)\n\n    assertRDDEqual(a.rdd, e.rdd)\n\n    a.isEmpty should be(false)\n    e.isEmpty should be(false)\n  }\n\n  \"WCOJ implementation\" should \"find same triangles as Spark's original joins\" in {\n    actualResultTriangles.count() should equal(goldStandardTriangles.count())\n\n    assertRDDEqual(actualResultTriangles.rdd, goldStandardTriangles.rdd)\n  }\n\n  \"WCOJ implementation\" should \"produce roughly as many triangles as on the official website\" in {\n    if (!FAST) {\n      val distinct = actualResultTriangles.rdd.map(r => r.toSeq.toSet).distinct(1).count()\n      distinct should equal(OFFICIAL_NUMBERS_OF_TRIANGLES +- (OFFICIAL_NUMBERS_OF_TRIANGLES * 0.01).toLong)\n    } else {\n      fail(\"Cannot run comparision to original data in FAST mode\")\n    }\n  }\n\n  \"The variable ordering\" should \"not matter\" in {\n    val otherVariableOrdering = ds.findPattern(\n      \"\"\"\n        |(a) - [] -> (b);\n        |(b) - [] -> (c);\n        |(a) - [] -> (c)\n        |\"\"\".stripMargin, List(\"c\", \"a\", \"b\"))\n\n    val otherReordered = otherVariableOrdering.select(\"a\", \"b\", \"c\")\n\n    assertRDDEqual(otherReordered.rdd, actualResultTriangles.rdd)\n  }\n\n  \"Circular triangles\" should \"be found correctly\" in {\n    import sp.implicits._\n\n    val circular = ds.findPattern(\n      \"\"\"\n        |(a) - [] -> (b);\n        |(b) - [] -> (c);\n        |(c) - [] -> (a)\n        |\"\"\".stripMargin, List(\"a\", \"b\", \"c\"))\n\n    val duos = ds.as(\"R\")\n      .joinWith(ds.as(\"S\"), $\"R.dst\" === $\"S.src\")\n    val triangles = duos.joinWith(ds.as(\"T\"),\n      condition = $\"_2.dst\" === $\"T.src\" && $\"_1.src\" === $\"T.dst\")\n\n    val goldStandard = triangles.selectExpr(\"_2.dst AS a\", \"_1._1.dst AS b\", \"_2.src AS c\")\n\n    assertRDDEqual(circular.rdd, goldStandard.rdd)\n  }\n\n}\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/test/scala/correctnessTesting/AmazonDatasetTriangleQuery.scala	(revision 2c7cd73764f1e5dd19c85581bd8af8aa3b26c5ac)
++++ src/test/scala/correctnessTesting/AmazonDatasetTriangleQuery.scala	(date 1556530108000)
+@@ -1,11 +1,14 @@
+ package correctnessTesting
+ 
++import java.nio.file.{Files, Path, Paths}
++
+ import org.scalatest.{FlatSpec, Matchers}
+ import sparkIntegration.implicits._
+-import testing.SparkTest
++import testing.{SparkTest, Utils}
+ import experiments.Queries._
+ import experiments.Datasets.loadAmazonDataset
+ import org.apache.spark.rdd.RDD
++import org.apache.spark.sql.Row
+ 
+ import scala.reflect.ClassTag
+ 
+@@ -18,7 +21,7 @@
+   }
+ 
+   val ds = if (FAST) {
+-    loadAmazonDataset(sp).limit(200).cache()
++    loadAmazonDataset(sp).limit(100).cache()
+   } else {
+     loadAmazonDataset(sp).cache()
+   }
+@@ -34,10 +37,21 @@
+ 
+ 
+   private def assertRDDEqual[A: ClassTag](rdd1: RDD[A], rdd2: RDD[A]) = {
+-    rdd1.subtract(rdd2).isEmpty() should be (true)
+-    rdd2.subtract(rdd1).isEmpty() should be (true)
++    val diff1 = rdd1.subtract(rdd2)
++
++    val diff2 = rdd2.subtract(rdd1)
++
++    diff1.isEmpty() should be(true)
++    diff2.isEmpty() should be(true)
+   }
+ 
++  private def assertRDDSetEqual(rdd1: RDD[Row], rdd2: RDD[Row]) = {
++    val rdd1Set = rdd1.map(r => r.toSeq.toSet)
++    val rdd2Set = rdd2.map(r => r.toSeq.toSet)
++
++    rdd1Set.subtract(rdd2Set).isEmpty() should be (true)
++    rdd2Set.subtract(rdd1Set).isEmpty() should be (true)
++  }
+ 
+   "WCOJ implementation" should "find the same two-paths as Spark's original joins" in {
+     val a = twoPathPattern(ds, nodeSet1, nodeSet2).cache()
+@@ -127,4 +141,40 @@
+     assertRDDEqual(circular.rdd, goldStandard.rdd)
+   }
+ 
++  "Four clique" should "be the same" in {
++    import sp.implicits._
++    if (Files.exists(Paths.get("./test.txt"))) {
++      Utils.deleteRecursively(Paths.get("./test.txt").toFile)
++    }
++    ds.rdd.saveAsTextFile("./test.txt")
++    assert(ds.filter($"src" === 19 && $"dst" === 7).isEmpty)
++
++    val a = cliquePattern(4, ds)
++    println("TTT")
++    a.show(50)
++    println("TTT a", a.count())
++//    val e = fourCliqueBinaryJoins(sp, ds)
++//    println("TTT")
++//    e.show(50)
++//    println("TTT e", e.count())
++
++    assert(a.rdd.map(r => r.toSeq.toSet).filter(s => s.contains(19) && s.contains(7)).isEmpty())
++
++//    val diff1 = a.rdd.subtract(e.rdd)
++//
++//    val diff2 = e.rdd.subtract(a.rdd)
++//    println("ttt", diff1.map(r => r.toSeq.mkString(", ")).take(50).mkString("\n"))
++//    println("ttt", diff2.map(r => r.toSeq.mkString(", ")).take(50).mkString("\n"))
++//
++//    assertRDDSetEqual(a.rdd, e.rdd)
++  }
++
++
++  "Diamond query" should "be the same" in {
++    val a = diamondPattern(ds)
++    val e = diamondBinaryJoins(ds)
++
++    assertRDDSetEqual(a.rdd, e.rdd)
++  }
++
+ }
+Index: src/main/scala/leapfrogTriejoin/implicits.scala
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/scala/leapfrogTriejoin/implicits.scala	(date 1556539602000)
++++ src/main/scala/leapfrogTriejoin/implicits.scala	(date 1556539602000)
+@@ -0,0 +1,14 @@
++package leapfrogTriejoin
++
++object implicits {
++  implicit def leapfrogTriejoin2Iterator(lftj: LeapfrogTriejoin): Iterator[Array[Int]] = {
++    new Iterator[Array[Int]] {
++      override def hasNext: Boolean = !lftj.atEnd
++
++
++      override def next(): Array[Int] = {
++        lftj.next()
++      }
++    }
++  }
++}
+Index: src/main/scala/leapfrogTriejoin/LeapfrogTriejoin.scala
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>package leapfrogTriejoin\nimport Predef.assert\nimport util.control.Breaks._\nimport Predef._\n\n\nclass LeapfrogTriejoin(trieIterators: Map[EdgeRelationship, TrieIterator], variableOrdering: Seq[String]) {\n\n  val allVariables = trieIterators.keys.flatMap(\n    e => e.variables).toSet\n\n  assert(allVariables == variableOrdering.toSet,\n    s\"The set of all variables in the relationships needs to equal the variable ordering. All variables: $allVariables, variableOrdering: $variableOrdering\"\n  )\n\n  assert(trieIterators.keys\n    .forall(r => {\n      val relevantVars = variableOrdering.filter(v => r.variables.contains(v)).toList\n      relevantVars == relevantVars.sortBy(v => r.variables.indexOf(v))\n    }),\n    \"Variable ordering differs for some relationships.\"\n  )\n\n  val leapfrogJoins = allVariables\n    .map(v =>\n        (v, new LeapfrogJoin(\n          trieIterators.filter({ case (r, _) => r.variables.contains(v) }).map(_._2).toArray)))\n    .toMap\n\n  var depth = -1\n  var bindings = Array.fill(allVariables.size)(-1)\n  var atEnd = trieIterators.values.exists(i => i.atEnd)  // Assumes connected join?\n\n  if (!atEnd) {\n    moveToNextTuple()\n  }\n\n  def next(): Array[Int] = {\n    if (atEnd) {\n      throw new IllegalStateException(\"Cannot call next of LeapfrogTriejoin when already at end.\")\n    }\n    val tuple = bindings.clone()\n    moveToNextTuple()\n\n    tuple\n  }\n\n\n\n  private def moveToNextTuple() = {\n    val DOWN_ACTION: Int = 0\n    val NEXT_ACTION: Int = 1\n    val UP_ACTION: Int = 2\n\n    var action: Int = NEXT_ACTION\n    if (depth == -1) {\n      action = DOWN_ACTION\n    } else if (currentLeapfrogJoin.atEnd) {\n      action = UP_ACTION\n    }\n    var done = false\n    while (!done) {\n      if (action == NEXT_ACTION) {\n        currentLeapfrogJoin.leapfrogNext()\n        if (currentLeapfrogJoin.atEnd) {\n          action = UP_ACTION\n        } else {\n          bindings(depth) = currentLeapfrogJoin.key\n          if (depth == allVariables.size - 1) {\n            done = true\n          } else {\n            action = DOWN_ACTION\n          }\n        }\n      } else if (action == DOWN_ACTION) {\n        triejoinOpen()\n        if (currentLeapfrogJoin.atEnd) {\n          action = UP_ACTION\n        } else {\n          bindings(depth) = currentLeapfrogJoin.key\n\n          if (depth == allVariables.size - 1) {\n            done = true\n          } else {\n            action = DOWN_ACTION\n          }\n        }\n      } else if (action == UP_ACTION) {\n        if (depth == 0) {\n          done = true\n          atEnd = true\n        } else {\n          triejoinUp()\n          if (currentLeapfrogJoin.atEnd) {\n            action = UP_ACTION\n          } else {\n            action = NEXT_ACTION\n          }\n        }\n      }\n    }\n  }\n  private def triejoinOpen() ={\n    depth += 1\n    val variable = variableOrdering(depth)\n    trieIterators\n      .filter( { case (r, _) => r.variables.contains(variable) })\n      .foreach( { case (_, i) => i.open() })\n    leapfrogJoins(variable).init()\n  }\n\n  private def triejoinUp() = {\n    trieIterators\n      .filter( { case (r, _) => r.variables.contains(variableOrdering(depth)) })\n      .foreach( { case (r, i) => i.up() })\n    bindings(depth) = -1\n    depth -= 1\n  }\n\n  private def currentLeapfrogJoin: LeapfrogJoin = {\n    leapfrogJoins(variableOrdering(depth))\n  }\n}\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/scala/leapfrogTriejoin/LeapfrogTriejoin.scala	(revision 2c7cd73764f1e5dd19c85581bd8af8aa3b26c5ac)
++++ src/main/scala/leapfrogTriejoin/LeapfrogTriejoin.scala	(date 1556543208000)
+@@ -9,11 +9,11 @@
+   val allVariables = trieIterators.keys.flatMap(
+     e => e.variables).toSet
+ 
+-  assert(allVariables == variableOrdering.toSet,
++  require(allVariables == variableOrdering.toSet,
+     s"The set of all variables in the relationships needs to equal the variable ordering. All variables: $allVariables, variableOrdering: $variableOrdering"
+   )
+ 
+-  assert(trieIterators.keys
++  require(trieIterators.keys
+     .forall(r => {
+       val relevantVars = variableOrdering.filter(v => r.variables.contains(v)).toList
+       relevantVars == relevantVars.sortBy(v => r.variables.indexOf(v))
+@@ -22,9 +22,11 @@
+   )
+ 
+   val leapfrogJoins = allVariables
+-    .map(v =>
+-        (v, new LeapfrogJoin(
+-          trieIterators.filter({ case (r, _) => r.variables.contains(v) }).map(_._2).toArray)))
++     .map(v => {
++       val ti: Array[LinearIterator] = trieIterators.filter({ case (r, _) => r.variables.contains(v) }).map(_._2).toArray
++       println(s"Leapfrog for $v gets ${ti.size} iterators")
++       (v, new LeapfrogJoin(ti))
++     })
+     .toMap
+ 
+   var depth = -1
+@@ -99,6 +101,7 @@
+         }
+       }
+     }
++    println("Bindings: ", bindings.mkString(", "))
+   }
+   private def triejoinOpen() ={
+     depth += 1
+Index: src/main/scala/experiments/amazonExperiments/AmazonTriangleExperiment.scala
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>package experiments.amazonExperiments\n\nimport experiments.Datasets.loadAmazonDataset\nimport experiments.GenericExperiment\nimport experiments.Queries.{triangleBinaryJoins, trianglePattern}\nimport org.apache.spark.sql.{DataFrame, SparkSession}\n\nobject AmazonTriangleExperiment extends App with GenericExperiment {\n  override def loadDataset(sp: SparkSession) = loadAmazonDataset(sp)\n\n  override def runWCOJ(sp: SparkSession, dataSet: DataFrame) = triangleBinaryJoins(sp, dataSet).count()\n\n  override def runBinaryJoins(sp: SparkSession, dataSet: DataFrame) = trianglePattern(dataSet).count()\n\n  run()\n}\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/scala/experiments/amazonExperiments/AmazonTriangleExperiment.scala	(revision 2c7cd73764f1e5dd19c85581bd8af8aa3b26c5ac)
++++ src/main/scala/experiments/amazonExperiments/AmazonTriangleExperiment.scala	(date 1556291680000)
+@@ -8,6 +8,7 @@
+ object AmazonTriangleExperiment extends App with GenericExperiment {
+   override def loadDataset(sp: SparkSession) = loadAmazonDataset(sp)
+ 
++  // TODO correct, exchange runWCOJ and runBinaryJoins implmentation
+   override def runWCOJ(sp: SparkSession, dataSet: DataFrame) = triangleBinaryJoins(sp, dataSet).count()
+ 
+   override def runBinaryJoins(sp: SparkSession, dataSet: DataFrame) = trianglePattern(dataSet).count()
+Index: src/main/scala/leapfrogTriejoin/ArrayTrieIterable.scala
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>package leapfrogTriejoin\n\nimport org.apache.spark.sql.catalyst.InternalRow\nimport org.apache.spark.sql.catalyst.expressions.GenericInternalRow\nimport org.apache.spark.sql.execution.vectorized.OnHeapColumnVector\nimport org.apache.spark.sql.types.IntegerType\nimport org.apache.spark.sql.vectorized.ColumnarBatch\n\nimport collection.JavaConverters._\n\n\nclass ArrayTrieIterable(iter: Iterator[InternalRow]) extends TrieIterable {\n    // TODO capacity optimization\n  private val srcColumn = new OnHeapColumnVector(1000, IntegerType)\n  private val dstColumn = new OnHeapColumnVector(1000, IntegerType)\n  private var numRows = 0\n\n  while (iter.hasNext) {\n    val row = iter.next()\n    srcColumn.appendInt(row.getInt(0))\n    dstColumn.appendInt(row.getInt(1)) // TODO sync field names and position\n    numRows += 1\n  }\n  private val tuples = new ColumnarBatch(Array(srcColumn, dstColumn))\n  tuples.setNumRows(numRows)\n\n  // For testing\n  def this(a: Array[(Int, Int)]) {\n    this(a.map(t => new GenericInternalRow(Array[Any](t._1, t._2))).iterator)\n  }\n\n  override def trieIterator: TrieIterator = {\n    new TrieIteratorImpl(tuples)\n  }\n\n  class TrieIteratorImpl(val tuples: ColumnarBatch) extends TrieIterator {\n    private val maxDepth = tuples.numCols() - 1\n\n    private var depth = -1\n    private var position = Array.fill(tuples.numCols())(-1)\n    private var end = Array.fill(tuples.numCols())(-1)\n    private var isAtEnd = tuples.numRows() == 0\n\n    override def open(): Unit = {\n      assert(depth < maxDepth, \"Cannot open TrieIterator at maxDepth\")\n\n      var newEnd = tuples.numRows()\n      if (depth >= 0) {\n        newEnd = position(depth)\n        do {\n          newEnd += 1\n        } while (newEnd + 1 <= tuples.numRows() && tuples.column(depth).getInt(newEnd) == tuples.column(depth).getInt(position(depth)))\n      }\n\n      depth += 1\n      end(depth) = newEnd\n      position(depth) = if (depth != 0) {\n        position(depth - 1)\n      } else {\n        0\n      }\n      isAtEnd = false\n    }\n\n    override def up(): Unit = {\n      assert(-1 <= depth, \"Cannot up TrieIterator at root level\")\n      position(depth) = -1\n      depth -= 1\n      isAtEnd = false\n    }\n\n    override def key: Int = {\n      assert(!atEnd, \"Calling key on TrieIterator atEnd is illegal.\")\n      tuples.column(depth).getInt(position(depth))\n    }\n\n    override def next(): Unit = {\n      assert(tuples.numRows() > position(depth), \"No next value, check atEnd before calling next\")\n      seek(tuples.column(depth).getInt(position(depth)) + 1)\n    }\n\n    override def atEnd: Boolean = {\n      isAtEnd\n    }\n\n    override def seek(key: Int): Unit = {\n      position(depth) = GallopingSearch.find(tuples.column(depth), key, position(depth), end(depth))\n      updateAtEnd()\n    }\n\n    private def updateAtEnd() {\n      if (position(depth) >= tuples.numRows()) {\n        isAtEnd = true\n      } else if (depth != 0 && tuples.column(depth - 1).getInt(position(depth - 1)) != tuples.column(depth - 1).getInt(position(depth))) {\n        isAtEnd = true\n      }\n    }\n  }\n\n  override def iterator: Iterator[InternalRow] = {\n    tuples.rowIterator().asScala\n  }\n}\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/scala/leapfrogTriejoin/ArrayTrieIterable.scala	(revision 2c7cd73764f1e5dd19c85581bd8af8aa3b26c5ac)
++++ src/main/scala/leapfrogTriejoin/ArrayTrieIterable.scala	(date 1556534647000)
+@@ -20,6 +20,8 @@
+     srcColumn.appendInt(row.getInt(0))
+     dstColumn.appendInt(row.getInt(1)) // TODO sync field names and position
+     numRows += 1
++    assert(!(row.getInt(0) == 19 && row.getInt(1) == 7))
++//    println("yyy", row.getInt(0), row.getInt(1))
+   }
+   private val tuples = new ColumnarBatch(Array(srcColumn, dstColumn))
+   tuples.setNumRows(numRows)
+@@ -71,7 +73,12 @@
+ 
+     override def key: Int = {
+       assert(!atEnd, "Calling key on TrieIterator atEnd is illegal.")
+-      tuples.column(depth).getInt(position(depth))
++      val key = tuples.column(depth).getInt(position(depth))
++      if (key == 7 || key == 19) {
++        val row = tuples.getRow(position(depth))
++        println("arrayTrieiter in: ", row.getInt(0), row.getInt(1))
++      }
++      key
+     }
+ 
+     override def next(): Unit = {
+Index: src/main/scala/experiments/Queries.scala
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>package experiments\n\nimport org.apache.spark.sql.{Column, DataFrame, SparkSession}\nimport sparkIntegration.implicits._\n\nobject Queries {\n  val FIXED_SEED_1 = 42\n  val FIXED_SEED_2 = 220\n\n  def pathQueryNodeSets(rel: DataFrame, selectivity: Double = 0.1): (DataFrame, DataFrame) = {\n    (rel.selectExpr(\"src AS a\").sample(selectivity, FIXED_SEED_1),\n      rel.selectExpr(\"dst AS z\").sample(selectivity, FIXED_SEED_2))\n  }\n\n  /**\n    *\n    * @param df\n    * @param cols\n    * @return `df` with filters such that all `cols` hold distinct values per row.\n    */\n  def withDistinctColumns(df: DataFrame, cols: Seq[String]): DataFrame = {\n    var r = df\n    for (c <- cols.combinations(2)) {\n      r = r.where(new Column(c(0)) !== new Column(c(1)))\n    }\n    r\n  }\n\n  def twoPathBinaryJoins(rel: DataFrame, nodeSet1: DataFrame, nodeSet2: DataFrame): DataFrame = {\n    val relLeft = rel.selectExpr(\"src AS a\", \"dst AS b\").join(nodeSet1, Seq(\"a\"), \"left_semi\")\n    val relRight = rel.selectExpr(\"dst AS z\", \"src AS b\").join(nodeSet2, Seq(\"z\"), \"left_semi\")\n\n    withDistinctColumns(relLeft.join(relRight, Seq(\"b\")).selectExpr(\"a\", \"b\", \"z\"), Seq(\"a\", \"b\", \"z\"))\n  }\n\n  def twoPathPattern(rel: DataFrame, nodeSet1: DataFrame, nodeSet2: DataFrame): DataFrame = {\n    val twoPath = rel.findPattern(\n      \"\"\"\n        |(a) - [] -> (b);\n        |(b) - [] -> (z)\n      \"\"\".stripMargin, Seq(\"a\", \"z\", \"b\"))\n    // TODO should be done before the join\n    val filtered = twoPath.join(nodeSet1, Seq(\"a\"), \"left_semi\")\n      .join(nodeSet2, Seq(\"z\"), \"left_semi\")\n      .select(\"a\", \"b\", \"z\")\n    withDistinctColumns(filtered, Seq(\"a\", \"b\", \"z\"))\n  }\n\n  def threePathBinaryJoins(rel: DataFrame, nodeSet1: DataFrame, nodeSet2: DataFrame): DataFrame = {\n    val relLeft = rel.selectExpr(\"src AS a\", \"dst AS b\").join(nodeSet1, Seq(\"a\"), \"left_semi\")\n    val relRight = rel.selectExpr(\"dst AS z\", \"src AS c\").join(nodeSet2, Seq(\"z\"), \"left_semi\")\n\n    val middleLeft = relLeft.join(rel.selectExpr(\"src AS b\", \"dst AS c\"), Seq(\"b\")).selectExpr(\"a\", \"b\", \"c\")\n    relRight.join(middleLeft, \"c\").select(\"a\", \"b\", \"c\", \"z\")\n  }\n\n  def threePathPattern(rel: DataFrame, nodeSet1: DataFrame, nodeSet2: DataFrame): DataFrame = {\n    val threePath = rel.findPattern(\n      \"\"\"\n        |(a) - [] -> (b);\n        |(b) - [] -> (c);\n        |(c) - [] -> (z)\n      \"\"\".stripMargin, Seq(\"a\", \"z\", \"c\", \"b\"))\n    threePath.join(nodeSet1, Seq(\"a\"), \"left_semi\")\n      .join(nodeSet2, Seq(\"z\"), \"left_semi\")\n      .select(\"a\", \"b\", \"c\", \"z\")\n  }\n\n  def fourPathBinaryJoins(rel: DataFrame, nodeSet1: DataFrame, nodeSet2: DataFrame): DataFrame = {\n    val relLeft = rel.selectExpr(\"src AS a\", \"dst AS b\").join(nodeSet1, Seq(\"a\"), \"left_semi\")\n    val relRight = rel.selectExpr(\"dst AS z\", \"src AS d\").join(nodeSet2, Seq(\"z\"), \"left_semi\")\n\n    val middleLeft = relLeft.join(rel.selectExpr(\"src AS b\", \"dst AS c\"), Seq(\"b\")).selectExpr(\"a\", \"b\", \"c\")\n    val middleRight = relRight.join(rel.selectExpr(\"src AS c\", \"dst AS d\"), Seq(\"d\")).selectExpr(\"c\", \"d\", \"z\")\n    withDistinctColumns(middleRight.join(middleLeft, \"c\").select(\"a\", \"b\", \"c\", \"d\", \"z\"), Seq(\"a\", \"b\", \"c\", \"d\", \"z\"))\n  }\n\n  def fourPathPattern(rel: DataFrame, nodeSet1: DataFrame, nodeSet2: DataFrame) = {\n    val leftRel = rel.join(nodeSet1.selectExpr(\"a AS src\"), Seq(\"src\"), \"left_semi\")\n    val rightRel = rel.join(nodeSet2.selectExpr(\"z AS dst\"), Seq(\"dst\"), \"left_semi\")\n      .select(\"src\", \"dst\")  // Necessary because Spark reorders the columns\n\n    val fourPath = rel.findPattern(\n      \"\"\"\n        |(a) - [] -> (b);\n        |(b) - [] -> (c);\n        |(c) - [] -> (d);\n        |(d) - [] -> (z)\n      \"\"\".stripMargin, Seq(\"a\", \"z\", \"b\", \"d\", \"c\"),\n      Seq(leftRel,\n        rel.alias(\"edges_2\"),\n        rel.alias(\"edges_3\"),\n        rightRel\n      )\n    )\n\n    withDistinctColumns(fourPath.join(nodeSet1, Seq(\"a\"), \"left_semi\")\n      .join(nodeSet2, Seq(\"z\"), \"left_semi\")\n      .select(\"a\", \"b\", \"c\", \"d\", \"z\"), Seq(\"a\", \"b\", \"c\", \"d\", \"z\"))\n  }\n\n  def triangleBinaryJoins(spark: SparkSession, rel: DataFrame): DataFrame = {\n    import spark.implicits._\n\n    val duos = rel.as(\"R\")\n      .joinWith(rel.as(\"S\"), $\"R.dst\" === $\"S.src\")\n    val triangles = duos.joinWith(rel.as(\"T\"),\n      condition = $\"_2.dst\" === $\"T.dst\" && $\"_1.src\" === $\"T.src\")\n\n    triangles.selectExpr(\"_2.src AS a\", \"_1._1.dst AS b\", \"_2.dst AS c\")\n  }\n\n  def trianglePattern(rel: DataFrame): DataFrame = {\n    rel.findPattern(\n      \"\"\"\n        |(a) - [] -> (b);\n        |(b) - [] -> (c);\n        |(a) - [] -> (c)\n        |\"\"\".stripMargin, List(\"a\", \"b\", \"c\"))\n  }\n}\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/scala/experiments/Queries.scala	(revision 2c7cd73764f1e5dd19c85581bd8af8aa3b26c5ac)
++++ src/main/scala/experiments/Queries.scala	(date 1556530435000)
+@@ -3,6 +3,8 @@
+ import org.apache.spark.sql.{Column, DataFrame, SparkSession}
+ import sparkIntegration.implicits._
+ 
++import scala.collection.mutable
++
+ object Queries {
+   val FIXED_SEED_1 = 42
+   val FIXED_SEED_2 = 220
+@@ -19,6 +21,9 @@
+     * @return `df` with filters such that all `cols` hold distinct values per row.
+     */
+   def withDistinctColumns(df: DataFrame, cols: Seq[String]): DataFrame = {
++    assert(df.rdd.map(r => r.toSeq.toSet).filter(s => s.contains(19) && s.contains(7)).isEmpty())
++
++
+     var r = df
+     for (c <- cols.combinations(2)) {
+       r = r.where(new Column(c(0)) !== new Column(c(1)))
+@@ -78,7 +83,7 @@
+   def fourPathPattern(rel: DataFrame, nodeSet1: DataFrame, nodeSet2: DataFrame) = {
+     val leftRel = rel.join(nodeSet1.selectExpr("a AS src"), Seq("src"), "left_semi")
+     val rightRel = rel.join(nodeSet2.selectExpr("z AS dst"), Seq("dst"), "left_semi")
+-      .select("src", "dst")  // Necessary because Spark reorders the columns
++      .select("src", "dst") // Necessary because Spark reorders the columns
+ 
+     val fourPath = rel.findPattern(
+       """
+@@ -118,4 +123,44 @@
+         |(a) - [] -> (c)
+         |""".stripMargin, List("a", "b", "c"))
+   }
++
++  def diamondPattern(rel: DataFrame): DataFrame = {
++    withDistinctColumns(rel.findPattern(
++      """
++        |(a) - [] -> (b);
++        |(b) - [] -> (c);
++        |(c) - [] -> (d);
++        |(d) - [] -> (a)
++        |""".stripMargin, List("a", "b", "c", "d")), List("a", "b", "c", "d"))
++  }
++
++  def diamondBinaryJoins(rel: DataFrame): DataFrame = {
++    withDistinctColumns(rel.selectExpr("src AS a", "dst AS b")
++      .join(rel.selectExpr("src AS b", "dst AS c"), "b")
++      .join(rel.selectExpr("src AS c", "dst AS d"), "c")
++      .join(rel.selectExpr("src AS d", "dst AS a"), Seq("a", "d"), "left_semi"), Seq("a", "b", "c", "d"))
++  }
++
++  def fourCliqueBinaryJoins(sp: SparkSession, rel: DataFrame): DataFrame = {
++    import sp.implicits._
++    val triangles = triangleBinaryJoins(sp, rel)
++
++    val fourClique =
++      triangles.join(rel.alias("ad"), $"src" === $"a")
++        .selectExpr("a", "b", "c", "dst AS d")
++        .join(rel.alias("bd"), $"src" === $"b" && $"dst" === $"d", "left_semi")
++        .join(rel.alias("cd"), $"src" === $"c" && $"dst" === $"d", "left_semi")
++    fourClique.select("a", "b", "c", "d")
++  }
++
++  def cliquePattern(size: Int, rel: DataFrame): DataFrame = {
++    val alphabet = 'a' to 'z'
++    val verticeNames = alphabet.slice(0, size).map(_.toString)
++
++    val pattern = verticeNames.combinations(2).filter(e => e(0) < e(1))
++      .map(e => s"(${e(0)}) - [] -> (${e(1)})")
++      .mkString(";")
++    println("""ttt""", pattern)
++    withDistinctColumns(rel.findPattern(pattern, verticeNames), Seq("a", "b", "c", "d"))
++  }
+ }
+Index: src/main/scala/sparkIntegration/WCOJFunctions.scala
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>package org.apache.spark.sql\n\nimport org.apache.spark.sql.catalyst.InternalRow\nimport org.apache.spark.sql.types.IntegerType\nimport sparkIntegration.{JoinSpecification, Pattern, ToTrieIterableRDD, WCOJ}\nimport org.apache.spark.sql.catalyst.encoders._\nimport org.apache.spark.sql.catalyst.expressions.AttributeReference\nimport org.apache.spark.sql.execution.RowIterator\n\nimport Predef._\n\nclass WCOJFunctions[T](ds: Dataset[T]) {\n  def findPattern(pattern: String, variableOrdering: Seq[String]): DataFrame = {\n    val edges = Pattern.parse(pattern)\n\n    val children = edges.zipWithIndex.map { case (_, i) => {\n      ds.alias(s\"edges_${i.toString}\")\n        // TODO can I remove this now?\n        .withColumnRenamed(\"src\", s\"src\") // Needed to guarantee that src and dst on the aliases are referenced by different attributes.\n        .withColumnRenamed(\"dst\", s\"dst\")\n    }\n    }\n    findPattern(pattern, variableOrdering, children)\n  }\n\n  def findPattern(pattern: String, variableOrdering: Seq[String], children: Seq[DataFrame]): DataFrame = {\n\n    require(ds.columns.contains(\"src\"), \"Edge table should have a column called `src`\")\n    require(ds.columns.contains(\"dst\"), \"Edge table should have a column called `dst`\")\n\n    require(ds.col(\"src\").expr.dataType == IntegerType, \"Edge table src needs to be an integer\")\n    require(ds.col(\"dst\").expr.dataType == IntegerType, \"Edge table src needs to be an integer\")\n\n    val edges = Pattern.parse(pattern)\n\n    require(edges.size == children.size, \"WCOJ needs as many children as edges in the pattern.\")\n\n    val joinSpecification = new JoinSpecification(edges, variableOrdering)\n\n    val outputVariables = joinSpecification.variableOrdering.map(v => AttributeReference(v, IntegerType, nullable = false)())\n\n    Dataset.ofRows(ds.sparkSession, WCOJ(outputVariables, joinSpecification, children.map(_.logicalPlan)))\n  }\n\n  /**\n    * Currently, not used!\n    *\n    * Creates an edge relationship from a dataset.\n    *\n    * The input dataset is required to have two integer attributes called `src` and `dst`.\n    * The returned dataset will be:\n    *   1. projected on these two attributes\n    *   2. if `allowArbritaryVariableOrderings` then each edge will exist in both directions\n    *   3. tagged with a boolean value which is true for edges from the original dataset\n    *   4. sorted by `src`, `dst` ASC.\n    *\n    * @param allowArbritaryVariableOrderings allows to query the dataset with arbitrary variable orderings in a WCOJ.\n    * @param isUndirected                    if `true` the dataset is assumed to be of an undirected graph with edges that exist only in one direction,\n    *                                        that saves some time during construction\n    * @param isUndirectedDuplicated          if `true` the dataset is assumed to be of an undirected graph with\n    *                                        edges in both direction already existing, which saves even more time during construction.\n    * @return\n    */\n  def toEdgeRelationship(allowArbritaryVariableOrderings: Boolean = true,\n                         isUndirected: Boolean = false,\n                         isUndirectedDuplicated: Boolean = false): Dataset[(Int, Int, Boolean)] = {\n    import ds.sparkSession.implicits._\n\n    require(ds.columns.contains(\"src\"), \"Edge table should have a column called `src`\")\n    require(ds.columns.contains(\"dst\"), \"Edge table should have a column called `dst`\")\n\n    require(ds.col(\"src\").expr.dataType == IntegerType, \"Edge table src needs to be an integer\")\n    require(ds.col(\"dst\").expr.dataType == IntegerType, \"Edge table src needs to be an integer\")\n\n    val projected = ds.select(\"src\", \"dst\").as[(Int, Int)]\n    val duplicated: Dataset[(Int, Int, Boolean)] =\n      if (allowArbritaryVariableOrderings && !isUndirectedDuplicated) {\n        projected.flatMap { case (src, dst) => {\n          Seq((src, dst, true), (dst, src, false))\n        }\n        }\n      } else {\n        projected.map { case (src, dst) => {\n          (src, dst, true)\n        }\n        }\n      }\n\n    val sorted = duplicated.sort(\"_1\", \"_2\")\n\n    if (allowArbritaryVariableOrderings && !isUndirected && !isUndirectedDuplicated) {\n      // Remove duplicates that existed already\n      sorted.mapPartitions(iter => {\n        new Iterator[(Int, Int, Boolean)] {\n          var lookBack: (Int, Int, Boolean) = if (iter.hasNext) {\n            iter.next()\n          } else {\n            null\n          }\n\n          override def hasNext: Boolean = {\n            iter.hasNext || lookBack != null\n          }\n\n          override def next(): (Int, Int, Boolean) = {\n            if (iter.hasNext) {\n              val n = iter.next()\n              if (n._1 == lookBack._1 && n._2 == lookBack._2) {\n                lookBack = null\n                (n._1, n._2, true)\n              } else {\n                val ret = lookBack\n                lookBack = n\n                ret\n              }\n            } else {\n              val temp = lookBack // Cannot be null because `hasNext` returned `true`\n              lookBack = null\n              temp\n            }\n          }\n        }\n      })\n    } else {\n      sorted\n    }.withColumnRenamed(\"_1\", \"src\").withColumnRenamed(\"_1\", \"dst\").as[(Int, Int, Boolean)]\n  }\n\n  // For testing\n  def toTrieIterableRDD(variableOrdering: Seq[String]): DataFrame = {\n    Dataset.ofRows(ds.sparkSession, ToTrieIterableRDD(ds.logicalPlan, variableOrdering))\n  }\n}\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/scala/sparkIntegration/WCOJFunctions.scala	(revision 2c7cd73764f1e5dd19c85581bd8af8aa3b26c5ac)
++++ src/main/scala/sparkIntegration/WCOJFunctions.scala	(date 1556530543000)
+@@ -39,7 +39,16 @@
+ 
+     val outputVariables = joinSpecification.variableOrdering.map(v => AttributeReference(v, IntegerType, nullable = false)())
+ 
+-    Dataset.ofRows(ds.sparkSession, WCOJ(outputVariables, joinSpecification, children.map(_.logicalPlan)))
++    import ds.sparkSession.implicits._
++    for (c <- children) {
++      assert(c.toDF().filter($"src" === 19 && $"dst" === 7).isEmpty)
++
++    }
++
++    val ret = Dataset.ofRows(ds.sparkSession, WCOJ(outputVariables, joinSpecification, children.map(_.logicalPlan)))
++    assert(ret.rdd.map(r => r.toSeq.toSet).filter(s => s.contains(19) && s.contains(7)).isEmpty())
++
++    ret
+   }
+ 
+   /**
+Index: src/test/resources/log4j.properties
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/test/resources/log4j.properties	(date 1556528567000)
++++ src/test/resources/log4j.properties	(date 1556528567000)
+@@ -0,0 +1,26 @@
++# Set everything to be logged to the console
++log4j.rootCategory=WARN, console
++log4j.appender.console=org.apache.log4j.ConsoleAppender
++log4j.appender.console.target=System.out
++log4j.appender.console.layout=org.apache.log4j.PatternLayout
++log4j.appender.console.layout.ConversionPattern=%d{yy/MM/dd HH:mm:ss} %p %c{1}: %m%n
++
++# Set the default spark-shell log level to WARN. When running the spark-shell, the
++# log level for this class is used to overwrite the root logger's log level, so that
++# the user can have different defaults for the shell and regular Spark apps.
++log4j.logger.org.apache.spark.repl.Main=WARN
++
++# Settings to quiet third party logs that are too verbose
++log4j.logger.org.spark-project.jetty=WARN
++log4j.logger.org.spark-project.jetty.util.component.AbstractLifeCycle=ERROR
++log4j.logger.org.apache.spark.repl.SparkIMain$exprTyper=INFO
++log4j.logger.org.apache.spark.repl.SparkILoop$SparkILoopInterpreter=INFO
++log4j.logger.org.apache.parquet=ERROR
++log4j.logger.parquet=ERROR
++
++# SPARK-9183: Settings to avoid annoying messages when looking up nonexistent UDFs in SparkSQL with Hive support
++log4j.logger.org.apache.hadoop.hive.metastore.RetryingHMSHandler=FATAL
++log4j.logger.org.apache.hadoop.hive.ql.exec.FunctionRegistry=ERROR
++
++# Example
++log4j.logger.example=DEBUG
+\ No newline at end of file
+Index: src/test/scala/leapfrogTriejoin/LeapfrogTriejoinSpec.scala
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>package leapfrogTriejoin\n\nimport org.scalacheck.Gen\nimport org.scalatest.prop.GeneratorDrivenPropertyChecks\nimport org.scalatest.{FlatSpec, Matchers}\n\nclass LeapfrogTriejoinSpec extends FlatSpec with Matchers with GeneratorDrivenPropertyChecks {\n\n  def assertJoinEqual(join: LeapfrogTriejoin, values: Set[List[Int]]) ={\n    for (i <- 0 until values.size) {\n      assert(!join.atEnd)\n      values should contain (join.next())\n    }\n    assert(join.atEnd)\n  }\n\n  \"A join on a single relationship\" should \"be the relationship\" in  {\n    val tuples = Array((1, 1), (2, 1))\n    val rel = new EdgeRelationship((\"a\", \"b\"))\n    val trieIterator = new TreeTrieIterator(tuples)\n    val join = new LeapfrogTriejoin(Map(rel -> trieIterator), List(\"a\", \"b\"))\n    assertJoinEqual(join, tuples.map(t => List(t._1, t._2)).toSet)\n  }\n\n  \"An empty relationship \" should \"produce an empty result\" in {\n    val tuples = Array[(Int, Int)]()\n    val rel = new EdgeRelationship((\"a\", \"b\"))\n    val trieIterator = new TreeTrieIterator(tuples)\n    val join = new LeapfrogTriejoin(Map(rel -> trieIterator), List(\"a\", \"b\"))\n    assert(join.atEnd)\n  }\n\n  \"A join on the first attribute\" should \"be the intersection on the first attribute\" in {\n    val positiveIntTuples = Gen.buildableOf[Set[(Int, Int)], (Int, Int)](Gen.zip(Gen.posNum[Int], Gen.posNum[Int]))\n\n    forAll(positiveIntTuples, positiveIntTuples) { (tuples1Set, tuples2Set) =>\n      whenever(List(tuples1Set, tuples2Set).forall(t => t.forall(t => t._1 > 0 && t._2 > 0))) { // Sad way to ensure numbers are actually positive\n        val tuples1 = tuples1Set.toArray.sorted\n        val tuples2 = tuples2Set.toArray.sorted\n\n        val rel1 = new EdgeRelationship((\"a\", \"b\"))\n        val rel2 = new EdgeRelationship((\"a\", \"c\"))\n        val trieIterator1 = new TreeTrieIterator(tuples1)\n        val trieIterator2 = new TreeTrieIterator(tuples2)\n        val join = new LeapfrogTriejoin(Map(rel1 -> trieIterator1, rel2 -> trieIterator2), List(\"a\", \"b\", \"c\"))\n\n        val expectedResult = tuples1.flatMap(t1 => tuples2.filter(t2 => t2._1 == t1._1).map(t2 => List(t1._1, t1._2, t2._2))).toSet\n        assertJoinEqual(join, expectedResult)\n      }\n    }\n  }\n\n\n  \"A join on the second attribute\" should \"be the intersection on the second attribute\" in {\n    val tuples1 = Array[(Int, Int)]((1, 2), (3, 3), (4, 2), (5, 1))\n    val tuples2 = Array[(Int, Int)]((2, 2), (3, 4), (5, 2))\n\n    val rel1 = new EdgeRelationship((\"a\", \"b\"))\n    val rel2 = new EdgeRelationship((\"c\", \"b\"))\n    val trieIterator1 = new TreeTrieIterator(tuples1)\n    val trieIterator2 = new TreeTrieIterator(tuples2)\n    val join = new LeapfrogTriejoin(Map(rel1 -> trieIterator1, rel2 -> trieIterator2), List(\"a\", \"c\", \"b\"))\n\n    assertJoinEqual(join, Set(List(1, 2, 2), List(1, 5, 2), List(4, 2, 2), List(4, 5, 2)))\n  }\n\n  \"Triangle joins\" should \"work\" in {\n    val tuples1 = Array[(Int, Int)]((1, 2), (3, 3), (4, 7), (5, 1))\n    val tuples2 = Array[(Int, Int)]((2, 4), (3, 5), (5, 2))\n    val tuples3 = Array[(Int, Int)]((1, 2), (3, 3), (3, 5), (5, 8))\n\n    val rel1 = new EdgeRelationship((\"a\", \"b\"))\n    val rel2 = new EdgeRelationship((\"b\", \"c\"))\n    val rel3 = new EdgeRelationship((\"a\", \"c\"))\n    val trieIterator1 = new TreeTrieIterator(tuples1)\n    val trieIterator2 = new TreeTrieIterator(tuples2)\n    val trieIterator3 = new TreeTrieIterator(tuples3)\n    val join = new LeapfrogTriejoin(Map(rel1 -> trieIterator1, rel2 -> trieIterator2, rel3 -> trieIterator3), List(\"a\", \"b\", \"c\"))\n\n    assertJoinEqual(join, Set(List(3, 3, 5)))\n  }\n\n}\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/test/scala/leapfrogTriejoin/LeapfrogTriejoinSpec.scala	(revision 2c7cd73764f1e5dd19c85581bd8af8aa3b26c5ac)
++++ src/test/scala/leapfrogTriejoin/LeapfrogTriejoinSpec.scala	(date 1556543671000)
+@@ -3,6 +3,8 @@
+ import org.scalacheck.Gen
+ import org.scalatest.prop.GeneratorDrivenPropertyChecks
+ import org.scalatest.{FlatSpec, Matchers}
++import testing.Utils
++import leapfrogTriejoin.implicits._
+ 
+ class LeapfrogTriejoinSpec extends FlatSpec with Matchers with GeneratorDrivenPropertyChecks {
+ 
+@@ -80,4 +82,55 @@
+     assertJoinEqual(join, Set(List(3, 3, 5)))
+   }
+ 
++  val ds =
++    """
++      |[4,7]
++      |[4,16]
++      |[4,19]
++      |[16,4]
++      |[16,7]
++      |[16,19]
++      |[19,4]
++      |[19,16]
++    """.stripMargin
++
++  "Regression 1: " should "work" in {
++    val parsedDS = ds.replace("[", "")
++      .replace("]", "")
++      .split("\n")
++      .map(_.trim)
++      .filter(_ != "")
++      .map(_.split(","))
++      .map(_.map(_.toInt))
++      .map(l => (l(0), l(1)))
++
++    val rels: List[TrieIterator] = (1 to 6)
++      .map(_ => new ArrayTrieIterable(parsedDS).trieIterator)
++      .toList
++    val edges: List[EdgeRelationship]  = ('a' to 'd')
++      .combinations(2)
++      .filter(l => l(0) < l(1))
++      .map(l => new EdgeRelationship((s"${l(0)}", s"${l(1)}")))
++        .toList
++
++    edges.map(_.variables) should contain (List("b", "d"))
++    edges.size should be (rels.size)
++
++//    assert(edges.size == rels.size)
++
++    val join = new LeapfrogTriejoin(edges.zip(rels).toMap, Seq("a", "b", "c", "d"))
++
++    val result = join.toList
++
++    result.foreach(a => {
++      if (a.contains(19) && a.contains(7)) {
++        println(a.mkString(","))
++      }
++    })
++
++    val setwise = result.map(_.toSet).filter(_.size == 4)
++
++    setwise should not contain Set(19, 4, 16, 7)
++  }
++
+ }

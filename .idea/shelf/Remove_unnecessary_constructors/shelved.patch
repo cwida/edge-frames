@@ -1,0 +1,237 @@
+Index: src/main/scala/sparkIntegration/ToTrieIterableRDDExec.scala
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>package sparkIntegration\n\nimport leapfrogTriejoin.ArrayTrieIterable\nimport org.apache.spark.rdd.RDD\nimport org.apache.spark.sql.catalyst.InternalRow\nimport org.apache.spark.sql.catalyst.expressions.{Ascending, Attribute, SortOrder}\nimport org.apache.spark.sql.execution.SparkPlan\n\ncase class ToTrieIterableRDDExec(child: SparkPlan) extends SparkPlan{\n  override protected def doExecute(): RDD[InternalRow] = {\n    new TrieIterableRDD[ArrayTrieIterable](child.execute()\n      .mapPartitions(iter => Iterator(new ArrayTrieIterable(iter.map(ir => (ir.getInt(0), ir.getInt(1)))))))\n  }\n\n  override def output: Seq[Attribute] = child.output\n\n  override def children: Seq[SparkPlan] = child :: Nil\n\n  override def requiredChildOrdering: Seq[Seq[SortOrder]] = {\n    val srcAtt = child.output.filter(att => att.name == \"src\").head  // TODO make src a constant\n    val dstAtt = child.output.filter(att => att.name == \"dst\").head\n    Seq(Seq(SortOrder(srcAtt, Ascending), SortOrder(dstAtt, Ascending)))\n  }\n}\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/scala/sparkIntegration/ToTrieIterableRDDExec.scala	(revision 13f6f7a68572d8ee1f5f118895a717502048cc10)
++++ src/main/scala/sparkIntegration/ToTrieIterableRDDExec.scala	(date 1555428651000)
+@@ -9,7 +9,7 @@
+ case class ToTrieIterableRDDExec(child: SparkPlan) extends SparkPlan{
+   override protected def doExecute(): RDD[InternalRow] = {
+     new TrieIterableRDD[ArrayTrieIterable](child.execute()
+-      .mapPartitions(iter => Iterator(new ArrayTrieIterable(iter.map(ir => (ir.getInt(0), ir.getInt(1)))))))
++      .mapPartitions(iter => Iterator(new ArrayTrieIterable(iter))))
+   }
+ 
+   override def output: Seq[Attribute] = child.output
+Index: src/main/scala/leapfrogTriejoin/TrieIterable.scala
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>package leapfrogTriejoin\n\ntrait TrieIterable extends Iterable[(Int, Int)] {\n\n  def trieIterator: TrieIterator\n\n}\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/scala/leapfrogTriejoin/TrieIterable.scala	(revision 13f6f7a68572d8ee1f5f118895a717502048cc10)
++++ src/main/scala/leapfrogTriejoin/TrieIterable.scala	(date 1555428403000)
+@@ -1,6 +1,8 @@
+ package leapfrogTriejoin
+ 
+-trait TrieIterable extends Iterable[(Int, Int)] {
++import org.apache.spark.sql.catalyst.InternalRow
++
++trait TrieIterable extends Iterable[InternalRow] {
+ 
+   def trieIterator: TrieIterator
+ 
+Index: src/main/scala/leapfrogTriejoin/ArrayTrieIterable.scala
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>package leapfrogTriejoin\n\nimport org.apache.spark.sql.catalyst.InternalRow\nimport org.apache.spark.sql.execution.vectorized.OnHeapColumnVector\nimport org.apache.spark.sql.types.IntegerType\nimport org.apache.spark.sql.vectorized.ColumnarBatch\n\nclass ArrayTrieIterable() extends TrieIterable {\n  private var tuples: Array[(Int, Int)] = null\n  private var tuples1: ColumnarBatch = null\n\n  def this(iter: Iterator[(Int, Int)]) {\n    this()\n    tuples = iter.toArray\n  }\n\n  def this(iter: Iterator[InternalRow], columnar: Boolean) {\n    this()\n    // TODO capacity optimization\n    val srcColumn = new OnHeapColumnVector(1000, IntegerType)\n    val dstColumn = new OnHeapColumnVector(1000, IntegerType)\n    var numRows = 0\n\n    while (iter.hasNext) {\n      val row = iter.next()\n      srcColumn.appendInt(row.getInt(0))\n      dstColumn.appendInt(row.getInt(1)) // TODO sync field names and position\n      numRows += 1\n    }\n    tuples1 = new ColumnarBatch(Array(srcColumn, dstColumn))\n    tuples1.setNumRows(numRows)\n  }\n\n  def this(a: Array[(Int, Int)]) {\n    this()\n    // TODO capacity optimization\n    val srcColumn = new OnHeapColumnVector(1000, IntegerType)\n    val dstColumn = new OnHeapColumnVector(1000, IntegerType)\n\n    for ((s, d) <- a) {\n      srcColumn.appendInt(s)\n      dstColumn.appendInt(d)\n    }\n    tuples1 = new ColumnarBatch(Array(srcColumn, dstColumn))\n    tuples1.setNumRows(a.size)\n  }\n\n  def trieIterator: TrieIterator = {\n    new TreeTrieIterator(tuples) // TODO change to real implementation\n  }\n\n  def testTrieIterator: TrieIterator = {\n    new TrieIteratorImpl(tuples1)\n  }\n\n  class TrieIteratorImpl(val tuples: ColumnarBatch) extends TrieIterator {\n    private val maxDepth = tuples.numCols() - 1\n\n    private var depth = -1\n    private var position = Array.fill(tuples.numCols())(-1)\n    private var end = Array.fill(tuples.numCols())(-1)\n    private var isAtEnd = tuples.numRows() == 0\n\n    override def open(): Unit = {\n      assert(depth < maxDepth, \"Cannot open TrieIterator at maxDepth\")\n\n      var newEnd = tuples.numRows()\n      if (depth >= 0) {\n        newEnd = position(depth)\n        do {\n          newEnd += 1\n        } while (newEnd + 1 <= tuples.numRows() && tuples.column(depth).getInt(newEnd) == tuples.column(depth).getInt(position(depth)))\n      }\n\n      depth += 1\n      end(depth) = newEnd\n      position(depth) = if (depth != 0) {\n        position(depth - 1)\n      } else {\n        0\n      }\n      isAtEnd = false\n    }\n\n    override def up(): Unit = {\n      assert(-1 <= depth, \"Cannot up TrieIterator at root level\")\n      position(depth) = -1\n      depth -= 1\n      isAtEnd = false\n    }\n\n    override def key: Int = {\n      assert(!atEnd, \"Calling key on TrieIterator atEnd is illegal.\")\n      tuples.column(depth).getInt(position(depth))\n    }\n\n    override def next(): Unit = {\n      assert(tuples.numRows() > position(depth), \"No next value, check atEnd before calling next\")\n      seek(tuples.column(depth).getInt(position(depth)) + 1)\n    }\n\n    override def atEnd: Boolean = {\n      isAtEnd\n    }\n\n    override def seek(key: Int): Unit = {\n      position(depth) = GaloppingSearch.find(tuples.column(depth), key, position(depth), end(depth))\n      updateAtEnd()\n    }\n\n    private def updateAtEnd() {\n      if (position(depth) >= tuples.numRows()) {\n        isAtEnd = true\n      } else if (depth != 0 && tuples.column(depth - 1).getInt(position(depth - 1)) != tuples.column(depth - 1).getInt(position(depth))) {\n        isAtEnd = true\n      }\n    }\n  }\n\n  override def iterator: Iterator[(Int, Int)] = {\n    tuples.iterator\n  }\n}\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/scala/leapfrogTriejoin/ArrayTrieIterable.scala	(revision 13f6f7a68572d8ee1f5f118895a717502048cc10)
++++ src/main/scala/leapfrogTriejoin/ArrayTrieIterable.scala	(date 1555428636000)
+@@ -4,17 +4,13 @@
+ import org.apache.spark.sql.execution.vectorized.OnHeapColumnVector
+ import org.apache.spark.sql.types.IntegerType
+ import org.apache.spark.sql.vectorized.ColumnarBatch
++import collection.JavaConverters._
++
+ 
+ class ArrayTrieIterable() extends TrieIterable {
+-  private var tuples: Array[(Int, Int)] = null
+-  private var tuples1: ColumnarBatch = null
++  private var tuples: ColumnarBatch = null
+ 
+-  def this(iter: Iterator[(Int, Int)]) {
+-    this()
+-    tuples = iter.toArray
+-  }
+-
+-  def this(iter: Iterator[InternalRow], columnar: Boolean) {
++  def this(iter: Iterator[InternalRow]) {
+     this()
+     // TODO capacity optimization
+     val srcColumn = new OnHeapColumnVector(1000, IntegerType)
+@@ -27,8 +23,8 @@
+       dstColumn.appendInt(row.getInt(1)) // TODO sync field names and position
+       numRows += 1
+     }
+-    tuples1 = new ColumnarBatch(Array(srcColumn, dstColumn))
+-    tuples1.setNumRows(numRows)
++    tuples = new ColumnarBatch(Array(srcColumn, dstColumn))
++    tuples.setNumRows(numRows)
+   }
+ 
+   def this(a: Array[(Int, Int)]) {
+@@ -41,16 +37,12 @@
+       srcColumn.appendInt(s)
+       dstColumn.appendInt(d)
+     }
+-    tuples1 = new ColumnarBatch(Array(srcColumn, dstColumn))
+-    tuples1.setNumRows(a.size)
+-  }
+-
+-  def trieIterator: TrieIterator = {
+-    new TreeTrieIterator(tuples) // TODO change to real implementation
++    tuples = new ColumnarBatch(Array(srcColumn, dstColumn))
++    tuples.setNumRows(a.size)
+   }
+ 
+-  def testTrieIterator: TrieIterator = {
+-    new TrieIteratorImpl(tuples1)
++  override def trieIterator: TrieIterator = {
++    new TrieIteratorImpl(tuples)
+   }
+ 
+   class TrieIteratorImpl(val tuples: ColumnarBatch) extends TrieIterator {
+@@ -117,7 +109,7 @@
+     }
+   }
+ 
+-  override def iterator: Iterator[(Int, Int)] = {
+-    tuples.iterator
++  override def iterator: Iterator[InternalRow] = {
++    tuples.rowIterator().asScala
+   }
+ }
+Index: src/test/scala/leapfrogTriejoin/ArrayTrieIteratorSpec.scala
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>package leapfrogTriejoin\n\nimport org.scalatest.prop.GeneratorDrivenPropertyChecks\nimport org.scalatest.{FlatSpec, Matchers}\n\nimport scala.collection.mutable\n\nclass ArrayTrieIteratorSpec extends FlatSpec with Matchers with GeneratorDrivenPropertyChecks {\n\n  \"An empty testTrieIterator\" should \"be at end\" in {\n    val iter = new ArrayTrieIterable(Array[(Int, Int)]()).testTrieIterator\n    assert(iter.atEnd)\n  }\n\n  \"A TrieIterator\" should \"be linearly at end after reaching linear atEnd\" in {\n    val iter = new ArrayTrieIterable(Array((1, 1))).testTrieIterator\n    assert(!iter.atEnd)\n    iter.open()\n    iter.next()\n    assert(iter.atEnd)\n  }\n\n  \"open\" should \"go a level down and to the first element\" in {\n    val iter = new ArrayTrieIterable(Array((1, 4), (1, 5), (2, 2))).testTrieIterator\n\n    iter.open()\n    iter.key shouldBe 1\n    iter.open()\n    iter.key shouldBe 4\n  }\n\n  \"open\" should \"be illegal after the last level\" in {\n    val iter = new ArrayTrieIterable(Array((1, 1))).testTrieIterator\n    iter.open()\n    iter.open()\n    assertThrows[AssertionError](iter.open())\n  }\n\n  \"up\" should \"not change to the next element\" in {\n    val iter = new ArrayTrieIterable(Array((1, 1), (2, 2))).testTrieIterator\n    iter.open()\n    iter.open()\n    iter.up()\n    iter.key shouldBe 1\n    iter.open()\n    iter.key shouldBe 1\n  }\n\n  \"A testTrieIterator\" should \"be linearly at end after the last tuple with certain value\" in {\n    val iter = new ArrayTrieIterable(Array((1, 2), (2, 3))).testTrieIterator\n    iter.open()\n    iter.key shouldBe 1\n    iter.open()\n    iter.key shouldBe 2\n    iter.next()\n    assert(iter.atEnd)\n  }\n\n  \"A testTrieIterator\" should \"serve a level linearly and jump over values in lower levels\" in {\n    val iter = new ArrayTrieIterable(Array((1, 4), (1, 5), (2, 1))).testTrieIterator\n    iter.open()\n    iter.key shouldBe 1\n    iter.next()\n    iter.key shouldBe 2\n    iter.next()\n    assert(iter.atEnd)\n  }\n\n  \"After seek for none-existent argument, a iterator\" should \"be at the next element\" in {\n    val iter = new ArrayTrieIterable(Array((1, 1), (2, 3), (2, 4), (4, 0))).testTrieIterator\n    iter.open()\n    iter.key shouldBe 1\n    iter.seek(3)\n    iter.key shouldBe 4\n  }\n\n  def traverseTrieIterator(iter: TrieIterator): Seq[(Int, Int)] = {\n    if (iter.atEnd) {\n      return List()\n    }\n    var ret: mutable.MutableList[(Int, Int)] = mutable.MutableList()\n    iter.open()\n    do {\n      val outer: Int = iter.key\n      iter.open()\n      do {\n        ret += ((outer, iter.key))\n        iter.next()\n      } while(!iter.atEnd)\n      iter.up()\n      iter.next()\n    } while(!iter.atEnd)\n    ret\n  }\n\n  \"A testTrieIterator level that is reopened\" should \"start from the beginning again\" in {\n    val iter = new ArrayTrieIterable(Array((1, 2))).testTrieIterator\n    iter.open()\n    iter.open()\n    iter.key shouldBe 2\n    iter.seek(3)\n    iter.atEnd shouldBe true\n    iter.up()\n    iter.atEnd shouldBe false\n    iter.open()\n    iter.key shouldBe 2\n  }\n\n  \"test\" should \"be at the next element\" in {\n    val tuples = Array((12,1), (13,1), (13,2), (16,1))\n    val iter = new ArrayTrieIterable(tuples).testTrieIterator\n\n    traverseTrieIterator(iter) should contain theSameElementsInOrderAs tuples\n  }\n\n  \"A testTrieIterator traversal, without seeks,\" should \"enumerate all values in order\" in {\n    import org.scalacheck.Gen\n    import Ordering.Implicits._\n\n    // Generates sets for uniqueness\n    val positiveIntTuples = Gen.buildableOf[Set[(Int, Int)], (Int, Int)](Gen.zip(Gen.posNum[Int], Gen.posNum[Int]))\n\n    forAll (positiveIntTuples) { l =>\n      whenever(l.forall(t => t._1 > 0 && t._2 > 0)) {  // Sad way to ensure numbers are actually positive\n        val array = l.toArray.sorted\n        val iter = new ArrayTrieIterable(array).testTrieIterator\n        traverseTrieIterator(iter) should contain theSameElementsInOrderAs (array)\n      }\n    }\n  }\n\n\n\n}\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/test/scala/leapfrogTriejoin/ArrayTrieIteratorSpec.scala	(revision 13f6f7a68572d8ee1f5f118895a717502048cc10)
++++ src/test/scala/leapfrogTriejoin/ArrayTrieIteratorSpec.scala	(date 1555428403000)
+@@ -8,12 +8,12 @@
+ class ArrayTrieIteratorSpec extends FlatSpec with Matchers with GeneratorDrivenPropertyChecks {
+ 
+   "An empty testTrieIterator" should "be at end" in {
+-    val iter = new ArrayTrieIterable(Array[(Int, Int)]()).testTrieIterator
++    val iter = new ArrayTrieIterable(Array[(Int, Int)]()).trieIterator
+     assert(iter.atEnd)
+   }
+ 
+   "A TrieIterator" should "be linearly at end after reaching linear atEnd" in {
+-    val iter = new ArrayTrieIterable(Array((1, 1))).testTrieIterator
++    val iter = new ArrayTrieIterable(Array((1, 1))).trieIterator
+     assert(!iter.atEnd)
+     iter.open()
+     iter.next()
+@@ -21,7 +21,7 @@
+   }
+ 
+   "open" should "go a level down and to the first element" in {
+-    val iter = new ArrayTrieIterable(Array((1, 4), (1, 5), (2, 2))).testTrieIterator
++    val iter = new ArrayTrieIterable(Array((1, 4), (1, 5), (2, 2))).trieIterator
+ 
+     iter.open()
+     iter.key shouldBe 1
+@@ -30,14 +30,14 @@
+   }
+ 
+   "open" should "be illegal after the last level" in {
+-    val iter = new ArrayTrieIterable(Array((1, 1))).testTrieIterator
++    val iter = new ArrayTrieIterable(Array((1, 1))).trieIterator
+     iter.open()
+     iter.open()
+     assertThrows[AssertionError](iter.open())
+   }
+ 
+   "up" should "not change to the next element" in {
+-    val iter = new ArrayTrieIterable(Array((1, 1), (2, 2))).testTrieIterator
++    val iter = new ArrayTrieIterable(Array((1, 1), (2, 2))).trieIterator
+     iter.open()
+     iter.open()
+     iter.up()
+@@ -47,7 +47,7 @@
+   }
+ 
+   "A testTrieIterator" should "be linearly at end after the last tuple with certain value" in {
+-    val iter = new ArrayTrieIterable(Array((1, 2), (2, 3))).testTrieIterator
++    val iter = new ArrayTrieIterable(Array((1, 2), (2, 3))).trieIterator
+     iter.open()
+     iter.key shouldBe 1
+     iter.open()
+@@ -57,7 +57,7 @@
+   }
+ 
+   "A testTrieIterator" should "serve a level linearly and jump over values in lower levels" in {
+-    val iter = new ArrayTrieIterable(Array((1, 4), (1, 5), (2, 1))).testTrieIterator
++    val iter = new ArrayTrieIterable(Array((1, 4), (1, 5), (2, 1))).trieIterator
+     iter.open()
+     iter.key shouldBe 1
+     iter.next()
+@@ -67,7 +67,7 @@
+   }
+ 
+   "After seek for none-existent argument, a iterator" should "be at the next element" in {
+-    val iter = new ArrayTrieIterable(Array((1, 1), (2, 3), (2, 4), (4, 0))).testTrieIterator
++    val iter = new ArrayTrieIterable(Array((1, 1), (2, 3), (2, 4), (4, 0))).trieIterator
+     iter.open()
+     iter.key shouldBe 1
+     iter.seek(3)
+@@ -94,7 +94,7 @@
+   }
+ 
+   "A testTrieIterator level that is reopened" should "start from the beginning again" in {
+-    val iter = new ArrayTrieIterable(Array((1, 2))).testTrieIterator
++    val iter = new ArrayTrieIterable(Array((1, 2))).trieIterator
+     iter.open()
+     iter.open()
+     iter.key shouldBe 2
+@@ -108,7 +108,7 @@
+ 
+   "test" should "be at the next element" in {
+     val tuples = Array((12,1), (13,1), (13,2), (16,1))
+-    val iter = new ArrayTrieIterable(tuples).testTrieIterator
++    val iter = new ArrayTrieIterable(tuples).trieIterator
+ 
+     traverseTrieIterator(iter) should contain theSameElementsInOrderAs tuples
+   }
+@@ -123,7 +123,7 @@
+     forAll (positiveIntTuples) { l =>
+       whenever(l.forall(t => t._1 > 0 && t._2 > 0)) {  // Sad way to ensure numbers are actually positive
+         val array = l.toArray.sorted
+-        val iter = new ArrayTrieIterable(array).testTrieIterator
++        val iter = new ArrayTrieIterable(array).trieIterator
+         traverseTrieIterator(iter) should contain theSameElementsInOrderAs (array)
+       }
+     }
+Index: src/main/scala/sparkIntegration/TrieIterableRDD.scala
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>package sparkIntegration\n\nimport leapfrogTriejoin.{TrieIterable, TrieIterator}\nimport org.apache.spark.rdd.RDD\nimport org.apache.spark.sql.catalyst.InternalRow\nimport org.apache.spark.sql.catalyst.expressions.GenericInternalRow\nimport org.apache.spark.{OneToOneDependency, Partition, TaskContext}\n\nclass TrieIterableRDD[S <: TrieIterable](val trieIterableRDD: RDD[S])\n  extends RDD[InternalRow](trieIterableRDD.context, List(new OneToOneDependency(trieIterableRDD))) {\n\n  override def compute(split: Partition, context: TaskContext): Iterator[InternalRow] = {\n    trieIterableRDD.compute(split, context).flatMap(t => t.map(x => {\n      val gr = new GenericInternalRow(2)\n      gr.update(0, x._1)\n      gr.update(1, x._2)\n      gr\n    }))\n  }\n\n  override protected def getPartitions: Array[Partition] = trieIterableRDD.partitions\n\n  def trieIterables: RDD[S] = {\n    trieIterableRDD\n  }\n}
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/scala/sparkIntegration/TrieIterableRDD.scala	(revision 13f6f7a68572d8ee1f5f118895a717502048cc10)
++++ src/main/scala/sparkIntegration/TrieIterableRDD.scala	(date 1555428403000)
+@@ -10,12 +10,7 @@
+   extends RDD[InternalRow](trieIterableRDD.context, List(new OneToOneDependency(trieIterableRDD))) {
+ 
+   override def compute(split: Partition, context: TaskContext): Iterator[InternalRow] = {
+-    trieIterableRDD.compute(split, context).flatMap(t => t.map(x => {
+-      val gr = new GenericInternalRow(2)
+-      gr.update(0, x._1)
+-      gr.update(1, x._2)
+-      gr
+-    }))
++    trieIterableRDD.compute(split, context).flatMap(t => t.iterator)
+   }
+ 
+   override protected def getPartitions: Array[Partition] = trieIterableRDD.partitions

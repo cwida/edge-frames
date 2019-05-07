@@ -59,7 +59,7 @@ class LeapfrogTriejoin(trieIterators: Map[EdgeRelationship, TrieIterator], varia
 
   private def moveToNextTuple() = {
     var action: Int = NEXT_ACTION
-    if (depth == -1) {  // TODO true only once can be moved out of moveToNextTuple
+    if (depth == -1) {
       action = DOWN_ACTION
     } else if (currentLeapfrogJoin.atEnd) {
       action = UP_ACTION
@@ -67,10 +67,6 @@ class LeapfrogTriejoin(trieIterators: Map[EdgeRelationship, TrieIterator], varia
     if (action == NEXT_ACTION) {
       action = nextAction()
     }
-    // TODO unrolling
-    // TODO factor out all variables
-    // TODO use compiler optimizer
-
 
     while (action != DONE) {
       if (action == DOWN_ACTION) {

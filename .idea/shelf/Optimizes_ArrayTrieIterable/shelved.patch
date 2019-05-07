@@ -1,0 +1,140 @@
+Index: src/main/scala/experiments/ExperimentRunner.scala
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>package experiments\n\nimport java.io.File\n\nimport org.apache.spark.SparkConf\nimport org.apache.spark.scheduler.{AccumulableInfo, SparkListener, SparkListenerEvent, SparkListenerExecutorMetricsUpdate, SparkListenerJobEnd, SparkListenerStageCompleted, SparkListenerTaskEnd}\nimport org.apache.spark.sql.execution.metric.SQLMetrics\nimport org.apache.spark.sql.execution.ui.{SQLAppStatusListener, SQLAppStatusStore, SparkListenerSQLExecutionEnd}\nimport org.apache.spark.sql.{DataFrame, SparkSession}\nimport org.apache.spark.util.kvstore.InMemoryStore\nimport scopt.OParser\nimport sparkIntegration.{WCOJ2WCOJExec, WCOJExec}\n\nimport scala.collection.mutable.ListBuffer\n\nobject Readers {\n  implicit def algorithmRead: scopt.Read[Algorithm] = {\n    scopt.Read.reads({\n      case \"WCOJ\" => {\n        WCOJ\n      }\n      case \"bin\" => {\n        BinaryJoins\n      }\n      case _ => {\n        throw new IllegalArgumentException(\"Algorithm can be only `WCOJ` or `bin`\")\n      }\n    })\n  }\n\n  implicit def datasetTypeRead: scopt.Read[DatasetType] = {\n    scopt.Read.reads({\n      case \"ama\" => {\n        AmazonCoPurchase\n      }\n      case \"snb\" => {\n        SNB\n      }\n      case \"liv\" => {\n        LiveJournal2010\n      }\n      case _ => {\n        throw new IllegalArgumentException(\"Dataset type can be only `ama` or `snb`\")\n      }\n    })\n  }\n\n  implicit def queryRead: scopt.Read[Query] = {\n    scopt.Read.reads(s => {\n      val queryTypes = Seq(\"cycle\", \"clique\", \"path\")\n\n      queryTypes.find(t => s.startsWith(t)) match {\n        case Some(t) => {\n          val parameter = s.replace(t, \"\")\n          t match {\n            case \"cycle\" => {\n              val size = parameter.toInt\n              Cycle(size)\n            }\n            case \"clique\" => {\n              val size = parameter.toInt\n              println(s\"clique of size: $size\")\n              Clique(size)\n            }\n            case \"path\" => {\n              val parts = parameter.split(\"|\")\n              PathQuery(parts(0).toInt, parts(1).toDouble)\n            }\n            case _ => {\n              throw new IllegalArgumentException(s\"Unknown query: $s\")\n            }\n          }\n        }\n        case None => {\n          throw new IllegalArgumentException(s\"Unknown query: $s\")\n        }\n      }\n    })\n  }\n}\n\nsealed trait Algorithm {\n}\n\ncase object WCOJ extends Algorithm {\n}\n\ncase object BinaryJoins extends Algorithm {\n}\n\nsealed trait DatasetType {\n}\n\ncase object AmazonCoPurchase extends DatasetType {\n}\n\ncase object SNB extends DatasetType {\n}\n\ncase object LiveJournal2010 extends DatasetType {\n}\n\nsealed trait Query\n\ncase class Clique(size: Int) extends Query\n\ncase class Cycle(size: Int) extends Query\n\ncase class PathQuery(size: Int, selectivity: Double) extends Query\n\n\ncase class ExperimentConfig(\n                             algorithms: Seq[Algorithm] = Seq(WCOJ, BinaryJoins),\n                             datasetType: DatasetType = AmazonCoPurchase,\n                             datasetFilePath: String = \".\",\n                             queries: Seq[Query] = Seq.empty,\n                             outputPath: File = new File(\".\"),\n                             reps: Int = 1,\n                             limitDataset: Int = -1\n                           )\n\n\nobject ExperimentRunner extends App {\n\n  val config: ExperimentConfig = parseArgs().orElse(throw new IllegalArgumentException(\"Couldn't parse args\")).get\n\n  println(\"Setting up Spark\")\n  val sp = setupSpark()\n\n  val ds = loadDataset()\n\n  val wcojTimes = ListBuffer[Double]()\n  val copyTimes = ListBuffer[Double]()\n  val materializationTimes = ListBuffer[Double]()\n  setupMetricListener(wcojTimes, materializationTimes, copyTimes)\n\n  runQueries()\n\n  scala.io.StdIn.readLine(\"Stop?\")\n\n  sp.stop()\n\n  private def parseArgs(): Option[ExperimentConfig] = {\n    import Readers._\n\n    val builder = OParser.builder[ExperimentConfig]\n    val parser1 = {\n      import builder._\n      OParser.sequence(\n        programName(\"experiment-runner\"),\n        head(\"experiment-runner\", \"0.1\"),\n        opt[Seq[Algorithm]]('a', \"algorithms\")\n          .required()\n          .action((x, c) => c.copy(algorithms = x))\n          .text(\"The algorithm to run experiments with, `bin` or `WCOJ`\"),\n        opt[DatasetType]('d', \"dataset-type\")\n          .required()\n          .action((x, c) => c.copy(datasetType = x)),\n        opt[File]('o', \"out\")\n          .valueName(\"<measurements-output-folder>\")\n          .required()\n          .action((x, c) => c.copy(outputPath = x)),\n        opt[String]('i', \"dataset-path\")\n          .required()\n          .action((x, c) => c.copy(datasetFilePath = x)),\n        opt[Seq[Query]]('q', \"queries\")\n          .valueName(\"<query1>,<query2>...\")\n          .required()\n          .action((x, c) => c.copy(queries = x)),\n        opt[Int]('l', \"limit\")\n          .optional\n          .action((x, c) => c.copy(limitDataset = x)),\n        opt[Int]('r', \"reps\")\n          .optional()\n          .action((x, c) => c.copy(reps = x))\n      )\n    }\n    OParser.parse(parser1, args, ExperimentConfig())\n  }\n\n  private def setupSpark(): SparkSession = {\n    val conf = new SparkConf()\n      .setMaster(\"local[1]\")\n      .setAppName(\"Spark test\")\n      .set(\"spark.executor.memory\", \"40g\")\n      .set(\"spark.driver.memory\", \"20g\")\n      .set(\"spark.sql.autoBroadcastJoinThreshold\", \"104857600\") // High threshold\n//          .set(\"spark.sql.autoBroadcastJoinThreshold\", \"-1\")  // No broadcast\n    //      .set(\"spark.sql.codegen.wholeStage\", \"false\")\n    val spark = SparkSession.builder()\n      .config(conf)\n      .getOrCreate()\n\n    spark.experimental.extraStrategies = (Seq(WCOJ2WCOJExec) ++ spark.experimental.extraStrategies)\n    spark\n  }\n\n  private def loadDataset(): DataFrame = {\n    val dt = config.datasetType\n\n    println(s\"Loading ${dt} dataset from ${config.datasetFilePath}\")\n    var d = config.datasetType match {\n      case AmazonCoPurchase => {\n        Datasets.loadAmazonDataset(config.datasetFilePath, sp)\n      }\n      case SNB => {\n        Datasets.loadSNBDataset(sp, config.datasetFilePath)\n      }\n      case LiveJournal2010 => {\n        Datasets.loadLiveJournalDataset(sp, config.datasetFilePath)\n      }\n    }\n    if (config.limitDataset != -1) {\n      d = d.limit(config.limitDataset)\n    }\n    d = d.cache()\n\n    val count = d.count() // Trigger dataset caching\n    println(s\"Running on $count rows\")\n    d\n  }\n\n  private def runQueries() = {\n    for (q <- config.queries) {\n      runQuery(config.algorithms, q)\n    }\n  }\n\n  private def runQuery(algorithms: Seq[Algorithm], query: Query): Unit = {\n    for (algoritm <- algorithms) {\n      val queryDataFrame = algoritm match {\n        case BinaryJoins => {\n          query match {\n            case Clique(s) => {\n              Queries.cliqueBinaryJoins(s, sp, ds)\n            }\n            case Cycle(s) => {\n              Queries.cycleBinaryJoins(s, ds)\n            }\n            case PathQuery(s, selectivity) => {\n              val (ns1, ns2) = Queries.pathQueryNodeSets(ds, selectivity)\n              Queries.pathBinaryJoins(s, ds, ns1, ns2)\n            }\n          }\n        }\n        case WCOJ => {\n          query match {\n            case Clique(s) => {\n              Queries.cliquePattern(s, ds)\n            }\n            case Cycle(s) => {\n              Queries.cyclePattern(s, ds)\n            }\n            case PathQuery(s, selectivity) => {\n              val (ns1, ns2) = Queries.pathQueryNodeSets(ds, selectivity)\n              Queries.pathPattern(s, ds, ns1, ns2)\n            }\n          }\n        }\n      }\n\n      val times = ListBuffer[Double]()\n      wcojTimes.clear()\n      materializationTimes.clear()\n      copyTimes.clear()\n\n      for (i <- 1 to config.reps) {\n        print(\".\")\n        val start = System.nanoTime()\n        val count = queryDataFrame.count()\n        val end = System.nanoTime()\n        val time = (end - start).toDouble / 1000000000\n//        println(s\"$algoritm $count\")\n        times += time\n        System.gc()\n      }\n      println()\n\n      println(s\"Using $algoritm, $query took ${times.sum / times.size} in average over ${config.reps} repetitions.\")\n      if (wcojTimes.nonEmpty) {\n        assert(wcojTimes.size == config.reps)\n        assert(materializationTimes.size == config.reps)\n        assert(copyTimes.size == config.reps)\n\n        println(s\"WCOJ took ${wcojTimes.sum / wcojTimes.size}, copying took ${copyTimes.sum / copyTimes.size} took ${materializationTimes.sum / materializationTimes.size}\")\n      }\n    }\n  }\n\n  private def setupMetricListener(wcojTimes: ListBuffer[Double], materializationTimes: ListBuffer[Double], copyTimes: ListBuffer[Double]): Unit = {\n    sp.sparkContext.addSparkListener(new SparkListener {\n      override def onStageCompleted(stageCompleted: SparkListenerStageCompleted): Unit = {\n        var materializationTimeTotal = 0L\n\n        stageCompleted.stageInfo.accumulables.foreach({\n          case (_, AccumulableInfo(_, Some(name), _, Some(value), _, _, _)) => {\n            if (name.startsWith(\"wcoj time\")) {\n              wcojTimes += value.asInstanceOf[Long].toDouble / 1000\n            } else if (name.startsWith(\"materialization time\")) {\n              materializationTimeTotal += value.asInstanceOf[Long]\n            } else if (name.startsWith(\"copy\")) {\n              copyTimes += value.asInstanceOf[Long].toDouble / 1000\n            }\n          }\n        })\n\n        if (materializationTimeTotal != 0) {\n          materializationTimes += materializationTimeTotal.toDouble / 1000\n        }\n      }\n    })\n\n  }\n\n}\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/scala/experiments/ExperimentRunner.scala	(revision 059fb97281a4b679c7aefbc2d70c158104c62451)
++++ src/main/scala/experiments/ExperimentRunner.scala	(date 1556891574000)
+@@ -272,7 +272,7 @@
+         val time = (end - start).toDouble / 1000000000
+ //        println(s"$algoritm $count")
+         times += time
+-        System.gc()
++//        System.gc()
+       }
+       println()
+ 
+Index: src/test/scala/correctnessTesting/AmazonDatasetTriangleQuery.scala
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>package correctnessTesting\n\nimport java.nio.file.{Files, Path, Paths}\n\nimport org.scalatest.{FlatSpec, Matchers}\nimport sparkIntegration.implicits._\nimport testing.{SparkTest, Utils}\nimport experiments.Queries._\nimport experiments.Datasets.loadAmazonDataset\nimport org.apache.spark.rdd.RDD\nimport org.apache.spark.sql.{DataFrame, Row}\n\nimport scala.reflect.ClassTag\n\nclass AmazonDatasetTriangleQuery extends FlatSpec with Matchers with SparkTest {\n  val OFFICIAL_NUMBERS_OF_TRIANGLES = 717719L\n  val DATASET_PATH = \"/home/per/workspace/master-thesis/datasets/amazon-0302\"\n\n  val FAST = false\n  if (FAST) {\n    System.err.println(\"Running correctness test in fast mode\")\n  }\n\n  val ds = if (FAST) {\n    loadAmazonDataset(DATASET_PATH, sp).limit(1000).cache()\n  } else {\n    loadAmazonDataset(DATASET_PATH, sp).cache()\n  }\n  println(s\"Testing on the first ${ds.count()} edges of the Amazon set\")\n\n  val goldStandardTriangles = triangleBinaryJoins(sp, ds).cache()\n  val actualResultTriangles = trianglePattern(ds).cache()\n\n  val (nodeSet1, nodeSet2) = pathQueryNodeSets(ds)\n  nodeSet1.cache()\n  nodeSet2.cache()\n\n  private def assertRDDEqual[A: ClassTag](rdd1: RDD[A], rdd2: RDD[A]) = {\n    val diff1 = rdd1.subtract(rdd2)\n    val diff2 = rdd2.subtract(rdd1)\n\n    diff1.isEmpty() should be(true)\n    diff2.isEmpty() should be(true)\n  }\n\n  private def assertRDDSetEqual(rdd1: RDD[Row], rdd2: RDD[Row]) = {\n    val rdd1Set = rdd1.map(r => r.toSeq.toSet)\n    val rdd2Set = rdd2.map(r => r.toSeq.toSet)\n\n    val diff1 = rdd1Set.subtract(rdd2Set)\n    val diff2 = rdd2Set.subtract(rdd1Set)\n\n    val empty1 = diff1.isEmpty()\n    val empty2 = diff2.isEmpty()\n\n    if (!(empty1 && empty2)) {\n      Utils.printSetRDD(50, diff1)\n      Utils.printSetRDD(50, diff2)\n    }\n\n    empty1 should be (true)\n    empty2 should be (true)\n  }\n\n  private def getPathQueryDataset(): DataFrame = {\n    // TODO remove once path queries are fast enough\n    if (FAST) {\n      ds\n    } else {\n      ds.limit(1000)\n    }\n  }\n\n  \"WCOJ implementation\" should \"find the same two-paths as Spark's original joins\" in {\n    val ds = getPathQueryDataset()\n\n    val a = twoPathPattern(ds, nodeSet1, nodeSet2).cache()\n    val e = twoPathBinaryJoins(ds, nodeSet1, nodeSet2).cache()\n\n    val diff = a.rdd.subtract(e.rdd)\n    diff.isEmpty() should be(true)\n    a.isEmpty should be(false)\n    e.isEmpty should be(false)\n  }\n\n  \"WCOJ implementation\" should \"find the same three-paths as Spark's original joins\" in {\n    val ds = getPathQueryDataset()\n\n    val a = threePathPattern(ds, nodeSet1, nodeSet2).cache()\n    val e = threePathBinaryJoins(ds, nodeSet1, nodeSet2).cache()\n\n    assertRDDEqual(a.rdd, e.rdd)\n    a.isEmpty should be(false)\n    e.isEmpty should be(false)\n  }\n\n  \"WCOJ implementation\" should \"find the same four-paths as Spark's original joins\" in {\n    val ds = getPathQueryDataset()\n\n    val e = fourPathBinaryJoins(ds, nodeSet1, nodeSet2)\n    val a = fourPathPattern(ds, nodeSet1, nodeSet2)\n\n    assertRDDEqual(a.rdd, e.rdd)\n\n    a.isEmpty should be(false)\n    e.isEmpty should be(false)\n  }\n\n  \"WCOJ implementation\" should \"find same triangles as Spark's original joins\" in {\n    actualResultTriangles.count() should equal(goldStandardTriangles.count())\n\n    assertRDDEqual(actualResultTriangles.rdd, goldStandardTriangles.rdd)\n  }\n\n  \"WCOJ implementation\" should \"produce roughly as many triangles as on the official website\" in {\n    if (!FAST) {\n      val distinct = actualResultTriangles.rdd.map(r => r.toSeq.toSet).distinct(1).count()\n      distinct should equal(OFFICIAL_NUMBERS_OF_TRIANGLES +- (OFFICIAL_NUMBERS_OF_TRIANGLES * 0.01).toLong)\n    } else {\n      fail(\"Cannot run comparision to original data in FAST mode\")\n    }\n  }\n\n  \"The variable ordering\" should \"not matter\" in {\n    val otherVariableOrdering = ds.findPattern(\n      \"\"\"\n        |(a) - [] -> (b);\n        |(b) - [] -> (c);\n        |(a) - [] -> (c)\n        |\"\"\".stripMargin, List(\"c\", \"a\", \"b\"))\n\n    val otherReordered = otherVariableOrdering.select(\"a\", \"b\", \"c\")\n\n    assertRDDEqual(otherReordered.rdd, actualResultTriangles.rdd)\n  }\n\n  \"Circular triangles\" should \"be found correctly\" in {\n    import sp.implicits._\n\n    val circular = ds.findPattern(\n      \"\"\"\n        |(a) - [] -> (b);\n        |(b) - [] -> (c);\n        |(c) - [] -> (a)\n        |\"\"\".stripMargin, List(\"a\", \"b\", \"c\"))\n\n    val duos = ds.as(\"R\")\n      .joinWith(ds.as(\"S\"), $\"R.dst\" === $\"S.src\")\n    val triangles = duos.joinWith(ds.as(\"T\"),\n      condition = $\"_2.dst\" === $\"T.src\" && $\"_1.src\" === $\"T.dst\")\n\n    val goldStandard = triangles.selectExpr(\"_2.dst AS a\", \"_1._1.dst AS b\", \"_2.src AS c\")\n\n    assertRDDEqual(circular.rdd, goldStandard.rdd)\n  }\n\n  \"Four clique\" should \"be the same\" in {\n    val a = cliquePattern(4, ds)\n    val e = fourCliqueBinaryJoins(sp, ds)\n\n    assertRDDSetEqual(a.rdd, e.rdd)\n  }\n\n  \"Diamond query\" should \"be the same\" in {\n    val a = diamondPattern(ds)\n    val e = diamondBinaryJoins(ds)\n\n    assertRDDSetEqual(a.rdd, e.rdd)\n  }\n\n  \"House query\" should \"be the same\" in {\n    val a = housePattern(ds)\n    val e = houseBinaryJoins(sp, ds)\n\n    assertRDDSetEqual(a.rdd, e.rdd)\n  }\n\n  \"5-clique query\" should \"be the same\" in {\n    val a = cliquePattern(5, ds)\n    val e = fiveCliqueBinaryJoins(sp, ds)\n\n    assertRDDSetEqual(a.rdd, e.rdd)\n  }\n\n  \"6-clique query\" should \"be the same\" in {\n    val a = cliquePattern(6, ds)\n    val e = sixCliqueBinaryJoins(sp, ds)\n\n    assertRDDSetEqual(a.rdd, e.rdd)\n  }\n\n  \"4-cylce\" should \"be the same\" in {\n    val a = cyclePattern(4, ds)\n    val e = cycleBinaryJoins(4, ds)\n\n    assertRDDSetEqual(a.rdd, e.rdd)\n  }\n\n  \"5-cylce\" should \"be the same\" in {\n    val a = cyclePattern(5, ds)\n    val e = cycleBinaryJoins(5, ds)\n\n    assertRDDSetEqual(a.rdd, e.rdd)\n  }\n\n  \"6-cylce\" should \"be the same\" in {\n    val a = cyclePattern(6, ds)\n    val e = cycleBinaryJoins(6, ds)\n\n    assertRDDSetEqual(a.rdd, e.rdd)\n  }\n\n}\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/test/scala/correctnessTesting/AmazonDatasetTriangleQuery.scala	(revision 059fb97281a4b679c7aefbc2d70c158104c62451)
++++ src/test/scala/correctnessTesting/AmazonDatasetTriangleQuery.scala	(date 1556889680000)
+@@ -16,7 +16,7 @@
+   val OFFICIAL_NUMBERS_OF_TRIANGLES = 717719L
+   val DATASET_PATH = "/home/per/workspace/master-thesis/datasets/amazon-0302"
+ 
+-  val FAST = false
++  val FAST = true
+   if (FAST) {
+     System.err.println("Running correctness test in fast mode")
+   }
+Index: src/main/scala/leapfrogTriejoin/ArrayTrieIterable.scala
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>package leapfrogTriejoin\n\nimport org.apache.spark.sql.catalyst.InternalRow\nimport org.apache.spark.sql.catalyst.expressions.GenericInternalRow\nimport org.apache.spark.sql.execution.vectorized.OnHeapColumnVector\nimport org.apache.spark.sql.types.IntegerType\nimport org.apache.spark.sql.vectorized.{ColumnVector, ColumnarBatch}\n\nimport collection.JavaConverters._\n\n\nclass ArrayTrieIterable(iter: Iterator[InternalRow]) extends TrieIterable {\n    // TODO capacity optimization\n  private val srcColumn = new OnHeapColumnVector(1000, IntegerType)\n  private val dstColumn = new OnHeapColumnVector(1000, IntegerType)\n  private var numRows = 0\n\n  while (iter.hasNext) {\n    val row = iter.next()\n    srcColumn.appendInt(row.getInt(0))\n    dstColumn.appendInt(row.getInt(1)) // TODO sync field names and position\n    numRows += 1\n  }\n  private val tuples = new ColumnarBatch(Array(srcColumn, dstColumn))\n  tuples.setNumRows(numRows)\n\n  // For testing\n  def this(a: Array[(Int, Int)]) {\n    this(a.map(t => new GenericInternalRow(Array[Any](t._1, t._2))).iterator)\n  }\n\n  override def trieIterator: TrieIterator = {\n    new TrieIteratorImpl(tuples)\n  }\n\n  def getMemoryUsage(): Long = {\n    numRows * 2 * 4\n  }\n\n  class TrieIteratorImpl(val tuples: ColumnarBatch) extends TrieIterator {\n    private val maxDepth = tuples.numCols() - 1\n\n    private var depth = -1\n    private var position = Array.fill(tuples.numCols())(-1)\n    private var end = Array.fill(tuples.numCols())(-1)\n    private var isAtEnd = tuples.numRows() == 0\n\n    private var currentColumn: ColumnVector = null\n//    private var currentPosition\n\n    override def open(): Unit = {\n      assert(depth < maxDepth, \"Cannot open TrieIterator at maxDepth\")\n\n      var newEnd = tuples.numRows()\n      if (depth >= 0) {\n        newEnd = position(depth)\n        do {\n          newEnd += 1\n        } while (newEnd + 1 <= tuples.numRows() && tuples.column(depth).getInt(newEnd) == tuples.column(depth).getInt(position(depth)))\n      }\n\n      depth += 1\n      end(depth) = newEnd\n      position(depth) = if (depth != 0) {\n        position(depth - 1)\n      } else {\n        0\n      }\n      isAtEnd = false\n    }\n\n    override def up(): Unit = {\n      assert(-1 <= depth, \"Cannot up TrieIterator at root level\")\n      position(depth) = -1\n      depth -= 1\n      isAtEnd = false\n    }\n\n    override def key: Int = {\n      assert(!atEnd, \"Calling key on TrieIterator atEnd is illegal.\")\n\n      // TODO use column reference and position\n      tuples.column(depth).getInt(position(depth))\n    }\n\n    override def next(): Unit = {\n      assert(tuples.numRows() > position(depth), \"No next value, check atEnd before calling next\")\n      seek(tuples.column(depth).getInt(position(depth)) + 1)\n    }\n\n    override def atEnd: Boolean = {\n      isAtEnd\n    }\n\n    override def seek(key: Int): Unit = {\n      position(depth) = GallopingSearch.find(tuples.column(depth), key, position(depth), end(depth))\n      updateAtEnd()\n    }\n\n    private def updateAtEnd() {\n      if (position(depth) >= tuples.numRows()) {\n        isAtEnd = true\n      } else if (depth != 0 && tuples.column(depth - 1).getInt(position(depth - 1)) != tuples.column(depth - 1).getInt(position(depth))) {\n        isAtEnd = true\n      }\n    }\n  }\n\n  override def iterator: Iterator[InternalRow] = {\n    tuples.rowIterator().asScala\n  }\n}\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/scala/leapfrogTriejoin/ArrayTrieIterable.scala	(revision 059fb97281a4b679c7aefbc2d70c158104c62451)
++++ src/main/scala/leapfrogTriejoin/ArrayTrieIterable.scala	(date 1556891415000)
+@@ -39,53 +39,63 @@
+ 
+   class TrieIteratorImpl(val tuples: ColumnarBatch) extends TrieIterator {
+     private val maxDepth = tuples.numCols() - 1
++    private val numRows = tuples.numRows()
+ 
+     private var depth = -1
+     private var position = Array.fill(tuples.numCols())(-1)
+     private var end = Array.fill(tuples.numCols())(-1)
+-    private var isAtEnd = tuples.numRows() == 0
++    private var isAtEnd = numRows == 0
+ 
+     private var currentColumn: ColumnVector = null
+-//    private var currentPosition
++    private var currentPosition: Int = -1
+ 
+     override def open(): Unit = {
+       assert(depth < maxDepth, "Cannot open TrieIterator at maxDepth")
+ 
+-      var newEnd = tuples.numRows()
++      var newEnd = numRows
+       if (depth >= 0) {
+-        newEnd = position(depth)
++        newEnd = currentPosition
++        position(depth) = currentPosition
++
+         do {
+           newEnd += 1
+-        } while (newEnd + 1 <= tuples.numRows() && tuples.column(depth).getInt(newEnd) == tuples.column(depth).getInt(position(depth)))
++        } while (newEnd + 1 <= numRows
++          && currentColumn.getInt(newEnd) == currentColumn.getInt(currentPosition))
+       }
+ 
+       depth += 1
++
+       end(depth) = newEnd
+-      position(depth) = if (depth != 0) {
++      currentPosition = if (depth != 0) {
+         position(depth - 1)
+       } else {
+         0
+       }
++      currentColumn = tuples.column(depth)
++
+       isAtEnd = false
+     }
+ 
+     override def up(): Unit = {
+       assert(-1 <= depth, "Cannot up TrieIterator at root level")
+-      position(depth) = -1
++
+       depth -= 1
++      if (depth >= 0) {
++        currentPosition = position(depth)
++        currentColumn = tuples.column(depth)
++      }
++
+       isAtEnd = false
+     }
+ 
+     override def key: Int = {
+       assert(!atEnd, "Calling key on TrieIterator atEnd is illegal.")
+-
+-      // TODO use column reference and position
+-      tuples.column(depth).getInt(position(depth))
++      currentColumn.getInt(currentPosition)
+     }
+ 
+     override def next(): Unit = {
+-      assert(tuples.numRows() > position(depth), "No next value, check atEnd before calling next")
+-      seek(tuples.column(depth).getInt(position(depth)) + 1)
++      assert(numRows > currentPosition, "No next value, check atEnd before calling next")
++      seek(currentColumn.getInt(currentPosition) + 1)
+     }
+ 
+     override def atEnd: Boolean = {
+@@ -93,14 +103,15 @@
+     }
+ 
+     override def seek(key: Int): Unit = {
+-      position(depth) = GallopingSearch.find(tuples.column(depth), key, position(depth), end(depth))
++      currentPosition = GallopingSearch.find(currentColumn, key, currentPosition, end(depth))
+       updateAtEnd()
+     }
+ 
+     private def updateAtEnd() {
+-      if (position(depth) >= tuples.numRows()) {
++      if (currentPosition >= numRows) {
+         isAtEnd = true
+-      } else if (depth != 0 && tuples.column(depth - 1).getInt(position(depth - 1)) != tuples.column(depth - 1).getInt(position(depth))) {
++      } else if (depth != 0
++        && tuples.column(depth - 1).getInt(position(depth - 1)) != tuples.column(depth - 1).getInt(currentPosition)) {
+         isAtEnd = true
+       }
+     }

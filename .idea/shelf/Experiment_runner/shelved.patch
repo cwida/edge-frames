@@ -1,0 +1,390 @@
+Index: src/main/scala/experiments/Queries.scala
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>package experiments\n\nimport org.apache.spark.sql.{Column, DataFrame, SparkSession}\nimport sparkIntegration.implicits._\n\nobject Queries {\n  val FIXED_SEED_1 = 42\n  val FIXED_SEED_2 = 220\n\n  def pathQueryNodeSets(rel: DataFrame, selectivity: Double = 0.1): (DataFrame, DataFrame) = {\n    (rel.selectExpr(\"src AS a\").sample(selectivity, FIXED_SEED_1),\n      rel.selectExpr(\"dst AS z\").sample(selectivity, FIXED_SEED_2))\n  }\n\n  /**\n    *\n    * @param df\n    * @param cols\n    * @return `df` with filters such that all `cols` hold distinct values per row.\n    */\n  def withDistinctColumns(df: DataFrame, cols: Seq[String]): DataFrame = {\n    var r = df\n    for (c <- cols.combinations(2)) {\n      r = r.where(new Column(c(0)) !== new Column(c(1)))\n    }\n    r\n  }\n\n  def twoPathBinaryJoins(rel: DataFrame, nodeSet1: DataFrame, nodeSet2: DataFrame): DataFrame = {\n    val relLeft = rel.selectExpr(\"src AS a\", \"dst AS b\").join(nodeSet1, Seq(\"a\"), \"left_semi\")\n    val relRight = rel.selectExpr(\"dst AS z\", \"src AS b\").join(nodeSet2, Seq(\"z\"), \"left_semi\")\n\n    withDistinctColumns(relLeft.join(relRight, Seq(\"b\")).selectExpr(\"a\", \"b\", \"z\"), Seq(\"a\", \"b\", \"z\"))\n  }\n\n  def twoPathPattern(rel: DataFrame, nodeSet1: DataFrame, nodeSet2: DataFrame): DataFrame = {\n    val twoPath = rel.findPattern(\n      \"\"\"\n        |(a) - [] -> (b);\n        |(b) - [] -> (z)\n      \"\"\".stripMargin, Seq(\"a\", \"z\", \"b\"))\n    // TODO should be done before the join\n    val filtered = twoPath.join(nodeSet1, Seq(\"a\"), \"left_semi\")\n      .join(nodeSet2, Seq(\"z\"), \"left_semi\")\n      .select(\"a\", \"b\", \"z\")\n    withDistinctColumns(filtered, Seq(\"a\", \"b\", \"z\"))\n  }\n\n  def threePathBinaryJoins(rel: DataFrame, nodeSet1: DataFrame, nodeSet2: DataFrame): DataFrame = {\n    val relLeft = rel.selectExpr(\"src AS a\", \"dst AS b\").join(nodeSet1, Seq(\"a\"), \"left_semi\")\n    val relRight = rel.selectExpr(\"dst AS z\", \"src AS c\").join(nodeSet2, Seq(\"z\"), \"left_semi\")\n\n    val middleLeft = relLeft.join(rel.selectExpr(\"src AS b\", \"dst AS c\"), Seq(\"b\")).selectExpr(\"a\", \"b\", \"c\")\n    relRight.join(middleLeft, \"c\").select(\"a\", \"b\", \"c\", \"z\")\n  }\n\n  def threePathPattern(rel: DataFrame, nodeSet1: DataFrame, nodeSet2: DataFrame): DataFrame = {\n    val threePath = rel.findPattern(\n      \"\"\"\n        |(a) - [] -> (b);\n        |(b) - [] -> (c);\n        |(c) - [] -> (z)\n      \"\"\".stripMargin, Seq(\"a\", \"z\", \"c\", \"b\"))\n    threePath.join(nodeSet1, Seq(\"a\"), \"left_semi\")\n      .join(nodeSet2, Seq(\"z\"), \"left_semi\")\n      .select(\"a\", \"b\", \"c\", \"z\")\n  }\n\n  def fourPathBinaryJoins(rel: DataFrame, nodeSet1: DataFrame, nodeSet2: DataFrame): DataFrame = {\n    val relLeft = rel.selectExpr(\"src AS a\", \"dst AS b\").join(nodeSet1, Seq(\"a\"), \"left_semi\")\n    val relRight = rel.selectExpr(\"dst AS z\", \"src AS d\").join(nodeSet2, Seq(\"z\"), \"left_semi\")\n\n    val middleLeft = relLeft.join(rel.selectExpr(\"src AS b\", \"dst AS c\"), Seq(\"b\")).selectExpr(\"a\", \"b\", \"c\")\n    val middleRight = relRight.join(rel.selectExpr(\"src AS c\", \"dst AS d\"), Seq(\"d\")).selectExpr(\"c\", \"d\", \"z\")\n    withDistinctColumns(middleRight.join(middleLeft, \"c\").select(\"a\", \"b\", \"c\", \"d\", \"z\"), Seq(\"a\", \"b\", \"c\", \"d\", \"z\"))\n  }\n\n  def fourPathPattern(rel: DataFrame, nodeSet1: DataFrame, nodeSet2: DataFrame) = {\n    val leftRel = rel.join(nodeSet1.selectExpr(\"a AS src\"), Seq(\"src\"), \"left_semi\")\n    val rightRel = rel.join(nodeSet2.selectExpr(\"z AS dst\"), Seq(\"dst\"), \"left_semi\")\n      .select(\"src\", \"dst\") // Necessary because Spark reorders the columns\n\n    val fourPath = rel.findPattern(\n      \"\"\"\n        |(a) - [] -> (b);\n        |(b) - [] -> (c);\n        |(c) - [] -> (d);\n        |(d) - [] -> (z)\n      \"\"\".stripMargin, Seq(\"a\", \"z\", \"b\", \"d\", \"c\"),\n      Seq(leftRel,\n        rel.alias(\"edges_2\"),\n        rel.alias(\"edges_3\"),\n        rightRel\n      )\n    )\n\n    withDistinctColumns(fourPath.join(nodeSet1, Seq(\"a\"), \"left_semi\")\n      .join(nodeSet2, Seq(\"z\"), \"left_semi\")\n      .select(\"a\", \"b\", \"c\", \"d\", \"z\"), Seq(\"a\", \"b\", \"c\", \"d\", \"z\"))\n  }\n\n  def triangleBinaryJoins(spark: SparkSession, rel: DataFrame): DataFrame = {\n    import spark.implicits._\n\n    val duos = rel.as(\"R\")\n      .joinWith(rel.as(\"S\"), $\"R.dst\" === $\"S.src\")\n    val triangles = duos.joinWith(rel.as(\"T\"),\n      condition = $\"_2.dst\" === $\"T.dst\" && $\"_1.src\" === $\"T.src\")\n\n    triangles.selectExpr(\"_2.src AS a\", \"_1._1.dst AS b\", \"_2.dst AS c\")\n  }\n\n  def trianglePattern(rel: DataFrame): DataFrame = {\n    rel.findPattern(\n      \"\"\"\n        |(a) - [] -> (b);\n        |(b) - [] -> (c);\n        |(a) - [] -> (c)\n        |\"\"\".stripMargin, List(\"a\", \"b\", \"c\"))\n  }\n\n  def diamondPattern(rel: DataFrame): DataFrame = {\n    withDistinctColumns(rel.findPattern(\n      \"\"\"\n        |(a) - [] -> (b);\n        |(b) - [] -> (c);\n        |(c) - [] -> (d);\n        |(d) - [] -> (a)\n        |\"\"\".stripMargin, List(\"a\", \"b\", \"c\", \"d\")), List(\"a\", \"b\", \"c\", \"d\"))\n  }\n\n  def diamondBinaryJoins(rel: DataFrame): DataFrame = {\n    withDistinctColumns(rel.selectExpr(\"src AS a\", \"dst AS b\")\n      .join(rel.selectExpr(\"src AS b\", \"dst AS c\"), \"b\")\n      .join(rel.selectExpr(\"src AS c\", \"dst AS d\"), \"c\")\n      .join(rel.selectExpr(\"src AS d\", \"dst AS a\"), Seq(\"a\", \"d\"), \"left_semi\"), Seq(\"a\", \"b\", \"c\", \"d\"))\n  }\n\n  def fourCliqueBinaryJoins(sp: SparkSession, rel: DataFrame): DataFrame = {\n    import sp.implicits._\n    val triangles = triangleBinaryJoins(sp, rel)\n\n    val fourClique =\n      triangles.join(rel.alias(\"ad\"), $\"src\" === $\"a\")\n        .selectExpr(\"a\", \"b\", \"c\", \"dst AS d\")\n        .join(rel.alias(\"bd\"), $\"src\" === $\"b\" && $\"dst\" === $\"d\", \"left_semi\")\n        .join(rel.alias(\"cd\"), $\"src\" === $\"c\" && $\"dst\" === $\"d\", \"left_semi\")\n    fourClique.select(\"a\", \"b\", \"c\", \"d\")\n  }\n\n  def cliquePattern(size: Int, rel: DataFrame): DataFrame = {\n    val alphabet = 'a' to 'z'\n    val verticeNames = alphabet.slice(0, size).map(_.toString)\n\n    val pattern = verticeNames.combinations(2).filter(e => e(0) < e(1))\n      .map(e => s\"(${e(0)}) - [] -> (${e(1)})\")\n      .mkString(\";\")\n    withDistinctColumns(rel.findPattern(pattern, verticeNames), Seq(\"a\", \"b\", \"c\", \"d\"))\n  }\n\n  def houseBinaryJoins(sp: SparkSession, rel: DataFrame): DataFrame =  {\n    import sp.implicits._\n\n    withDistinctColumns(fourCliqueBinaryJoins(sp, rel)\n      .join(rel.alias(\"ce\"), $\"src\" === $\"c\")\n      .selectExpr(\"a\", \"b\", \"c\", \"d\", \"dst AS e\")\n      .join(rel.alias(\"de\"), $\"src\" === $\"d\" && $\"dst\" === $\"e\", \"left_semi\")\n      .select(\"a\", \"b\", \"c\", \"d\", \"e\"),\n      Seq(\"a\", \"b\", \"c\", \"d\", \"e\"))\n  }\n\n  def housePattern(rel: DataFrame): DataFrame = {\n    withDistinctColumns(rel.findPattern(\"\"\"\n      |(a) - [] -> (b);\n      |(b) - [] -> (c);\n      |(c) - [] -> (d);\n      |(a) - [] -> (d);\n      |(a) - [] -> (c);\n      |(b) - [] -> (d);\n      |(c) - [] -> (e);\n      |(d) - [] -> (e)\n      |\"\"\".stripMargin, List(\"a\", \"b\", \"c\", \"d\", \"e\")), List(\"a\", \"b\", \"c\", \"d\", \"e\"))\n  }\n\n  def fiveCliqueBinaryJoins(sp: SparkSession, rel: DataFrame): DataFrame = {\n    import sp.implicits._\n\n\n    fourCliqueBinaryJoins(sp, rel)\n      .join(rel.alias(\"ae\"), $\"src\" === $\"a\")\n      .selectExpr(\"a\", \"b\", \"c\", \"d\", \"dst AS e\")\n      .join(rel.alias(\"be\"), $\"src\" === $\"b\" && $\"dst\" === $\"e\", \"left_semi\")\n      .join(rel.alias(\"ce\"), $\"src\" === $\"c\" && $\"dst\" === $\"e\", \"left_semi\")\n      .join(rel.alias(\"de\"), $\"src\" === $\"d\" && $\"dst\" === $\"e\", \"left_semi\")\n      .select(\"a\", \"b\", \"c\", \"d\", \"e\")\n  }\n\n  def sixCliqueBinaryJoins(sp: SparkSession, rel: DataFrame): DataFrame = {\n    import sp.implicits._\n\n\n    fiveCliqueBinaryJoins(sp, rel)\n      .join(rel.alias(\"af\"), $\"src\" === $\"a\")\n      .selectExpr(\"a\", \"b\", \"c\", \"d\", \"e\", \"dst AS f\")\n      .join(rel.alias(\"bf\"), $\"src\" === $\"b\" && $\"dst\" === $\"f\", \"left_semi\")\n      .join(rel.alias(\"cf\"), $\"src\" === $\"c\" && $\"dst\" === $\"f\", \"left_semi\")\n      .join(rel.alias(\"df\"), $\"src\" === $\"d\" && $\"dst\" === $\"f\", \"left_semi\")\n      .join(rel.alias(\"ef\"), $\"src\" === $\"e\" && $\"dst\" === $\"f\", \"left_semi\")\n      .select(\"a\", \"b\", \"c\", \"d\", \"e\", \"f\")\n  }\n\n  def cycleBinaryJoins(size: Int, rel: DataFrame): DataFrame = {\n    require(3 < size, \"Use this method only for cyclics of four nodes and above\")\n\n    val verticeNames = ('a' to 'z').toList.map(c => s\"$c\")\n\n    var ret = rel.selectExpr(\"src AS a\", \"dst AS b\")\n    for (i <- 1 until (size - 1)) {\n      ret = ret.join(rel.selectExpr(s\"src AS ${verticeNames(i)}\", s\"dst AS ${verticeNames(i + 1)}\"), verticeNames(i))\n    }\n    ret = ret.join(rel.selectExpr(s\"src AS ${verticeNames(size - 1)}\", s\"dst AS a\"), Seq(\"a\", verticeNames(size - 1)), \"left_semi\")\n      .select(verticeNames.head, verticeNames.slice(1, size):_*)\n    withDistinctColumns(ret, verticeNames.slice(0, size))\n  }\n\n  def cyclePattern(size: Int, rel: DataFrame): DataFrame = {\n    require(3 < size, \"Use this method only for cyclics of four nodes and above\")\n\n    val verticeNames = ('a' to 'z').toList.map(c => s\"$c\").slice(0, size)\n\n    val pattern = verticeNames.zipWithIndex.map( { case (v1, i) => s\"($v1) - [] -> (${verticeNames((i + 1) % size)})\"}).mkString(\";\")\n\n    withDistinctColumns(rel.findPattern(pattern, verticeNames), verticeNames)\n  }\n\n}\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/scala/experiments/Queries.scala	(revision e54ab873f127414c8d2acda957bb3a8aec0b74ec)
++++ src/main/scala/experiments/Queries.scala	(date 1556626706000)
+@@ -26,6 +26,22 @@
+     r
+   }
+ 
++  def pathBinaryJoins(size: Int, ds: DataFrame, ns1: DataFrame, ns2: DataFrame): DataFrame = {
++    size match {
++      case 2 => twoPathBinaryJoins(ds, ns1, ns2)
++      case 3 => threePathBinaryJoins(ds, ns1, ns2)
++      case 4 => fourPathBinaryJoins(ds, ns1, ns2)
++    }
++  }
++
++  def pathPattern(size: Int, ds: DataFrame, ns1: DataFrame, ns2: DataFrame): DataFrame = {
++    size match {
++      case 2 => twoPathPattern(ds, ns1, ns2)
++      case 3 => threePathPattern(ds, ns1, ns2)
++      case 4 => fourPathBinaryJoins(ds, ns1, ns2)
++    }
++  }
++
+   def twoPathBinaryJoins(rel: DataFrame, nodeSet1: DataFrame, nodeSet2: DataFrame): DataFrame = {
+     val relLeft = rel.selectExpr("src AS a", "dst AS b").join(nodeSet1, Seq("a"), "left_semi")
+     val relRight = rel.selectExpr("dst AS z", "src AS b").join(nodeSet2, Seq("z"), "left_semi")
+@@ -110,7 +126,19 @@
+     triangles.selectExpr("_2.src AS a", "_1._1.dst AS b", "_2.dst AS c")
+   }
+ 
++  def cliqueBinaryJoins(size: Int, sp: SparkSession, ds: DataFrame): DataFrame = {
++    println("Running binary joins")
++    size match {
++      case 3 => triangleBinaryJoins(sp, ds)
++      case 4 => fourCliqueBinaryJoins(sp, ds)
++      case 5 => fiveCliqueBinaryJoins(sp, ds)
++      case 6 => sixCliqueBinaryJoins(sp, ds)
++    }
++  }
++
+   def trianglePattern(rel: DataFrame): DataFrame = {
++    println("Running pattern joins")
++
+     rel.findPattern(
+       """
+         |(a) - [] -> (b);
+@@ -149,13 +177,15 @@
+   }
+ 
+   def cliquePattern(size: Int, rel: DataFrame): DataFrame = {
++    println("Running pattern joins")
++
+     val alphabet = 'a' to 'z'
+     val verticeNames = alphabet.slice(0, size).map(_.toString)
+ 
+     val pattern = verticeNames.combinations(2).filter(e => e(0) < e(1))
+       .map(e => s"(${e(0)}) - [] -> (${e(1)})")
+       .mkString(";")
+-    withDistinctColumns(rel.findPattern(pattern, verticeNames), Seq("a", "b", "c", "d"))
++    withDistinctColumns(rel.findPattern(pattern, verticeNames), verticeNames)
+   }
+ 
+   def houseBinaryJoins(sp: SparkSession, rel: DataFrame): DataFrame =  {
+Index: build.sbt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>name := \"SparkTest\"\n\nversion := \"0.1\"\n\nscalaVersion := \"2.11.12\"\n\nlibraryDependencies += \"org.scalatest\" %% \"scalatest\" % \"3.0.5\" % \"test\"\nlibraryDependencies += \"org.scalacheck\" %% \"scalacheck\" % \"1.14.0\" % \"test\"
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- build.sbt	(revision e54ab873f127414c8d2acda957bb3a8aec0b74ec)
++++ build.sbt	(date 1556621519000)
+@@ -5,4 +5,5 @@
+ scalaVersion := "2.11.12"
+ 
+ libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.5" % "test"
+-libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.14.0" % "test"
+\ No newline at end of file
++libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.14.0" % "test"
++libraryDependencies += "com.github.scopt" %% "scopt" % "4.0.0-RC2"
+Index: src/main/scala/experiments/amazonExperiments/AmazonTriangleExperiment.scala
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>package experiments.amazonExperiments\n\nimport experiments.Datasets.loadAmazonDataset\nimport experiments.GenericExperiment\nimport experiments.Queries.{triangleBinaryJoins, trianglePattern}\nimport org.apache.spark.sql.{DataFrame, SparkSession}\n\nobject AmazonTriangleExperiment extends App with GenericExperiment {\n  override def loadDataset(sp: SparkSession) = loadAmazonDataset(sp)\n\n  // TODO correct, exchange runWCOJ and runBinaryJoins implmentation\n  override def runWCOJ(sp: SparkSession, dataSet: DataFrame) = triangleBinaryJoins(sp, dataSet).count()\n\n  override def runBinaryJoins(sp: SparkSession, dataSet: DataFrame) = trianglePattern(dataSet).count()\n\n  run()\n}\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/scala/experiments/amazonExperiments/AmazonTriangleExperiment.scala	(revision e54ab873f127414c8d2acda957bb3a8aec0b74ec)
++++ src/main/scala/experiments/amazonExperiments/AmazonTriangleExperiment.scala	(date 1556626812000)
+@@ -8,10 +8,9 @@
+ object AmazonTriangleExperiment extends App with GenericExperiment {
+   override def loadDataset(sp: SparkSession) = loadAmazonDataset(sp)
+ 
+-  // TODO correct, exchange runWCOJ and runBinaryJoins implmentation
+-  override def runWCOJ(sp: SparkSession, dataSet: DataFrame) = triangleBinaryJoins(sp, dataSet).count()
++  override def runWCOJ(sp: SparkSession, dataSet: DataFrame) =  trianglePattern(dataSet).count()
+ 
+-  override def runBinaryJoins(sp: SparkSession, dataSet: DataFrame) = trianglePattern(dataSet).count()
++  override def runBinaryJoins(sp: SparkSession, dataSet: DataFrame) =triangleBinaryJoins(sp, dataSet).count()
+ 
+   run()
+ }
+Index: src/main/scala/experiments/ExperimentRunner.scala
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/scala/experiments/ExperimentRunner.scala	(date 1556626465000)
++++ src/main/scala/experiments/ExperimentRunner.scala	(date 1556626465000)
+@@ -0,0 +1,239 @@
++package experiments
++
++import java.io.File
++
++import org.apache.spark.SparkConf
++import org.apache.spark.sql.{DataFrame, SparkSession}
++import scopt.OParser
++import sparkIntegration.WCOJ2WCOJExec
++
++object Readers {
++  implicit def algorithmRead: scopt.Read[Algorithm] = {
++    scopt.Read.reads({
++      case "WCOJ" => {
++        WCOJ
++      }
++      case "bin" => {
++        BinaryJoins
++      }
++      case _ => {
++        throw new IllegalArgumentException("Algorithm can be only `WCOJ` or `bin`")
++      }
++    })
++  }
++
++  implicit def datasetTypeRead: scopt.Read[DatasetType] = {
++    scopt.Read.reads({
++      case "ama" => {
++        AmazonCoPurchase
++      }
++      case "snb" => {
++        SNB
++      }
++      case _ => {
++        throw new IllegalArgumentException("Dataset type can be only `ama` or `snb`")
++      }
++    })
++  }
++
++  implicit def queryRead: scopt.Read[Query] = {
++    scopt.Read.reads(s => {
++      val queryTypes = Seq("cycle", "clique", "path")
++
++      queryTypes.find(t => s.startsWith(t)) match {
++        case Some(t) => {
++          val parameter = s.replace(t, "")
++          t match {
++            case "cycle" => {
++              val size = parameter.toInt
++              Cycle(size)
++            }
++            case "clique" => {
++              val size = parameter.toInt
++              println(s"clique of size: $size")
++              Clique(size)
++            }
++            case "path" => {
++              val parts = parameter.split("|")
++              Path(parts(0).toInt, parts(1).toDouble)
++            }
++            case _ => {
++              throw new IllegalArgumentException(s"Unknown query: $s")
++            }
++          }
++        }
++        case None => {
++          throw new IllegalArgumentException(s"Unknown query: $s")
++        }
++      }
++    })
++  }
++}
++
++sealed trait Algorithm
++
++case object WCOJ extends Algorithm
++
++case object BinaryJoins extends Algorithm
++
++
++sealed trait DatasetType
++
++case object AmazonCoPurchase extends DatasetType
++
++case object SNB extends DatasetType
++
++sealed trait Query
++
++case class Clique(size: Int) extends Query
++
++case class Cycle(size: Int) extends Query
++
++case class Path(size: Int, selectivity: Double) extends Query
++
++
++case class ExperimentConfig(
++                             algorithm: Algorithm = WCOJ,
++                             datasetType: DatasetType = AmazonCoPurchase,
++                             datasetFilePath: File = new File("."),
++                             queries: Seq[Query] = Seq.empty,
++                             outputPath: File = new File("."),
++                             limitDataset: Int = -1
++                           )
++
++
++object ExperimentRunner extends App {
++
++  val config: ExperimentConfig = parseArgs().orElse(throw new IllegalArgumentException("Couldn't parse args")).get
++
++  println("Setting up Spark")
++  val sp = setupSpark()
++
++  val ds = loadDataset()
++
++  runQueries()
++
++  sp.stop()
++
++  private def parseArgs(): Option[ExperimentConfig] = {
++    import Readers._
++
++    val builder = OParser.builder[ExperimentConfig]
++    val parser1 = {
++      import builder._
++      OParser.sequence(
++        programName("experiment-runner"),
++        head("experiment-runner", "0.1"),
++        opt[Algorithm]('a', "algorithm")
++          .required()
++          .action((x, c) => c.copy(algorithm = x))
++          .text("The algorithm to run experiments with, `bin` or `WCOJ`"),
++        opt[DatasetType]('d', "dataset-type")
++          .required()
++          .action((x, c) => c.copy(datasetType = x)),
++        opt[File]('o', "out")
++          .valueName("<measurements-output-folder>")
++          .required()
++          .action((x, c) => c.copy(outputPath = x)),
++        opt[File]('i', "dataset-path")
++          .required()
++          .action((x, c) => c.copy(datasetFilePath = x))
++          .validate(x => if (x.exists()) {
++            success
++          } else {
++            failure("Input path does not exist")
++          }),
++        opt[Seq[Query]]('q', "queries")
++          .valueName("<query1>,<query2>...")
++          .required()
++          .action((x, c) => c.copy(queries = x)),
++        opt[Int]('l', "limit")
++          .optional
++          .action((x, c) => c.copy(limitDataset = x))
++      )
++    }
++    OParser.parse(parser1, args, ExperimentConfig())
++  }
++
++  private def setupSpark(): SparkSession = {
++    val conf = new SparkConf()
++      .setMaster("local[1]")
++      .setAppName("Spark test")
++      .set("spark.executor.memory", "2g")
++      .set("spark.driver.memory", "2g")
++
++    val spark = SparkSession.builder()
++      .config(conf)
++      .getOrCreate()
++
++    spark.experimental.extraStrategies = (Seq(WCOJ2WCOJExec) ++ spark.experimental.extraStrategies)
++    spark
++  }
++
++  private def loadDataset(): DataFrame = {
++    var d = config.datasetType match {
++      case AmazonCoPurchase => {
++        println(s"Loading amazon dataset from ${config.datasetFilePath}")
++        Datasets.loadAmazonDataset(sp) // TODO use filepath
++      }
++      case SNB => {
++        ???
++      }
++    }
++    if (config.limitDataset != -1) {
++      d = d.limit(config.limitDataset)
++    }
++    d = d.cache()
++
++    val count = d.count() // Trigger dataset caching
++    println(s"Running on $count rows")
++    d
++  }
++
++  private def runQueries() = {
++    for (q <- config.queries) {
++      runQuery(q)
++    }
++  }
++
++  private def runQuery(query: Query): Unit = {
++    val queryDataFrame = config.algorithm match {
++      case BinaryJoins => {
++        query match {
++          case Clique(s) => {
++            Queries.cliqueBinaryJoins(s, sp, ds)
++          }
++          case Cycle(s) => {
++            Queries.cycleBinaryJoins(s, ds)
++          }
++          case Path(s, selectivity) => {
++            val (ns1, ns2) = Queries.pathQueryNodeSets(ds, selectivity)
++            Queries.pathBinaryJoins(s, ds, ns1, ns2)
++          }
++        }
++      }
++      case WCOJ => {
++        query match {
++          case Clique(s) => {
++            Queries.cliquePattern(s, ds)
++          }
++          case Cycle(s) => {
++            Queries.cyclePattern(s, ds)
++          }
++          case Path(s, selectivity) => {
++            val (ns1, ns2) = Queries.pathQueryNodeSets(ds, selectivity)
++            Queries.pathPattern(s, ds, ns1, ns2)
++          }
++        }
++      }
++    }
++
++    println("Starting ...") // TODO
++    val start = System.nanoTime()
++    val countBySpark = queryDataFrame.count()
++    val end = System.nanoTime()
++    println(s"Count by binary joins $countBySpark took ${(end - start).toDouble / 1000000000}")
++  }
++
++
++}
+Index: src/resources/log4j.properties
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/resources/log4j.properties	(date 1556543739000)
++++ src/resources/log4j.properties	(date 1556543739000)
+@@ -0,0 +1,26 @@
++# Set everything to be logged to the console
++log4j.rootCategory=WARN, console
++log4j.appender.console=org.apache.log4j.ConsoleAppender
++log4j.appender.console.target=System.out
++log4j.appender.console.layout=org.apache.log4j.PatternLayout
++log4j.appender.console.layout.ConversionPattern=%d{yy/MM/dd HH:mm:ss} %p %c{1}: %m%n
++
++# Set the default spark-shell log level to WARN. When running the spark-shell, the
++# log level for this class is used to overwrite the root logger's log level, so that
++# the user can have different defaults for the shell and regular Spark apps.
++log4j.logger.org.apache.spark.repl.Main=WARN
++
++# Settings to quiet third party logs that are too verbose
++log4j.logger.org.spark-project.jetty=WARN
++log4j.logger.org.spark-project.jetty.util.component.AbstractLifeCycle=ERROR
++log4j.logger.org.apache.spark.repl.SparkIMain$exprTyper=INFO
++log4j.logger.org.apache.spark.repl.SparkILoop$SparkILoopInterpreter=INFO
++log4j.logger.org.apache.parquet=ERROR
++log4j.logger.parquet=ERROR
++
++# SPARK-9183: Settings to avoid annoying messages when looking up nonexistent UDFs in SparkSQL with Hive support
++log4j.logger.org.apache.hadoop.hive.metastore.RetryingHMSHandler=FATAL
++log4j.logger.org.apache.hadoop.hive.ql.exec.FunctionRegistry=ERROR
++
++# Example
++log4j.logger.example=DEBUG
+\ No newline at end of file
