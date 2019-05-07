@@ -34,9 +34,11 @@ class LeapfrogJoin(var iterators: Array[LinearIterator] ) {
   }
 
   // Public for testing
-
-  // TODO look at ways to avoid that sort.
   def sortIterators(): Unit = {
+    // TODO look at ways to avoid that sort.
+
+//    println(s"${this.hashCode()} ${iterators.map(i => (i.hashCode(), i.key)).mkString(", ")}")
+
     var i = 1
     while (i < iterators.size) {
       val iteratorToSort = iterators(i)

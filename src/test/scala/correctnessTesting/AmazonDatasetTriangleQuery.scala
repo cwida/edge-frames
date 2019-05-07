@@ -28,8 +28,8 @@ class AmazonDatasetTriangleQuery extends FlatSpec with Matchers with SparkTest {
   }
   println(s"Testing on the first ${ds.count()} edges of the Amazon set")
 
-  val goldStandardTriangles = triangleBinaryJoins(sp, ds).cache()
-  val actualResultTriangles = trianglePattern(ds).cache()
+  val goldStandardTriangles = cliqueBinaryJoins(3, sp, ds).cache()
+  val actualResultTriangles = cliquePattern(3, ds).cache()
 
   val (nodeSet1, nodeSet2) = pathQueryNodeSets(ds)
   nodeSet1.cache()
@@ -74,11 +74,10 @@ class AmazonDatasetTriangleQuery extends FlatSpec with Matchers with SparkTest {
   "WCOJ implementation" should "find the same two-paths as Spark's original joins" in {
     val ds = getPathQueryDataset()
 
-    val a = twoPathPattern(ds, nodeSet1, nodeSet2).cache()
-    val e = twoPathBinaryJoins(ds, nodeSet1, nodeSet2).cache()
+    val e = pathBinaryJoins(2, ds, nodeSet1, nodeSet2).cache()
+    val a = pathPattern(2, ds, nodeSet1, nodeSet2).cache()
 
-    val diff = a.rdd.subtract(e.rdd)
-    diff.isEmpty() should be(true)
+    assertRDDEqual(a.rdd, e.rdd)
     a.isEmpty should be(false)
     e.isEmpty should be(false)
   }
@@ -86,8 +85,8 @@ class AmazonDatasetTriangleQuery extends FlatSpec with Matchers with SparkTest {
   "WCOJ implementation" should "find the same three-paths as Spark's original joins" in {
     val ds = getPathQueryDataset()
 
-    val a = threePathPattern(ds, nodeSet1, nodeSet2).cache()
-    val e = threePathBinaryJoins(ds, nodeSet1, nodeSet2).cache()
+    val e = pathBinaryJoins(3, ds, nodeSet1, nodeSet2).cache()
+    val a = pathPattern(3, ds, nodeSet1, nodeSet2).cache()
 
     assertRDDEqual(a.rdd, e.rdd)
     a.isEmpty should be(false)
@@ -97,8 +96,8 @@ class AmazonDatasetTriangleQuery extends FlatSpec with Matchers with SparkTest {
   "WCOJ implementation" should "find the same four-paths as Spark's original joins" in {
     val ds = getPathQueryDataset()
 
-    val e = fourPathBinaryJoins(ds, nodeSet1, nodeSet2)
-    val a = fourPathPattern(ds, nodeSet1, nodeSet2)
+    val e = pathBinaryJoins(4, ds, nodeSet1, nodeSet2)
+    val a = pathPattern(4, ds, nodeSet1, nodeSet2)
 
     assertRDDEqual(a.rdd, e.rdd)
 
@@ -107,8 +106,6 @@ class AmazonDatasetTriangleQuery extends FlatSpec with Matchers with SparkTest {
   }
 
   "WCOJ implementation" should "find same triangles as Spark's original joins" in {
-    actualResultTriangles.count() should equal(goldStandardTriangles.count())
-
     assertRDDEqual(actualResultTriangles.rdd, goldStandardTriangles.rdd)
   }
 
@@ -156,9 +153,9 @@ class AmazonDatasetTriangleQuery extends FlatSpec with Matchers with SparkTest {
 
   "Four clique" should "be the same" in {
     val a = cliquePattern(4, ds)
-    val e = fourCliqueBinaryJoins(sp, ds)
+    val e = cliqueBinaryJoins(4, sp, ds)
 
-    assertRDDSetEqual(a.rdd, e.rdd)
+    assertRDDEqual(a.rdd, e.rdd)
   }
 
   "Diamond query" should "be the same" in {
@@ -177,16 +174,16 @@ class AmazonDatasetTriangleQuery extends FlatSpec with Matchers with SparkTest {
 
   "5-clique query" should "be the same" in {
     val a = cliquePattern(5, ds)
-    val e = fiveCliqueBinaryJoins(sp, ds)
+    val e = cliqueBinaryJoins(5, sp, ds)
 
-    assertRDDSetEqual(a.rdd, e.rdd)
+    assertRDDEqual(a.rdd, e.rdd)
   }
 
   "6-clique query" should "be the same" in {
     val a = cliquePattern(6, ds)
-    val e = sixCliqueBinaryJoins(sp, ds)
+    val e = cliqueBinaryJoins(6, sp, ds)
 
-    assertRDDSetEqual(a.rdd, e.rdd)
+    assertRDDEqual(a.rdd, e.rdd)
   }
 
   "4-cylce" should "be the same" in {
