@@ -1,15 +1,20 @@
 package experiments
 
-import experiments.ProfilingWCOJ.join
+import java.lang.management.ManagementFactory
+
 import leapfrogTriejoin.{ArrayTrieIterable, EdgeRelationship, LeapfrogTriejoin, TrieIterator}
 import leapfrogTriejoin.implicits._
 
+import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import scala.io.Source
 
+import scala.collection.JavaConverters._
+
 object ProfilingWCOJ extends App {
 
-  val DATASET_PATH = "/home/per/workspace/master-thesis/datasets/amazon-0601.csv"
+  val DATASET_PATH = "/home/per/workspace/master-thesis/datasets/amazon-0302.csv"
+  val REPS = 8
 
   val ds: Array[(Int, Int)] = loadDataset(DATASET_PATH)
 
@@ -19,15 +24,20 @@ object ProfilingWCOJ extends App {
     .map(l => new EdgeRelationship((s"${l(0)}", s"${l(1)}")))
     .toList
 
-  val rels: List[TrieIterator] = edges
-    .map(e => new ArrayTrieIterable(ds).trieIterator)
 
-  val join = new LeapfrogTriejoin(edges.zip(rels).toMap, Seq("a", "b", "c", "d", "e"))
 
-  doJoin(join)
+  val times = mutable.ListBuffer[Double]()
+  for (rep <- 0 until REPS) {
+    val rels: List[TrieIterator] = edges
+      .map(e => new ArrayTrieIterable(ds).trieIterator)
+    val join = new LeapfrogTriejoin(edges.zip(rels).toMap, Seq("a", "b", "c", "d", "e"))
+    doJoin(join)
+  }
+  println(s"Average of $REPS repetitions: ${Utils.avg(times)}")
 
   def doJoin(join: LeapfrogTriejoin) = {
     System.gc()
+    Utils.getGarbageCollectionStatsSinceLastCall()
     val start = System.nanoTime()
     var i = 0
     while (!join.atEnd) {
@@ -35,7 +45,14 @@ object ProfilingWCOJ extends App {
       i += 1
     }
     val end = System.nanoTime()
-    println(s"Result size: ${i}, ${(end - start).toDouble / 1000000000}")
+
+    val gcStats = Utils.getGarbageCollectionStatsSinceLastCall()
+
+    val time = (end - start).toDouble / 1000000000
+
+    println(s"GC count: ${gcStats.count}, GC time: ${gcStats.time}")
+    println(s"Result size: ${i}, $time")
+    times.append(time)
   }
 
   def loadDataset(datasetPath: String): Array[(Int, Int)] = {
