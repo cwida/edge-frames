@@ -10,7 +10,7 @@ object GallopingSearch {
 
   // TODO could be used with summary
   def find(values: Array[Int], key: Int, start: Int, end: Int): Int = {
-    assert(end != 0)
+    assert(0 <= start)
     assert(start < end)
 
     if (end - start < LINEAR_SEARCH_THRESHOLD) {
@@ -24,6 +24,7 @@ object GallopingSearch {
     }
   }
 
+  @inline
   def linearSearch(vector: Array[Int], key: Int, start: Int, end: Int): Int = {
     var pos = start
     while (pos < end && vector(pos) < key) {
@@ -33,6 +34,7 @@ object GallopingSearch {
   }
 
   // TODO write more unit tests about this
+  @inline
   def binarySearch(vector: Array[Int], key: Int, start: Int, end: Int): Int = {
     assert(0 <= start)
     assert(start < end)
@@ -41,31 +43,16 @@ object GallopingSearch {
     var R = end
     var M = -1
     while (L < R - LINEAR_SEARCH_THRESHOLD) {
-      M = (L + R) >> 1  // x >> 1 === x / 2
+      M = (L + R) >> 1 // x >> 1 === x / 2
 
       if (vector(M) < key) {
-        L = M + 1
-      } else if (vector(M) >= key) {
-        R = M - 1
+        L = M
+      } else {
+        R = M
       }
     }
 
-    if (L < R) {
-      linearSearch(vector, key, L, Math.min(R + 1, end))
-    } else {
-      if (vector(M) == key) { // 105 --> 99
-        if (start < M && vector(M) == key) {
-          M -= 1
-        }
-        M
-      } else {
-        Math.min(if (L < end && vector(L) < key) {
-          L + 1
-        } else {
-          L
-        }, end)
-      }
-    }
+    linearSearch(vector, key, L, R)
   }
 
 }
