@@ -97,9 +97,8 @@ class ArrayTrieIterable(iter: Iterator[InternalRow]) extends TrieIterable {
 
     override def next(): Unit = {
       assert(numRows > currentPosition, "No next value, check atEnd before calling next")
-      seek(currentColumn(currentPosition) + 1)
-
-      // TODO can I optimize here?
+      // This is not the next value in the array but the next value in the array different from the current one
+      seek(currentColumn(currentPosition) + 1)  // Replacing this with a linear search is not a performance improvement
     }
 
     override def atEnd: Boolean = {

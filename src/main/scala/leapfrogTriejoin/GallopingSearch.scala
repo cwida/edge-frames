@@ -13,13 +13,15 @@ object GallopingSearch {
     assert(end != 0)
     assert(start < end)
 
-    // TODO shortcut to linear search alrday here
-
-    var bound = Math.max(start, 1)
-    while (bound < end && values(bound) < key) {
-      bound *= 2
+    if (end - start < LINEAR_SEARCH_THRESHOLD) {
+      linearSearch(values, key, start, end)
+    } else {
+      var bound = Math.max(start, 1)
+      while (bound < end && values(bound) < key) {
+        bound *= 2
+      }
+      binarySearch(values, key, Math.max(start, bound / 2), min(bound + 1, end))
     }
-    binarySearch(values, key, Math.max(start, bound / 2), min(bound + 1, end))
   }
 
   def linearSearch(vector: Array[Int], key: Int, start: Int, end: Int): Int = {
@@ -31,7 +33,6 @@ object GallopingSearch {
   }
 
   // TODO write more unit tests about this
-  // TODO operate direclty on arrays, should be faster (no virtual function calls)
   def binarySearch(vector: Array[Int], key: Int, start: Int, end: Int): Int = {
     assert(0 <= start)
     assert(start < end)
