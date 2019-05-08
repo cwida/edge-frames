@@ -134,6 +134,7 @@ class LeapfrogTriejoin(trieIterators: Map[EdgeRelationship, TrieIterator], varia
     contains
   }
 
+  @inline
   private def triejoinOpen() ={
     depth += 1
 
@@ -142,6 +143,7 @@ class LeapfrogTriejoin(trieIterators: Map[EdgeRelationship, TrieIterator], varia
     leapfrogJoins(depth).init()
   }
 
+  @inline
   private def triejoinUp() = {
     whileForeach(variable2TrieIterators(depth), _.up())
 
@@ -159,6 +161,7 @@ class LeapfrogTriejoin(trieIterators: Map[EdgeRelationship, TrieIterator], varia
     }
   }
 
+  @inline
   private def currentLeapfrogJoin: LeapfrogJoin = {
     leapfrogJoins(depth)
   }
