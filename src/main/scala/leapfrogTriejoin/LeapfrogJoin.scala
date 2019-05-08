@@ -74,7 +74,7 @@ class LeapfrogJoin(var iterators: Array[LinearIterator] ) {
     if (iterators(p).atEnd) {
       atEnd = true
     } else {
-      p = (p + 1) % iterators.length
+      p = (p + 1) % iterators.length  // TODO strength reduction
       leapfrogSearch()
     }
   }

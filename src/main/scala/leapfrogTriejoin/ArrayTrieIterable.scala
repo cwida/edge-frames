@@ -10,10 +10,10 @@ import collection.JavaConverters._
 
 
 class ArrayTrieIterable(iter: Iterator[InternalRow]) extends TrieIterable {
-  // TODO capacity optimizatio
-  private[this] val srcColumn = new OffHeapColumnVector(1000, IntegerType)
-  private[this]  val dstColumn = new OffHeapColumnVector(1000, IntegerType)
-  private[this]  var numRows = 0
+  // TODO build needs to tbe done correclty
+  private[this] val srcColumn = new OpenArrayColumnVector(4000000)
+  private[this] val dstColumn = new OpenArrayColumnVector(4000000)
+  private[this] var numRows = 0
 
   while (iter.hasNext) {
     val row = iter.next()
@@ -46,7 +46,8 @@ class ArrayTrieIterable(iter: Iterator[InternalRow]) extends TrieIterable {
     private[this]  var end = Array.fill(tuples.numCols())(-1)
     private[this]  var isAtEnd = numRows == 0
 
-    private[this]  var currentColumn: ColumnVector = null
+    private[this] val columns = Array(tuples.column(0).asInstanceOf[OpenArrayColumnVector].intData, tuples.column(1).asInstanceOf[OpenArrayColumnVector].intData)
+    private[this]  var currentColumn: Array[Int] = null
     private[this]  var currentPosition: Int = -1
 
     override def open(): Unit = {
@@ -56,11 +57,11 @@ class ArrayTrieIterable(iter: Iterator[InternalRow]) extends TrieIterable {
       if (depth >= 0) { // TODO remove ifs?
         newEnd = currentPosition
 
-        val beginValue = currentColumn.getInt(currentPosition)
+        val beginValue = currentColumn(currentPosition)
         do {
           newEnd += 1
         } while (newEnd + 1 <= numRows
-          && currentColumn.getInt(newEnd) == beginValue)
+          && currentColumn(newEnd) == beginValue)
 
         position(depth) = currentPosition
       }
@@ -68,7 +69,7 @@ class ArrayTrieIterable(iter: Iterator[InternalRow]) extends TrieIterable {
       depth += 1
 
       end(depth) = newEnd
-      currentColumn = tuples.column(depth)
+      currentColumn = columns(depth)
       isAtEnd = false
 
       currentPosition = if (depth != 0) {
@@ -84,19 +85,19 @@ class ArrayTrieIterable(iter: Iterator[InternalRow]) extends TrieIterable {
       depth -= 1
       if (depth >= 0) {
         currentPosition = position(depth)
-        currentColumn = tuples.column(depth)
+        currentColumn = columns(depth)
       }
       isAtEnd = false
     }
 
     override def key: Int = {
       assert(!atEnd, "Calling key on TrieIterator atEnd is illegal.")
-      currentColumn.getInt(currentPosition)
+      currentColumn(currentPosition)
     }
 
     override def next(): Unit = {
       assert(numRows > currentPosition, "No next value, check atEnd before calling next")
-      seek(currentColumn.getInt(currentPosition) + 1)
+      seek(currentColumn(currentPosition) + 1)
 
       // TODO can I optimize here?
     }
@@ -114,7 +115,7 @@ class ArrayTrieIterable(iter: Iterator[InternalRow]) extends TrieIterable {
       if (currentPosition >= numRows) {
         isAtEnd = true
       } else if (depth != 0
-        && tuples.column(depth - 1).getInt(position(depth - 1)) != tuples.column(depth - 1).getInt(currentPosition)) {
+        && columns(depth - 1)(position(depth - 1)) != columns(depth - 1)(currentPosition)) {
         isAtEnd = true
       }
     }

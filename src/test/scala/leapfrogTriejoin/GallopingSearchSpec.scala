@@ -1,52 +1,44 @@
 package leapfrogTriejoin
 
-import org.apache.spark.sql.execution.vectorized.OnHeapColumnVector
-import org.apache.spark.sql.types.IntegerType
-import org.apache.spark.sql.vectorized.ColumnVector
-import org.scalatest.{FlatSpec, Matchers, WordSpec}
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
+import org.scalatest.{FlatSpec, Matchers}
 
 import scala.util.Random
 
+
+// TODO Unit tests are mostly obsolete after the optimizations
 class GallopingSearchSpec extends FlatSpec with Matchers with GeneratorDrivenPropertyChecks {
-  def buildColumnVector(a: Array[Int]): ColumnVector = {
-    val v = new OnHeapColumnVector(1000, IntegerType)
-    for (i <- a) {
-      v.appendInt(i)
-    }
-    v
-  }
 
   "For a existing key" should "return the position" in {
-    var v = buildColumnVector(Array(1))
+    var v = Array(1)
     GallopingSearch.find(v, 1, 0, 1) should equal(0)
 
-    v = buildColumnVector(Array(1, 2))
+    v = Array(1, 2)
     GallopingSearch.find(v, 1, 0, 2) should equal(0)
 
-    v = buildColumnVector(Array(1, 2))
+    v = Array(1, 2)
     GallopingSearch.find(v, 2, 0, 2) should equal(1)
 
-    v = buildColumnVector(Array(1, 2, 3))
+    v = Array(1, 2, 3)
     GallopingSearch.find(v, 3, 0, 3) should equal(2)
   }
 
   "For a existing key it" should "return the first position" in {
-    var v = buildColumnVector(Array(2, 2))
+    var v = Array(2, 2)
     GallopingSearch.find(v, 2, 0, 2) should equal(0)
 
-    v = buildColumnVector(Array(1, 2, 2, 3))
+    v = Array(1, 2, 2, 3)
     GallopingSearch.find(v, 2, 0, 4) should equal(1)
   }
 
   "For a none-existing key it" should "return the first position of the next bigger element" in {
-    var v = buildColumnVector(Array(1))
+    var v = Array(1)
     GallopingSearch.find(v, 2, 0, 1) should equal(1)
 
-    v = buildColumnVector(Array(1, 3))
+    v = Array(1, 3)
     GallopingSearch.find(v, 2, 0, 2) should equal(1)
 
-    v = buildColumnVector(Array(1, 3, 3))
+    v = Array(1, 3, 3)
     GallopingSearch.find(v, 2, 0, 2) should equal(1)
   }
 
@@ -66,7 +58,7 @@ class GallopingSearchSpec extends FlatSpec with Matchers with GeneratorDrivenPro
       }
       val end = Math.max(start + Random.nextInt(sorted.length - start) + 1, keyPosition)
 
-      val ret = GallopingSearch.find(buildColumnVector(sorted), key, start, end)
+      val ret = GallopingSearch.find(sorted, key, start, end)
       assert(ret == keyPosition, s"In ${sorted.mkString(", ")} key $key should be found at $keyPosition not $ret with start $start and end $end")
     }
   }
@@ -81,7 +73,11 @@ class GallopingSearchSpec extends FlatSpec with Matchers with GeneratorDrivenPro
         val noneExistingKey = Random.shuffle((0 to 200).toList).filter(!a.contains(_)).head
         val sorted = a.sorted
         val firstHigherElement = sorted.dropWhile(_ < noneExistingKey).headOption
-        val keyPosition = if (firstHigherElement.isDefined) sorted.indexOf(firstHigherElement.get) else sorted.length
+        val keyPosition = if (firstHigherElement.isDefined) {
+          sorted.indexOf(firstHigherElement.get)
+        } else {
+          sorted.length
+        }
         val start = if (keyPosition == 0) {
           0
         } else {
@@ -89,17 +85,13 @@ class GallopingSearchSpec extends FlatSpec with Matchers with GeneratorDrivenPro
         }
         val end = Math.max(start + Random.nextInt(sorted.length - start) + 1, keyPosition)
 
-        val ret = GallopingSearch.find(buildColumnVector(sorted), noneExistingKey, start, end)
+        val ret = GallopingSearch.find(sorted, noneExistingKey, start, end)
         assert(ret == keyPosition, s"In ${sorted.mkString(", ")} with none-existing $noneExistingKey return $keyPosition not $ret with start $start and end $end")
       }
     }
   }
 
   "Regression 1: it" should "never access the array at end" in {
-    val filledVector = new OnHeapColumnVector(2, IntegerType)
-    filledVector.appendInt(1)
-    filledVector.appendInt(2)
-
-    GallopingSearch.find(filledVector, 3, 0, 2) should be (2)
+    GallopingSearch.find(Array(1, 2), 3, 0, 2) should be(2)
   }
 }
