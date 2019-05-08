@@ -105,9 +105,10 @@ class ArrayTrieIterable(iter: Iterator[InternalRow]) extends TrieIterable {
       isAtEnd
     }
 
-    override def seek(key: Int): Unit = {
+    override def seek(key: Int): Boolean = {
       currentPosition = GallopingSearch.find(currentColumn, key, currentPosition, end(depth))
       updateAtEnd()
+      atEnd
     }
 
     private def updateAtEnd() {

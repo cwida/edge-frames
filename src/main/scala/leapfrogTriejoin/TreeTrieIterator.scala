@@ -51,7 +51,7 @@ class TreeTrieIterator(val values: Array[(Int, Int)]) extends TrieIterator {
 
   override def atEnd: Boolean = isAtEnd
 
-  override def seek(key: Int): Unit = {
+  override def seek(key: Int): Boolean = {
     if (atEnd) {
       throw new IllegalStateException("Cannot move to next at end of branch.")
     }
@@ -71,5 +71,6 @@ class TreeTrieIterator(val values: Array[(Int, Int)]) extends TrieIterator {
         triePath = triePath.updated(depth, possiblyNewNextVector(depth))
       }
     }
+    atEnd
   }
 }

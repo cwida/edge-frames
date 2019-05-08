@@ -1,6 +1,6 @@
 package leapfrogTriejoin
 
-class LeapfrogJoin(var iterators: Array[LinearIterator] ) {
+class LeapfrogJoin(var iterators: Array[LinearIterator]) {
   if (iterators.isEmpty) {
     throw new IllegalArgumentException("iterators cannot be empty")
   }
@@ -50,27 +50,26 @@ class LeapfrogJoin(var iterators: Array[LinearIterator] ) {
   }
 
   private def leapfrogSearch(): Unit = {
-    var max = iterators(if (p > 0) { p - 1 } else {iterators.length - 1}).key
-    while (true) {
-      var min = iterators(p).key
-      if (min == max) {
-        key = min
-        return
+    var max = iterators(if (p > 0) {
+      p - 1
+    } else {
+      iterators.length - 1
+    }).key
+
+    var min = iterators(p).key
+
+    while (min != max && !iterators(p).seek(max)) {
+      max = iterators(p).key
+
+      if (p < iterators.length - 1) {
+        p += 1
       } else {
-        iterators(p).seek(max)
-        if (iterators(p).atEnd) {
-          atEnd = true
-          return
-        } else {
-          max = iterators(p).key
-          if (p < iterators.length - 1) {
-            p += 1
-          } else {
-            p = 0
-          }
-        }
+        p = 0
       }
+      min = iterators(p).key
     }
+    key = min
+    atEnd = iterators(p).atEnd
   }
 
   def leapfrogNext(): Unit = {

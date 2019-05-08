@@ -11,6 +11,6 @@ trait LinearIterator {
 
   def atEnd: Boolean
 
-  def seek(key: Int): Unit  // O(log N)
+  def seek(key: Int): Boolean  // O(log N)
 
 }
