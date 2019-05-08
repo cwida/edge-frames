@@ -63,7 +63,11 @@ class LeapfrogJoin(var iterators: Array[LinearIterator] ) {
           return
         } else {
           max = iterators(p).key
-          p = (p + 1) % iterators.length
+          if (p < iterators.length - 1) {
+            p += 1
+          } else {
+            p = 0
+          }
         }
       }
     }
@@ -74,7 +78,11 @@ class LeapfrogJoin(var iterators: Array[LinearIterator] ) {
     if (iterators(p).atEnd) {
       atEnd = true
     } else {
-      p = (p + 1) % iterators.length  // TODO strength reduction
+      if (p < iterators.length - 1) {
+        p += 1
+      } else {
+        p = 0
+      }
       leapfrogSearch()
     }
   }
@@ -84,7 +92,11 @@ class LeapfrogJoin(var iterators: Array[LinearIterator] ) {
     if (iterators(p).atEnd) {
       atEnd = true
     } else {
-      p = (p + 1) % iterators.length
+      if (p < iterators.length - 1) {
+        p += 1
+      } else {
+        p = 0
+      }
       leapfrogSearch()
     }
   }
