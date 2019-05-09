@@ -36,7 +36,7 @@ class LeapfrogJoin(var iterators: Array[LinearIterator]) {
   // Public for testing
   def sortIterators(): Unit = {
     var i = 1
-    while (i < iterators.size) {
+    while (i < iterators.length) {
       val iteratorToSort = iterators(i)
       val keyToSort = iterators(i).key
       var j = i

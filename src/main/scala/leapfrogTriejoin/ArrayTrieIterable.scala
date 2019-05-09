@@ -21,7 +21,7 @@ class ArrayTrieIterable(iter: Iterator[InternalRow]) extends TrieIterable {
     dstColumn.appendInt(row.getInt(1)) // TODO sync field names and position
     numRows += 1
   }
-  private[this]  val tuples = new ColumnarBatch(Array(srcColumn, dstColumn))
+  private[this] val tuples = new ColumnarBatch(Array(srcColumn, dstColumn))
   tuples.setNumRows(numRows)
 
   // For testing
@@ -38,17 +38,18 @@ class ArrayTrieIterable(iter: Iterator[InternalRow]) extends TrieIterable {
   }
 
   class TrieIteratorImpl(val tuples: ColumnarBatch) extends TrieIterator {
-    private[this]  val maxDepth = tuples.numCols() - 1
-    private[this]  val numRows = tuples.numRows()
+    private[this] val maxDepth = tuples.numCols() - 1
+    private[this] val numRows = tuples.numRows()
 
-    private[this]  var depth = -1
-    private[this]  var position = Array.fill(tuples.numCols())(-1)
-    private[this]  var end = Array.fill(tuples.numCols())(-1)
-    private[this]  var isAtEnd = numRows == 0
+    private[this] var depth = -1
+    private[this] var position = Array.fill(tuples.numCols())(-1)
+    private[this] var end = Array.fill(tuples.numCols())(-1)
+    private[this] var isAtEnd = numRows == 0
 
     private[this] val columns = Array(tuples.column(0).asInstanceOf[OpenArrayColumnVector].intData, tuples.column(1).asInstanceOf[OpenArrayColumnVector].intData)
-    private[this]  var currentColumn: Array[Int] = null
-    private[this]  var currentPosition: Int = -1
+    private[this] var currentColumn: Array[Int] = null
+    private[this] var currentPosition: Int = -1
+    private[this] var currentEnd: Int = -1
 
     override def open(): Unit = {
       assert(depth < maxDepth, "Cannot open TrieIterator at maxDepth")
@@ -69,6 +70,7 @@ class ArrayTrieIterable(iter: Iterator[InternalRow]) extends TrieIterable {
       depth += 1
 
       end(depth) = newEnd
+      currentEnd = newEnd
       currentColumn = columns(depth)
       isAtEnd = false
 
@@ -86,6 +88,7 @@ class ArrayTrieIterable(iter: Iterator[InternalRow]) extends TrieIterable {
       if (depth >= 0) {
         currentPosition = position(depth)
         currentColumn = columns(depth)
+        currentEnd = end(depth)
       }
       isAtEnd = false
     }
@@ -113,16 +116,12 @@ class ArrayTrieIterable(iter: Iterator[InternalRow]) extends TrieIterable {
     override def seek(key: Int): Boolean = {
       currentPosition = ArraySearch.find(currentColumn, key, currentPosition, end(depth))
       updateAtEnd()
-      atEnd
+      isAtEnd
     }
 
-    private def updateAtEnd() {
-      if (currentPosition >= numRows) {
-        isAtEnd = true
-      } else if (depth != 0
-        && columns(depth - 1)(position(depth - 1)) != columns(depth - 1)(currentPosition)) {
-        isAtEnd = true
-      }
+    @inline
+    private def updateAtEnd(): Unit = {
+      isAtEnd = currentPosition >= currentEnd
     }
   }
 

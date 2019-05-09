@@ -149,27 +149,27 @@ class LeapfrogTriejoin(trieIterators: Map[EdgeRelationship, TrieIterator], varia
   private def triejoinOpen() = {
     depth += 1
 
-    whileForeach(variable2TrieIterators(depth), _.open())
+    val trieIterators = variable2TrieIterators(depth)
+    var i = 0
+    while (i < trieIterators.length) {
+      trieIterators(i).open()
+      i += 1
+    }
 
     leapfrogJoins(depth).init()
   }
 
   @inline
   private def triejoinUp() = {
-    whileForeach(variable2TrieIterators(depth), _.up())
+    val trieIterators = variable2TrieIterators(depth)
+    var i = 0
+    while (i < trieIterators.length) {
+      trieIterators(i).up()
+      i += 1
+    }
 
     bindings(depth) = -1
     depth -= 1
-  }
-
-
-  @inline // Faster than Scala's foreach because it actually gets inlined
-  private def whileForeach(ts: Array[TrieIterator], f: TrieIterator => Unit): Unit = {
-    var i = 0
-    while (i < ts.length) {
-      f(ts(i))
-      i += 1
-    }
   }
 
   @inline
