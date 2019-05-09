@@ -1,14 +1,15 @@
 package leapfrogTriejoin
+
 import Predef.assert
 import util.control.Breaks._
 import Predef._
 
 
-class LeapfrogTriejoin(trieIterators: Map[EdgeRelationship, TrieIterator], variableOrdering: Seq[String]) {
+class LeapfrogTriejoin(trieIterators: Map[EdgeRelationship, TrieIterator], variableOrdering: Seq[String], distinctVariables: Boolean = false) {
 
   private[this] val DONE: Int = 0
   private[this] val DOWN_ACTION: Int = 1
-  private[this]  val NEXT_ACTION: Int = 2
+  private[this] val NEXT_ACTION: Int = 2
   private[this] val UP_ACTION: Int = 3
 
   val allVariables = trieIterators.keys.flatMap(
@@ -31,17 +32,23 @@ class LeapfrogTriejoin(trieIterators: Map[EdgeRelationship, TrieIterator], varia
   private[this] val leapfrogJoins: Array[LeapfrogJoin] = variableOrdering
     .map(v =>
       new LeapfrogJoin(trieIterators
-        .filter({ case (r, _) => r.variables.contains(v) }).values.toArray))
+        .filter({ case (r, _) => {
+          r.variables.contains(v)
+        }
+        }).values.toArray))
     .toArray
 
   private[this] val variable2TrieIterators: Array[Array[TrieIterator]] = variableOrdering
-    .map( v =>
-      trieIterators.filter( { case (r, _) => r.variables.contains(v)}).values.toArray
+    .map(v =>
+      trieIterators.filter({ case (r, _) => {
+        r.variables.contains(v)
+      }
+      }).values.toArray
     ).toArray
 
   private[this] var depth = -1
   private[this] var bindings = Array.fill(allVariables.size)(-1)
-  var atEnd = trieIterators.values.exists(i => i.atEnd)  // Assumes connected join?
+  var atEnd = trieIterators.values.exists(i => i.atEnd) // Assumes connected join?
 
   if (!atEnd) {
     moveToNextTuple()
@@ -71,7 +78,9 @@ class LeapfrogTriejoin(trieIterators: Map[EdgeRelationship, TrieIterator], varia
     while (action != DONE) {
       if (action == DOWN_ACTION) {
         triejoinOpen()
-//        leapfrogDistinctNext()
+        if (distinctVariables) {
+          leapfrogDistinctNext()
+        }
         if (currentLeapfrogJoin.atEnd) {
           action = UP_ACTION
         } else {
@@ -102,7 +111,9 @@ class LeapfrogTriejoin(trieIterators: Map[EdgeRelationship, TrieIterator], varia
   @inline
   private def nextAction(): Int = {
     currentLeapfrogJoin.leapfrogNext()
-    //        leapfrogDistinctNext()
+    if (distinctVariables) {
+      leapfrogDistinctNext()
+    }
     if (currentLeapfrogJoin.atEnd) {
       UP_ACTION
     } else {
@@ -135,7 +146,7 @@ class LeapfrogTriejoin(trieIterators: Map[EdgeRelationship, TrieIterator], varia
   }
 
   @inline
-  private def triejoinOpen() ={
+  private def triejoinOpen() = {
     depth += 1
 
     whileForeach(variable2TrieIterators(depth), _.open())
@@ -152,8 +163,8 @@ class LeapfrogTriejoin(trieIterators: Map[EdgeRelationship, TrieIterator], varia
   }
 
 
-  @inline  // Faster than Scala's foreach because it actually gets inlined
-  private def whileForeach(ts : Array[TrieIterator], f: TrieIterator => Unit): Unit = {
+  @inline // Faster than Scala's foreach because it actually gets inlined
+  private def whileForeach(ts: Array[TrieIterator], f: TrieIterator => Unit): Unit = {
     var i = 0
     while (i < ts.length) {
       f(ts(i))

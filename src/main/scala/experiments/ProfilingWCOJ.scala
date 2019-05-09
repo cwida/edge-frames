@@ -8,7 +8,6 @@ import leapfrogTriejoin.implicits._
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import scala.io.Source
-
 import scala.collection.JavaConverters._
 
 object ProfilingWCOJ extends App {
@@ -18,21 +17,29 @@ object ProfilingWCOJ extends App {
 
   val ds: Array[(Int, Int)] = loadDataset(DATASET_PATH)
 
-  val edges: List[EdgeRelationship] = ('a' to 'e')
-    .combinations(2)
-    .filter(l => l(0) < l(1))
-    .map(l => new EdgeRelationship((s"${l(0)}", s"${l(1)}")))
-    .toList
+ // Five clique
+//  val edges: List[EdgeRelationship] = ('a' to 'e')
+//    .combinations(2)
+//    .filter(l => l(0) < l(1))
+//    .map(l => new EdgeRelationship((s"${l(0)}", s"${l(1)}")))
+//    .toList
 
 
+  var edges: mutable.Buffer[EdgeRelationship] = ('a' to 'f')
+      .sliding(2)
+      .toList
+      .map(l => new EdgeRelationship((s"${l(0)}", s"${l(1)}")))
+      .toBuffer
+  edges.append(new EdgeRelationship("a", "f"))
+  println(edges.map(_.variables.mkString(", ")).mkString("\n"))
 
   val times = mutable.ListBuffer[Double]()
-  for (rep <- 0 until REPS) {
-    val rels: List[TrieIterator] = edges
+//  for (rep <- 0 until REPS) {
+    val rels: List[TrieIterator] = edges.toList
       .map(e => new ArrayTrieIterable(ds).trieIterator)
-    val join = new LeapfrogTriejoin(edges.zip(rels).toMap, Seq("a", "b", "c", "d", "e"))
+    val join = new LeapfrogTriejoin(edges.zip(rels).toMap, Seq("a", "b", "c", "d", "e", "f"))
     doJoin(join)
-  }
+//  }
   println(s"Average of $REPS repetitions: ${Utils.avg(times)}")
 
   def doJoin(join: LeapfrogTriejoin) = {

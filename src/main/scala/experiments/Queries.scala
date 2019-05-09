@@ -66,12 +66,12 @@ object Queries {
       """
         |(a) - [] -> (b);
         |(b) - [] -> (z)
-      """.stripMargin, Seq("a", "z", "b"))
+      """.stripMargin, Seq("a", "z", "b"), distinctFilter = true)
     // TODO should be done before the join
-    val filtered = twoPath.join(nodeSet1, Seq("a"), "left_semi")
+    twoPath.join(nodeSet1, Seq("a"), "left_semi")
       .join(nodeSet2, Seq("z"), "left_semi")
       .select("a", "b", "z")
-    withDistinctColumns(filtered, Seq("a", "b", "z"))
+
   }
 
   private def threePathBinaryJoins(rel: DataFrame, nodeSet1: DataFrame, nodeSet2: DataFrame): DataFrame = {
@@ -88,10 +88,10 @@ object Queries {
         |(a) - [] -> (b);
         |(b) - [] -> (c);
         |(c) - [] -> (z)
-      """.stripMargin, Seq("a", "z", "c", "b"))
-    withDistinctColumns(threePath.join(nodeSet1, Seq("a"), "left_semi")
+      """.stripMargin, Seq("a", "z", "c", "b"), distinctFilter = true)
+    threePath.join(nodeSet1, Seq("a"), "left_semi")
       .join(nodeSet2, Seq("z"), "left_semi")
-      .select("a", "b", "c", "z"), Seq("a", "b", "c", "z"))
+      .select("a", "b", "c", "z")
   }
 
   private def fourPathBinaryJoins(rel: DataFrame, nodeSet1: DataFrame, nodeSet2: DataFrame): DataFrame = {
@@ -115,6 +115,7 @@ object Queries {
         |(c) - [] -> (d);
         |(d) - [] -> (z)
       """.stripMargin, Seq("a", "z", "b", "d", "c"),
+      distinctFilter = true,
       Seq(leftRel,
         rel.alias("edges_2"),
         rel.alias("edges_3"),
@@ -122,9 +123,9 @@ object Queries {
       )
     )
 
-    withDistinctColumns(fourPath.join(nodeSet1, Seq("a"), "left_semi")
+    fourPath.join(nodeSet1, Seq("a"), "left_semi")
       .join(nodeSet2, Seq("z"), "left_semi")
-      .select("a", "b", "c", "d", "z"), Seq("a", "b", "c", "d", "z"))
+      .select("a", "b", "c", "d", "z")
   }
 
   def cliqueBinaryJoins(size: Int, sp: SparkSession, ds: DataFrame): DataFrame = {
@@ -242,7 +243,7 @@ object Queries {
   }
 
   def housePattern(rel: DataFrame): DataFrame = {
-    withDistinctColumns(rel.findPattern(
+    rel.findPattern(
       """
         |(a) - [] -> (b);
         |(b) - [] -> (c);
@@ -252,7 +253,7 @@ object Queries {
         |(b) - [] -> (d);
         |(c) - [] -> (e);
         |(d) - [] -> (e)
-        |""".stripMargin, List("a", "b", "c", "d", "e")), List("a", "b", "c", "d", "e"))
+        |""".stripMargin, List("a", "b", "c", "d", "e"), distinctFilter = true)
   }
 
 
@@ -280,7 +281,15 @@ object Queries {
     }
     }).mkString(";")
 
-    withDistinctColumns(rel.findPattern(pattern, verticeNames), verticeNames)
+
+//    val variableOrdering = size match {
+//      case 3 => Seq("a", "b", "c")
+//      case 4 => Seq("a", "b", "d", "c")
+//      case 5 => Seq("a", "b", "e", "c", "d")
+//      case 6 => Seq("a", "b", "f", "c", "e", "d")
+//    }
+
+    rel.findPattern(pattern, verticeNames, distinctFilter = true)
   }
 
 }

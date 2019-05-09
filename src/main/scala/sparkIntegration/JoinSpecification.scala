@@ -5,7 +5,7 @@ import org.slf4j.LoggerFactory
 
 import scala.collection.mutable
 
-class JoinSpecification(joinPattern: Seq[Pattern], val variableOrdering: Seq[String]) extends Serializable {
+class JoinSpecification(joinPattern: Seq[Pattern], val variableOrdering: Seq[String], val distinctFilter: Boolean) extends Serializable {
   private val logger = LoggerFactory.getLogger(classOf[JoinSpecification])
 
   val allVariables: Seq[String] = variableOrdering
@@ -61,7 +61,7 @@ class JoinSpecification(joinPattern: Seq[Pattern], val variableOrdering: Seq[Str
       case _ => throw new InvalidParseException("Use only anonymous edges with named vertices.")
       // TODO negated edges?
     }).toMap
-    new LeapfrogTriejoin(trieIterators, variableOrdering)
+    new LeapfrogTriejoin(trieIterators, variableOrdering, distinctFilter)
   }
 
 }

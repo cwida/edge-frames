@@ -27,6 +27,7 @@ object GallopingSearch {
   @inline
   def linearSearch(vector: Array[Int], key: Int, start: Int, end: Int): Int = {
     var pos = start
+    // TODO check end only once
     while (pos < end && vector(pos) < key) {
       pos += 1
     }
