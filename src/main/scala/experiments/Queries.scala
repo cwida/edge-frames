@@ -282,14 +282,14 @@ object Queries {
     }).mkString(";")
 
 
-//    val variableOrdering = size match {
-//      case 3 => Seq("a", "b", "c")
-//      case 4 => Seq("a", "b", "d", "c")
-//      case 5 => Seq("a", "b", "e", "c", "d")
-//      case 6 => Seq("a", "b", "f", "c", "e", "d")
-//    }
+    val variableOrdering = size match {
+      case 3 => Seq("a", "b", "c")
+      case 4 => Seq("a", "b", "d", "c")
+      case 5 => Seq("a", "b", "e", "c", "d")
+      case 6 => Seq("a", "b", "f", "c", "e", "d")
+    }
 
-    rel.findPattern(pattern, verticeNames, distinctFilter = true)
+    rel.findPattern(pattern, variableOrdering, distinctFilter = true)
   }
 
 }
