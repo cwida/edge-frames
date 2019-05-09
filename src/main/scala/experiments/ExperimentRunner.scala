@@ -288,7 +288,7 @@ object ExperimentRunner extends App {
 
     println(s"Using ${results.head.algorithm}, ${results.head.query} took $time in average over ${config.reps} repetitions (result size $count).")
     if (results.head.algorithm == WCOJ) {
-      println(s"WCOJ took ${wcojTimes.sum / wcojTimes.size}, copying took ${copyTimes.sum / copyTimes.size} took ${materializationTimes.sum / materializationTimes.size}")
+      println(s"WCOJ took $wcojTime, copying took $copyTime took $materializationTime")
     }
 
     println("")
