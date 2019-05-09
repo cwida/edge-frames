@@ -13,7 +13,7 @@ scalacOptions ++= Seq(
 //  "-language:higherKinds",
 //  "-language:existentials",
 //  "-language:postfixOps",
-  "-optimize",
+  "-optimize"
 //  "-Xdisable-assertions"
 )
 
