@@ -97,8 +97,13 @@ class ArrayTrieIterable(iter: Iterator[InternalRow]) extends TrieIterable {
 
     override def next(): Unit = {
       assert(numRows > currentPosition, "No next value, check atEnd before calling next")
-      // This is not the next value in the array but the next value in the array different from the current one
-      seek(currentColumn(currentPosition) + 1)  // Replacing this with a linear search is not a performance improvement
+      if (depth == maxDepth) { // If we are at the last level column values are guaranteed to be unique because edges are unique.
+        currentPosition += 1
+        updateAtEnd()
+      } else {
+        // This is not the next value in the array but the next value in the array different from the current one
+        seek(currentColumn(currentPosition) + 1) // Replacing this with a linear search is not a performance improvement
+      }
     }
 
     override def atEnd: Boolean = {
