@@ -4,7 +4,7 @@ import scala.math.{min, floor}
 import org.apache.hadoop.yarn.webapp.hamlet.HamletSpec.A
 import org.apache.spark.sql.vectorized.ColumnVector
 
-object GallopingSearch {
+object ArraySearch {
 
   private val LINEAR_SEARCH_THRESHOLD = 60
 
@@ -16,11 +16,7 @@ object GallopingSearch {
     if (end - start < LINEAR_SEARCH_THRESHOLD) {
       linearSearch(values, key, start, end)
     } else {
-      var bound = Math.max(start, 1)
-      while (bound < end && values(bound) < key) {
-        bound *= 2
-      }
-      binarySearch(values, key, Math.max(start, bound / 2), min(bound + 1, end))
+      binarySearch(values, key, start, end)
     }
   }
 
