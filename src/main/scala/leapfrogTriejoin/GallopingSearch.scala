@@ -26,12 +26,15 @@ object GallopingSearch {
 
   @inline
   def linearSearch(vector: Array[Int], key: Int, start: Int, end: Int): Int = {
-    var pos = start
-    // TODO check end only once
-    while (pos < end && vector(pos) < key) {
-      pos += 1
+    if (key > vector(end - 1)) { // Key is not in range, the least upper bound is end
+      end
+    } else {
+      var pos = start
+      while (vector(pos) < key) {  // key is smaller end - 1, there is no need to check we are not running out of range
+        pos += 1
+      }
+      pos
     }
-    pos
   }
 
   // TODO write more unit tests about this
