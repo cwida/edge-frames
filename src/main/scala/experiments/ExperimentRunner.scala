@@ -1,7 +1,8 @@
 package experiments
 
-import java.io.File
+import java.io.{BufferedWriter, File, FileWriter}
 
+import au.com.bytecode.opencsv.CSVWriter
 import org.apache.spark.SparkConf
 import org.apache.spark.scheduler.{AccumulableInfo, SparkListener, SparkListenerEvent, SparkListenerExecutorMetricsUpdate, SparkListenerJobEnd, SparkListenerStageCompleted, SparkListenerTaskEnd}
 import org.apache.spark.sql.execution.metric.SQLMetrics
@@ -47,7 +48,7 @@ object Readers {
 
   implicit def queryRead: scopt.Read[Query] = {
     scopt.Read.reads(s => {
-      val queryTypes = Seq("cycle", "clique", "path")
+      val queryTypes = Seq("cycle", "clique", "path", "diamond", "house")
 
       queryTypes.find(t => s.startsWith(t)) match {
         case Some(t) => {
@@ -63,15 +64,23 @@ object Readers {
               Clique(size)
             }
             case "path" => {
-              val parts = parameter.split("|")
+              val parts = parameter.split('|')
               PathQuery(parts(0).toInt, parts(1).toDouble)
             }
+            case "diamond" => {
+              DiamondQuery()
+            }
+            case "house" => {
+              HouseQuery()
+            }
             case _ => {
+              println(s)
               throw new IllegalArgumentException(s"Unknown query: $s")
             }
           }
         }
         case None => {
+          println(s)
           throw new IllegalArgumentException(s"Unknown query: $s")
         }
       }
@@ -108,6 +117,10 @@ case class Cycle(size: Int) extends Query
 
 case class PathQuery(size: Int, selectivity: Double) extends Query
 
+case class DiamondQuery() extends Query
+
+case class HouseQuery() extends Query
+
 
 case class ExperimentConfig(
                              algorithms: Seq[Algorithm] = Seq(WCOJ, BinaryJoins),
@@ -118,6 +131,29 @@ case class ExperimentConfig(
                              reps: Int = 1,
                              limitDataset: Int = -1
                            )
+
+
+sealed trait QueryResult {
+  def algorithm: Algorithm
+
+  def query: Query
+
+  def count: Long
+
+  def time: Double
+}
+
+case class BinaryQueryResult(query: Query, count: Long, time: Double) extends QueryResult {
+  override def algorithm: Algorithm = {
+    BinaryJoins
+  }
+}
+
+case class WCOJQueryResult(query: Query, count: Long, time: Double, wcojTime: Double, copyTime: Double, materializationTime: Double) extends QueryResult {
+  override def algorithm: Algorithm = {
+    WCOJ
+  }
+}
 
 
 object ExperimentRunner extends App {
@@ -133,6 +169,10 @@ object ExperimentRunner extends App {
   val copyTimes = ListBuffer[Double]()
   val materializationTimes = ListBuffer[Double]()
   setupMetricListener(wcojTimes, materializationTimes, copyTimes)
+
+  var csvWriter: CSVWriter = null
+
+  setupResultReporting()
 
   runQueries()
 
@@ -185,8 +225,8 @@ object ExperimentRunner extends App {
       .set("spark.executor.memory", "40g")
       .set("spark.driver.memory", "20g")
       .set("spark.sql.autoBroadcastJoinThreshold", "104857600") // High threshold
-//          .set("spark.sql.autoBroadcastJoinThreshold", "-1")  // No broadcast
-    //      .set("spark.sql.codegen.wholeStage", "false")
+    //          .set("spark.sql.autoBroadcastJoinThreshold", "-1")  // No broadcast
+//          .set("spark.sql.codegen.wholeStage", "false")
     val spark = SparkSession.builder()
       .config(conf)
       .getOrCreate()
@@ -220,6 +260,43 @@ object ExperimentRunner extends App {
     d
   }
 
+  private def setupResultReporting(): Unit = {
+    csvWriter = new CSVWriter(new BufferedWriter(new FileWriter(config.outputPath)))
+    csvWriter.writeNext(Array("Query", "Algorithm", "Time", "WCOJTime", "copy", "mat"))
+  }
+
+  private def reportResults(results: Seq[QueryResult]): Unit = {
+    require(results.size == config.reps)
+
+    require(results.map(_.count).toSet.size == 1)
+    require(results.map(_.algorithm).toSet.size == 1)
+    require(results.map(_.query).toSet.size == 1)
+    val time = Utils.avg(results.map(_.time))
+    val count = results.head.count
+
+    var wcojTime = 0.0
+    var copyTime = 0.0
+    var materializationTime = 0.0
+
+    if (results.head.algorithm == WCOJ) {
+      val wcojResults = results.map(_.asInstanceOf[WCOJQueryResult])
+
+      wcojTime = Utils.avg(wcojResults.map(_.wcojTime))
+      copyTime = Utils.avg(wcojResults.map(_.copyTime))
+      materializationTime = Utils.avg(wcojResults.map(_.materializationTime))
+    }
+
+    println(s"Using ${results.head.algorithm}, ${results.head.query} took $time in average over ${config.reps} repetitions (result size $count).")
+    if (results.head.algorithm == WCOJ) {
+      println(s"WCOJ took ${wcojTimes.sum / wcojTimes.size}, copying took ${copyTimes.sum / copyTimes.size} took ${materializationTimes.sum / materializationTimes.size}")
+    }
+
+    println("")
+
+    csvWriter.writeNext(Array[String](results.head.query.toString, results.head.algorithm.toString, "%03.2f".format(time), "%03.2f".format(wcojTime), "%03.2f".format(copyTime), "%03.2f".format(materializationTime)))
+    csvWriter.flush()
+  }
+
   private def runQueries() = {
     for (q <- config.queries) {
       runQuery(config.algorithms, q)
@@ -241,6 +318,12 @@ object ExperimentRunner extends App {
               val (ns1, ns2) = Queries.pathQueryNodeSets(ds, selectivity)
               Queries.pathBinaryJoins(s, ds, ns1, ns2)
             }
+            case DiamondQuery() => {
+              Queries.diamondBinaryJoins(ds)
+            }
+            case HouseQuery() => {
+              Queries.houseBinaryJoins(sp, ds)
+            }
           }
         }
         case WCOJ => {
@@ -255,37 +338,44 @@ object ExperimentRunner extends App {
               val (ns1, ns2) = Queries.pathQueryNodeSets(ds, selectivity)
               Queries.pathPattern(s, ds, ns1, ns2)
             }
+            case DiamondQuery() => { // TODO remove diamond query, it is a four cycle
+              Queries.diamondPattern(ds)
+            }
+            case HouseQuery() => {
+              Queries.housePattern(ds)
+            }
           }
         }
       }
 
-      val times = ListBuffer[Double]()
-      wcojTimes.clear()
-      materializationTimes.clear()
-      copyTimes.clear()
+      val results = ListBuffer[QueryResult]()
 
       for (i <- 1 to config.reps) {
+        wcojTimes.clear() // TODO make single value
+        materializationTimes.clear()
+        copyTimes.clear()
+        System.gc()
         print(".")
         val start = System.nanoTime()
         val count = queryDataFrame.count()
         val end = System.nanoTime()
         val time = (end - start).toDouble / 1000000000
-//        println(s"$algoritm $count")
-        times += time
-        System.gc()
+        //        println(s"$algoritm $count")
+        algoritm match {
+          case WCOJ => {
+            results += WCOJQueryResult(query, count, time, wcojTimes.head, copyTimes.head, materializationTimes.head)
+          }
+          case BinaryJoins => {
+            results += BinaryQueryResult(query, count, time)
+          }
+        }
       }
       println()
 
-      println(s"Using $algoritm, $query took ${times.sum / times.size} in average over ${config.reps} repetitions.")
-      if (wcojTimes.nonEmpty) {
-        assert(wcojTimes.size == config.reps)
-        assert(materializationTimes.size == config.reps)
-        assert(copyTimes.size == config.reps)
-
-        println(s"WCOJ took ${wcojTimes.sum / wcojTimes.size}, copying took ${copyTimes.sum / copyTimes.size} took ${materializationTimes.sum / materializationTimes.size}")
-      }
+      reportResults(results)
     }
   }
+
 
   private def setupMetricListener(wcojTimes: ListBuffer[Double], materializationTimes: ListBuffer[Double], copyTimes: ListBuffer[Double]): Unit = {
     sp.sparkContext.addSparkListener(new SparkListener {
