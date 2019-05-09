@@ -7,6 +7,7 @@
     <profile name="sbt 1" modules="SparkTest">
       <parameters>
         <parameter value="-optimize" />
+        <parameter value="-Xdisable-assertions" />
       </parameters>
     </profile>
   </component>

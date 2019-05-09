@@ -28,13 +28,6 @@ class ArrayTrieIteratorSpec extends FlatSpec with Matchers with GeneratorDrivenP
     iter.key shouldBe 4
   }
 
-  "open" should "be illegal after the last level" in {
-    val iter = new ArrayTrieIterable(Array((1, 1))).trieIterator
-    iter.open()
-    iter.open()
-    assertThrows[AssertionError](iter.open())
-  }
-
   "up" should "not change to the next element" in {
     val iter = new ArrayTrieIterable(Array((1, 1), (2, 2))).trieIterator
     iter.open()
