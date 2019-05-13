@@ -3,17 +3,17 @@ package experiments
 import java.nio.file.{Files, Path, Paths}
 
 import org.apache.spark.sql.catalyst.expressions.GenericInternalRow
-import org.apache.spark.sql.types.{IntegerType, StructType}
-import org.apache.spark.sql.{DataFrame, DataFrameReader, Row, SparkSession}
+import org.apache.spark.sql.types.{IntegerType, LongType, StringType, StructType}
+import org.apache.spark.sql.{DataFrame, DataFrameReader, Row, SparkSession, types}
 
 object Datasets {
   val schema = new StructType()
-    .add("src", IntegerType)
-    .add("dst", IntegerType)
+    .add("src", IntegerType, false)
+    .add("dst", IntegerType, false)
 
   private def makeUndirected(rel: DataFrame, sp: SparkSession): DataFrame = {
     import sp.implicits._
-    rel.flatMap( {
+    rel.flatMap({
       case Row(src: Int, dst: Int) => {
         Seq((src, dst), (dst, src))
       }
@@ -37,15 +37,30 @@ object Datasets {
   }
 
   def loadSNBDataset(sp: SparkSession, datasetPath: String): DataFrame = {
-    loadAndCacheAsParquet(datasetPath, sp.read
-      .format("csv")
-      .option("delimiter", "|")
-      .option("inferScheme", true),
-      sp)
-      .withColumnRenamed("_c0", "src")
-      .withColumnRenamed("_c1", "dst")
-      .repartition(1)
-    // TODO move repartion out of these methods
+
+    import sp.implicits._
+    val parquetFile = datasetPath + ".parquet"
+    val d = if (Files.exists(Paths.get(parquetFile.replace("file://", "")))) {
+      sp.read.parquet(parquetFile)
+    } else {
+      println("Parquet file not existing")
+      val df =
+        sp.read
+          .format("csv")
+          .option("delimiter", "|")
+          //          .option("inferSchema", "true")
+          .schema(new types.StructType().add("src", IntegerType).add("dst", IntegerType).add("creationDate", StringType))
+          .csv(Seq(datasetPath, "csv").mkString("."))
+          .drop("creationDate")
+          .filter($"src".isNotNull && $"dst".isNotNull)
+
+      val undirected = makeUndirected(df, sp)
+      val sorted = undirected.sort("src", "dst")
+      println("Caching as parquet file")
+      sorted.write.parquet(parquetFile)
+      sorted
+    }
+    d.repartition(1)
   }
 
   def loadLiveJournalDataset(sp: SparkSession, datasetPath: String): DataFrame = {
