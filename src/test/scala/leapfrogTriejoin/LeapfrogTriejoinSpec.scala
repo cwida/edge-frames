@@ -1,10 +1,15 @@
 package leapfrogTriejoin
 
+import java.io.{BufferedReader, File, FileReader}
+import java.util.stream.Collectors
+
 import org.scalacheck.Gen
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.{FlatSpec, Matchers}
 import testing.Utils
 import leapfrogTriejoin.implicits._
+import collection.JavaConverters._
+
 
 class LeapfrogTriejoinSpec extends FlatSpec with Matchers with GeneratorDrivenPropertyChecks {
 
@@ -25,6 +30,18 @@ class LeapfrogTriejoinSpec extends FlatSpec with Matchers with GeneratorDrivenPr
       .map(_.split(","))
       .map(_.map(_.toInt))
       .map(l => (l(0), l(1)))
+  }
+
+  private def parseRegressionTestDatasetFromFile(filePath: String): Array[(Int, Int)] = {
+    val reader =  new BufferedReader(new FileReader(filePath))
+
+    val lines = reader.lines().collect(Collectors.toList()).asScala
+    lines
+      .map(_.trim)
+      .filter(_ != "")
+      .map(_.split(","))
+      .map(_.map(_.trim.toInt))
+      .map(l => (l(0), l(1))).toArray
   }
 
   "A join on a single relationship" should "be the relationship" in {
