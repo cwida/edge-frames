@@ -40,6 +40,9 @@ object Readers {
       case "liv" => {
         LiveJournal2010
       }
+      case "twitterSnapEgo" => {
+        TwitterSnapEgo
+      }
       case _ => {
         throw new IllegalArgumentException("Dataset type can be only `ama` or `snb`")
       }
@@ -107,6 +110,9 @@ case object SNB extends DatasetType {
 }
 
 case object LiveJournal2010 extends DatasetType {
+}
+
+case object TwitterSnapEgo extends DatasetType {
 }
 
 sealed trait Query
@@ -249,6 +255,9 @@ object ExperimentRunner extends App {
       case LiveJournal2010 => {
         Datasets.loadLiveJournalDataset(sp, config.datasetFilePath)
       }
+      case TwitterSnapEgo => {
+        Datasets.loadTwitterSnapEgo(sp, config.datasetFilePath)
+      }
     }
     if (config.limitDataset != -1) {
       d = d.limit(config.limitDataset)
@@ -262,7 +271,7 @@ object ExperimentRunner extends App {
 
   private def setupResultReporting(): Unit = {
     csvWriter = new CSVWriter(new BufferedWriter(new FileWriter(config.outputPath)))
-    csvWriter.writeNext(Array("Query", "Algorithm", "Time", "WCOJTime", "copy", "mat"))
+    csvWriter.writeNext(Array("Query", "Algorithm", "Count", "Time", "WCOJTime", "copy", "mat"))
   }
 
   private def reportResults(results: Seq[QueryResult]): Unit = {
@@ -293,7 +302,7 @@ object ExperimentRunner extends App {
 
     println("")
 
-    csvWriter.writeNext(Array[String](results.head.query.toString, results.head.algorithm.toString, "%03.2f".format(time), "%03.2f".format(wcojTime), "%03.2f".format(copyTime), "%03.2f".format(materializationTime)))
+    csvWriter.writeNext(Array[String](results.head.query.toString, results.head.algorithm.toString, count.toString, "%03.2f".format(time), "%03.2f".format(wcojTime), "%03.2f".format(copyTime), "%03.2f".format(materializationTime)))
     csvWriter.flush()
   }
 

@@ -1,0 +1,10 @@
+"Query","Algorithm","Time","WCOJTime","copy","mat"
+"Cycle(4)","WCOJ","333,79","293,56","10,85","8,22"
+# With variable order: a, b, d, c and bigger as filter, result size325.332.383
+
+
+"Cycle(4)","WCOJ","283,21","244,86","10,55","6,78"
+# With variable order: a, b, c, d and bigger as filter, (result size 337014100)
+
+"Cycle(4)","WCOJ","51,69","42,57","1,57","4,12"
+# With variable order: a, b, c, d and bigger as filter, (result size 51346996), on the directed twitter graph
