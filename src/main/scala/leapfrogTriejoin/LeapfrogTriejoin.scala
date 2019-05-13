@@ -5,7 +5,7 @@ import util.control.Breaks._
 import Predef._
 
 
-class LeapfrogTriejoin(trieIterators: Map[EdgeRelationship, TrieIterator], variableOrdering: Seq[String], distinctVariables: Boolean = false) {
+class LeapfrogTriejoin(trieIterators: Map[EdgeRelationship, TrieIterator], variableOrdering: Seq[String], distinctVariables: Boolean = false, smallerThanFilter: Boolean = false) {
 
   private[this] val DONE: Int = 0
   private[this] val DOWN_ACTION: Int = 1
@@ -78,9 +78,7 @@ class LeapfrogTriejoin(trieIterators: Map[EdgeRelationship, TrieIterator], varia
     while (action != DONE) {
       if (action == DOWN_ACTION) {
         triejoinOpen()
-        if (distinctVariables) {
-          leapfrogDistinctNext()
-        }
+        leapfrogFilteredNext()
         if (currentLeapfrogJoin.atEnd) {
           action = UP_ACTION
         } else {
@@ -111,9 +109,7 @@ class LeapfrogTriejoin(trieIterators: Map[EdgeRelationship, TrieIterator], varia
   @inline
   private def nextAction(): Int = {
     currentLeapfrogJoin.leapfrogNext()
-    if (distinctVariables) {
-      leapfrogDistinctNext()
-    }
+    leapfrogFilteredNext()
     if (currentLeapfrogJoin.atEnd) {
       UP_ACTION
     } else {
@@ -128,10 +124,27 @@ class LeapfrogTriejoin(trieIterators: Map[EdgeRelationship, TrieIterator], varia
   }
 
   @inline
-  private def leapfrogDistinctNext(): Unit = {
-    while (!currentLeapfrogJoin.atEnd && bindingsContains(currentLeapfrogJoin.key)) {
-      currentLeapfrogJoin.leapfrogNext()
+  private def leapfrogFilteredNext(): Unit = {
+    if (distinctVariables) {
+      while (!currentLeapfrogJoin.atEnd && bindingsContains(currentLeapfrogJoin.key)) {
+        currentLeapfrogJoin.leapfrogNext()
+      }
+    } else if (smallerThanFilter) {
+      while (!currentLeapfrogJoin.atEnd && bindingsContainsBigger(currentLeapfrogJoin.key)) {
+        currentLeapfrogJoin.leapfrogNext()
+      }
     }
+  }
+
+  @inline
+  private def bindingsContainsBigger(key: Int): Boolean = {
+    var i = 0
+    var contains = false
+    while (i < bindings.length) {
+      contains |= bindings(i) >= key
+      i += 1
+    }
+    contains
   }
 
   @inline

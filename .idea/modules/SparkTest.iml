@@ -15,6 +15,7 @@
       <sourceFolder url="file://$MODULE_DIR$/../../src/test/resources" type="java-test-resource" />
       <sourceFolder url="file://$MODULE_DIR$/../../target/scala-2.11/src_managed/main" isTestSource="false" generated="true" />
       <sourceFolder url="file://$MODULE_DIR$/../../target/scala-2.11/src_managed/test" isTestSource="true" generated="true" />
+      <sourceFolder url="file://$MODULE_DIR$/../../src/resources" type="java-resource" />
       <excludeFolder url="file://$MODULE_DIR$/../../lib" />
       <excludeFolder url="file://$MODULE_DIR$/../../target" />
     </content>

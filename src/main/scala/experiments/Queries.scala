@@ -26,6 +26,15 @@ object Queries {
     r
   }
 
+  def withSmallerThanColumns(df: DataFrame, cols: Seq[String]): DataFrame = {
+    var r = df
+    for (c <- cols.combinations(2)) {
+      require(c(0) < c(1))
+      r = r.where(new Column(c(0)) < new Column(c(1)))
+    }
+    r
+  }
+
   def pathBinaryJoins(size: Int, ds: DataFrame, ns1: DataFrame, ns2: DataFrame): DataFrame = {
     size match {
       case 2 => {
@@ -116,6 +125,7 @@ object Queries {
         |(d) - [] -> (z)
       """.stripMargin, Seq("a", "z", "b", "d", "c"),
       distinctFilter = true,
+      smallerThanFilter = false,
       Seq(leftRel,
         rel.alias("edges_2"),
         rel.alias("edges_3"),
@@ -131,16 +141,16 @@ object Queries {
   def cliqueBinaryJoins(size: Int, sp: SparkSession, ds: DataFrame): DataFrame = {
     size match {
       case 3 => {
-        triangleBinaryJoins(sp, ds)
+        withSmallerThanColumns(triangleBinaryJoins(sp, ds), Seq("a", "b", "c"))
       }
       case 4 => {
-        fourCliqueBinaryJoins(sp, ds)
+        withSmallerThanColumns(fourCliqueBinaryJoins(sp, ds), Seq("a", "b", "c", "d"))
       }
       case 5 => {
-        fiveCliqueBinaryJoins(sp, ds)
+        withSmallerThanColumns(fiveCliqueBinaryJoins(sp, ds), Seq("a", "b", "c", "d", "e"))
       }
       case 6 => {
-        sixCliqueBinaryJoins(sp, ds)
+        withSmallerThanColumns(sixCliqueBinaryJoins(sp, ds), Seq("a", "b", "c", "d", "e", "f"))
       }
     }
   }
@@ -210,14 +220,16 @@ object Queries {
     val pattern = verticeNames.combinations(2).filter(e => e(0) < e(1))
       .map(e => s"(${e(0)}) - [] -> (${e(1)})")
       .mkString(";")
+    println(pattern)
     //    println(s"Perm: ${perm.mkString(",")} at position $permCounter")
-    rel.findPattern(pattern, verticeNames)
+    rel.findPattern(pattern, verticeNames, smallerThanFilter = true)
   }
 
   def diamondPattern(rel: DataFrame): DataFrame = {
     withDistinctColumns(rel.findPattern(
       """
         |(a) - [] -> (b);
+        |(b) - [] -> (c);
         |(b) - [] -> (c);
         |(c) - [] -> (d);
         |(d) - [] -> (a)
@@ -284,7 +296,7 @@ object Queries {
 
     val variableOrdering = size match {
       case 3 => Seq("a", "b", "c")
-      case 4 => Seq("a", "b", "d", "c")
+      case 4 => Seq("a", "b", "c", "d")
       case 5 => Seq("a", "b", "e", "c", "d")
       case 6 => Seq("a", "b", "f", "c", "e", "d")
     }

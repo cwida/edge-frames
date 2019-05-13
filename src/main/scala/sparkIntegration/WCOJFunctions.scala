@@ -10,7 +10,7 @@ import org.apache.spark.sql.execution.RowIterator
 import Predef._
 
 class WCOJFunctions[T](ds: Dataset[T]) {
-  def findPattern(pattern: String, variableOrdering: Seq[String], distinctFilter: Boolean = false): DataFrame = {
+  def findPattern(pattern: String, variableOrdering: Seq[String], distinctFilter: Boolean = false, smallerThanFilter: Boolean = false): DataFrame = {
     val edges = Pattern.parse(pattern)
 
     val children = edges.zipWithIndex.map { case (_, i) => {
@@ -20,10 +20,10 @@ class WCOJFunctions[T](ds: Dataset[T]) {
         .withColumnRenamed("dst", s"dst")
     }
     }
-    findPattern(pattern, variableOrdering, distinctFilter, children)
+    findPattern(pattern, variableOrdering, distinctFilter, smallerThanFilter, children)
   }
 
-  def findPattern(pattern: String, variableOrdering: Seq[String], distinctFilter: Boolean, children: Seq[DataFrame]): DataFrame = {
+  def findPattern(pattern: String, variableOrdering: Seq[String], distinctFilter: Boolean, smallerThanFilter: Boolean, children: Seq[DataFrame]): DataFrame = {
 
     require(ds.columns.contains("src"), "Edge table should have a column called `src`")
     require(ds.columns.contains("dst"), "Edge table should have a column called `dst`")
@@ -31,11 +31,13 @@ class WCOJFunctions[T](ds: Dataset[T]) {
     require(ds.col("src").expr.dataType == IntegerType, "Edge table src needs to be an integer")
     require(ds.col("dst").expr.dataType == IntegerType, "Edge table src needs to be an integer")
 
+    require(!distinctFilter || distinctFilter != smallerThanFilter, "Use either distinct filter or smallerThanFilter, not both")
+
     val edges = Pattern.parse(pattern)
 
     require(edges.size == children.size, "WCOJ needs as many children as edges in the pattern.")
 
-    val joinSpecification = new JoinSpecification(edges, variableOrdering, distinctFilter)
+    val joinSpecification = new JoinSpecification(edges, variableOrdering, distinctFilter, smallerThanFilter)
 
     val outputVariables = joinSpecification.variableOrdering.map(v => AttributeReference(v, IntegerType, nullable = false)())
 
