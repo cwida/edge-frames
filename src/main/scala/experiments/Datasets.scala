@@ -11,6 +11,17 @@ object Datasets {
     .add("src", IntegerType)
     .add("dst", IntegerType)
 
+  private def makeUndirected(rel: DataFrame, sp: SparkSession): DataFrame = {
+    import sp.implicits._
+    rel.flatMap( {
+      case Row(src: Int, dst: Int) => {
+        Seq((src, dst), (dst, src))
+      }
+    }).toDF("src", "dst")
+      .distinct()
+      .repartition(1)
+  }
+
   private def snapDatasetReader(sp: SparkSession): DataFrameReader = {
     sp.read
       .format("csv")
@@ -23,7 +34,6 @@ object Datasets {
     loadAndCacheAsParquet(dataSetPath,
       snapDatasetReader(sp),
       sp)
-      .repartition(1)
   }
 
   def loadSNBDataset(sp: SparkSession, datasetPath: String): DataFrame = {
