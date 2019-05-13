@@ -220,7 +220,6 @@ object Queries {
     val pattern = verticeNames.combinations(2).filter(e => e(0) < e(1))
       .map(e => s"(${e(0)}) - [] -> (${e(1)})")
       .mkString(";")
-    println(pattern)
     //    println(s"Perm: ${perm.mkString(",")} at position $permCounter")
     rel.findPattern(pattern, verticeNames, smallerThanFilter = true)
   }

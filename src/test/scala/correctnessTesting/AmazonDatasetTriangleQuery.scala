@@ -1,22 +1,14 @@
 package correctnessTesting
 
-import java.nio.file.{Files, Path, Paths}
-
-import org.scalatest.{FlatSpec, Matchers}
-import sparkIntegration.implicits._
-import testing.{SparkTest, Utils}
-import experiments.Queries._
 import experiments.Datasets.loadAmazonDataset
-import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.{DataFrame, Row}
+import experiments.Queries._
+import org.apache.spark.sql.DataFrame
+import sparkIntegration.implicits._
 
-import scala.reflect.ClassTag
-
-class AmazonDatasetTriangleQuery extends FlatSpec with Matchers with SparkTest {
-  val OFFICIAL_NUMBERS_OF_TRIANGLES = 717719L
+class AmazonDatasetTriangleQuery extends CorrectnessTest {
   val DATASET_PATH = "/home/per/workspace/master-thesis/datasets/amazon-0302"
 
-  val FAST = true
+  val FAST = false
   if (FAST) {
     System.err.println("Running correctness test in fast mode")
   }
@@ -24,7 +16,7 @@ class AmazonDatasetTriangleQuery extends FlatSpec with Matchers with SparkTest {
   val ds = if (FAST) {
     loadAmazonDataset(DATASET_PATH, sp).limit(1000).cache()
   } else {
-    loadAmazonDataset(DATASET_PATH, sp).cache()
+      loadAmazonDataset(DATASET_PATH, sp).cache()
   }
   println(s"Testing on the first ${ds.count()} edges of the Amazon set")
 
@@ -35,44 +27,6 @@ class AmazonDatasetTriangleQuery extends FlatSpec with Matchers with SparkTest {
   nodeSet1.cache()
   nodeSet2.cache()
 
-  private def assertRDDEqual(a: RDD[Row], e: RDD[Row]) = {
-    val aExtras = a.subtract(e)
-    val eExtras = e.subtract(a)
-
-    val aExtrasEmpty = aExtras.isEmpty()
-    val eExtrasEmpty = eExtras.isEmpty()
-
-    if (!(aExtrasEmpty && eExtrasEmpty)) {
-      Utils.printSeqRDD(50, aExtras.map(r => r.toSeq))
-      Utils.printSeqRDD(50, eExtras.map(r => r.toSeq))
-    }
-
-    aExtrasEmpty should be(true)
-    eExtrasEmpty should be(true)
-  }
-
-  private def assertRDDSetEqual(rdd1: RDD[Row], rdd2: RDD[Row], setSize: Int) = {
-    val rdd1Set = rdd1.map(r => r.toSeq.toSet)
-    val rdd2Set = rdd2.map(r => r.toSeq.toSet)
-
-    rdd1Set.filter(_.size != setSize).isEmpty() should be (true)
-    rdd2Set.filter(_.size != setSize).isEmpty() should be (true)
-
-
-    val diff1 = rdd1Set.subtract(rdd2Set)
-    val diff2 = rdd2Set.subtract(rdd1Set)
-
-    val empty1 = diff1.isEmpty()
-    val empty2 = diff2.isEmpty()
-
-    if (!(empty1 && empty2)) {
-      Utils.printSetRDD(50, diff1)
-      Utils.printSetRDD(50, diff2)
-    }
-
-    empty1 should be (true)
-    empty2 should be (true)
-  }
 
   private def getPathQueryDataset(): DataFrame = {
     // TODO remove once path queries are fast enough
@@ -121,15 +75,6 @@ class AmazonDatasetTriangleQuery extends FlatSpec with Matchers with SparkTest {
     assertRDDEqual(actualResultTriangles.rdd, goldStandardTriangles.rdd)
   }
 
-  "WCOJ implementation" should "produce roughly as many triangles as on the official website" in {
-    if (!FAST) {
-      val distinct = actualResultTriangles.rdd.map(r => r.toSeq.toSet).distinct(1).count()
-      distinct should equal(OFFICIAL_NUMBERS_OF_TRIANGLES +- (OFFICIAL_NUMBERS_OF_TRIANGLES * 0.01).toLong)
-    } else {
-      succeed
-    }
-  }
-
   "The variable ordering" should "not matter" in {
     val otherVariableOrdering = ds.findPattern(
       """
@@ -140,7 +85,7 @@ class AmazonDatasetTriangleQuery extends FlatSpec with Matchers with SparkTest {
 
     val otherReordered = otherVariableOrdering.select("a", "b", "c")
 
-    assertRDDEqual(otherReordered.rdd, actualResultTriangles.rdd)
+    assertRDDSetEqual(otherReordered.rdd, actualResultTriangles.rdd, 3)
   }
 
   "Circular triangles" should "be found correctly" in {
@@ -210,13 +155,6 @@ class AmazonDatasetTriangleQuery extends FlatSpec with Matchers with SparkTest {
     val e = cycleBinaryJoins(5, ds)
 
     assertRDDSetEqual(a.rdd, e.rdd, 5)
-  }
-
-  "6-cylce" should "be the same" in {
-    val a = cyclePattern(6, ds)
-    val e = cycleBinaryJoins(6, ds)
-
-    assertRDDSetEqual(a.rdd, e.rdd, 6)
   }
 
 }

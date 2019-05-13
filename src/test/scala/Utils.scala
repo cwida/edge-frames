@@ -5,7 +5,7 @@ import java.io.File
 import leapfrogTriejoin.TrieIterator
 import org.apache.spark.SparkConf
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.{Row, SparkSession}
 import sparkIntegration.{ToTrieIterableRDD2ToTrieIterableRDDExec, WCOJ2WCOJExec}
 
 import scala.collection.mutable
@@ -58,7 +58,6 @@ object Utils {
     }
   }
 
-
 }
 
 object TestSparkSession {
@@ -67,6 +66,8 @@ object TestSparkSession {
     .setAppName("Spark test")
     .set("spark.executor.memory", "2g")
     .set("spark.driver.memory", "2g")
+    .set("spark.sql.autoBroadcastJoinThreshold", "104857600") // High threshold
+
 
   val spark = SparkSession.builder().config(conf).getOrCreate()
 
