@@ -63,7 +63,6 @@ object Readers {
             }
             case "clique" => {
               val size = parameter.toInt
-              println(s"clique of size: $size")
               Clique(size)
             }
             case "path" => {
