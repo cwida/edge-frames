@@ -228,7 +228,8 @@ object ExperimentRunner extends App {
       .setMaster("local[1]")
       .setAppName("Spark test")
       .set("spark.executor.memory", "40g")
-      .set("spark.driver.memory", "20g")
+      .set("spark.driver.memory", "40g")
+      .set("spark.cores.max", "1")
       .set("spark.sql.autoBroadcastJoinThreshold", "104857600") // High threshold
     //          .set("spark.sql.autoBroadcastJoinThreshold", "-1")  // No broadcast
 //          .set("spark.sql.codegen.wholeStage", "false")
