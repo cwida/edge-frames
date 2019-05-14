@@ -17,15 +17,15 @@ class ArrayTrieIterable(iter: Iterator[InternalRow]) extends TrieIterable {
 
   while (iter.hasNext) {
     val row = iter.next()
-    srcColumn.appendInt(row.getInt(0))
-    dstColumn.appendInt(row.getInt(1)) // TODO sync field names and position
+    srcColumn.appendLong(row.getLong(0))
+    dstColumn.appendLong(row.getLong(1)) // TODO sync field names and position
     numRows += 1
   }
   private[this] val tuples = new ColumnarBatch(Array(srcColumn, dstColumn))
   tuples.setNumRows(numRows)
 
   // For testing
-  def this(a: Array[(Int, Int)]) {
+  def this(a: Array[(Long, Long)]) {
     this(a.map(t => new GenericInternalRow(Array[Any](t._1, t._2))).iterator)
   }
 
@@ -46,8 +46,8 @@ class ArrayTrieIterable(iter: Iterator[InternalRow]) extends TrieIterable {
     private[this] var end = Array.fill(tuples.numCols())(-1)
     private[this] var isAtEnd = numRows == 0
 
-    private[this] val columns = Array(tuples.column(0).asInstanceOf[OpenArrayColumnVector].intData, tuples.column(1).asInstanceOf[OpenArrayColumnVector].intData)
-    private[this] var currentColumn: Array[Int] = null
+    private[this] val columns = Array(tuples.column(0).asInstanceOf[OpenArrayColumnVector].longData, tuples.column(1).asInstanceOf[OpenArrayColumnVector].longData)
+    private[this] var currentColumn: Array[Long] = null
     private[this] var currentPosition: Int = -1
     private[this] var currentEnd: Int = -1
 
@@ -93,7 +93,7 @@ class ArrayTrieIterable(iter: Iterator[InternalRow]) extends TrieIterable {
       isAtEnd = false
     }
 
-    override def key: Int = {
+    override def key: Long = {
       assert(!atEnd, "Calling key on TrieIterator atEnd is illegal.")
       currentColumn(currentPosition)
     }
@@ -113,7 +113,7 @@ class ArrayTrieIterable(iter: Iterator[InternalRow]) extends TrieIterable {
       isAtEnd
     }
 
-    override def seek(key: Int): Boolean = {
+    override def seek(key: Long): Boolean = {
       currentPosition = ArraySearch.find(currentColumn, key, currentPosition, end(depth))
       updateAtEnd()
       isAtEnd

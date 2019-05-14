@@ -2,7 +2,7 @@ package leapfrogTriejoin
 
 trait LinearIterator {
 
-  def key: Int // O (1)
+  def key: Long // O (1)
 
   def next(): Unit  // O(log N)
     /**
@@ -11,6 +11,6 @@ trait LinearIterator {
 
   def atEnd: Boolean
 
-  def seek(key: Int): Boolean  // O(log N)
+  def seek(key: Long): Boolean  // O(log N)
 
 }

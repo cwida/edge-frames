@@ -7,7 +7,7 @@ import org.apache.spark.unsafe.types.UTF8String
 /**
   * Abstract stub that allows to only implement the method necessary for an ColumnVector for IntegerType
   */
-abstract class WritableIntColumnVector(capacity: Int) extends WritableColumnVector(capacity, IntegerType) {
+abstract class WritableLongColumnVector(capacity: Int) extends WritableColumnVector(capacity, IntegerType) {
   override def getDictId(i: Int): Int = {
     ???
   }
@@ -38,6 +38,8 @@ abstract class WritableIntColumnVector(capacity: Int) extends WritableColumnVect
 
   override def putShorts(i: Int, i1: Int, bytes: Array[Byte], i2: Int): Unit = ???
 
+  override def putInt(i: Int, i1: Int): Unit = ???
+
   override def putInts(i: Int, i1: Int, i2: Int): Unit = ???
 
   override def putInts(i: Int, i1: Int, ints: Array[Int], i2: Int): Unit = ???
@@ -45,8 +47,6 @@ abstract class WritableIntColumnVector(capacity: Int) extends WritableColumnVect
   override def putInts(i: Int, i1: Int, bytes: Array[Byte], i2: Int): Unit = ???
 
   override def putIntsLittleEndian(i: Int, i1: Int, bytes: Array[Byte], i2: Int): Unit = ???
-
-  override def putLong(i: Int, l: Long): Unit = ???
 
   override def putLongs(i: Int, i1: Int, l: Long): Unit = ???
 
@@ -92,7 +92,7 @@ abstract class WritableIntColumnVector(capacity: Int) extends WritableColumnVect
 
   override def getShort(i: Int): Short = ???
 
-  override def getLong(i: Int): Long = ???
+  override  def getInt(i: Int): Int = ???
 
   override def getFloat(i: Int): Float = ???
 

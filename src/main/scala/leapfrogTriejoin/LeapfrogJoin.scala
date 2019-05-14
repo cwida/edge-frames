@@ -7,7 +7,7 @@ class LeapfrogJoin(var iterators: Array[LinearIterator]) {
 
   var atEnd: Boolean = false
   private[this] var p = 0
-  var key = 0
+  var key = 0L
 
   def init(): Unit = {
     iteratorAtEndExists()
@@ -86,7 +86,7 @@ class LeapfrogJoin(var iterators: Array[LinearIterator]) {
     }
   }
 
-  def leapfrogSeek(key: Int): Unit = {
+  def leapfrogSeek(key: Long): Unit = {
     iterators(p).seek(key)
     if (iterators(p).atEnd) {
       atEnd = true

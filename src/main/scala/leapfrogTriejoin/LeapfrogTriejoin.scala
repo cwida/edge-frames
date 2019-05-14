@@ -47,14 +47,14 @@ class LeapfrogTriejoin(trieIterators: Map[EdgeRelationship, TrieIterator], varia
     ).toArray
 
   private[this] var depth = -1
-  private[this] var bindings = Array.fill(allVariables.size)(-1)
-  var atEnd = trieIterators.values.exists(i => i.atEnd) // Assumes connected join?
+  private[this] var bindings = Array.fill(allVariables.size)(-1L)
+  var atEnd: Boolean = trieIterators.values.exists(i => i.atEnd) // Assumes connected join?
 
   if (!atEnd) {
     moveToNextTuple()
   }
 
-  def next(): Array[Int] = {
+  def next(): Array[Long] = {
     if (atEnd) {
       throw new IllegalStateException("Cannot call next of LeapfrogTriejoin when already at end.")
     }
@@ -64,7 +64,7 @@ class LeapfrogTriejoin(trieIterators: Map[EdgeRelationship, TrieIterator], varia
     tuple
   }
 
-  private def moveToNextTuple() = {
+  private def moveToNextTuple(): Unit = {
     var action: Int = NEXT_ACTION
     if (depth == -1) {
       action = DOWN_ACTION
@@ -137,7 +137,7 @@ class LeapfrogTriejoin(trieIterators: Map[EdgeRelationship, TrieIterator], varia
   }
 
   @inline
-  private def bindingsContainsBigger(key: Int): Boolean = {
+  private def bindingsContainsBigger(key: Long): Boolean = {
     var i = 0
     var contains = false
     while (i < bindings.length) {
@@ -148,7 +148,7 @@ class LeapfrogTriejoin(trieIterators: Map[EdgeRelationship, TrieIterator], varia
   }
 
   @inline
-  private def bindingsContains(key: Int): Boolean = {
+  private def bindingsContains(key: Long): Boolean = {
     var i = 0
     var contains = false
     while (i < bindings.length) {
@@ -159,7 +159,7 @@ class LeapfrogTriejoin(trieIterators: Map[EdgeRelationship, TrieIterator], varia
   }
 
   @inline
-  private def triejoinOpen() = {
+  private def triejoinOpen(): Unit = {
     depth += 1
 
     val trieIterators = variable2TrieIterators(depth)
@@ -173,7 +173,7 @@ class LeapfrogTriejoin(trieIterators: Map[EdgeRelationship, TrieIterator], varia
   }
 
   @inline
-  private def triejoinUp() = {
+  private def triejoinUp(): Unit = {
     val trieIterators = variable2TrieIterators(depth)
     var i = 0
     while (i < trieIterators.length) {

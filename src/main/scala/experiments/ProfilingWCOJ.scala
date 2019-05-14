@@ -15,7 +15,7 @@ object ProfilingWCOJ extends App {
   val DATASET_PATH = "/home/per/workspace/master-thesis/datasets/amazon-0302.csv"
   val REPS = 8
 
-  val ds: Array[(Int, Int)] = loadDataset(DATASET_PATH)
+  val ds: Array[(Long, Long)] = loadDataset(DATASET_PATH)
 
  // Five clique
 //  val edges: List[EdgeRelationship] = ('a' to 'e')
@@ -62,14 +62,14 @@ object ProfilingWCOJ extends App {
     times.append(time)
   }
 
-  def loadDataset(datasetPath: String): Array[(Int, Int)] = {
-    val output = new ListBuffer[(Int, Int)]()
+  def loadDataset(datasetPath: String): Array[(Long, Long)] = {
+    val output = new ListBuffer[(Long, Long)]()
     val bufferedSource = Source.fromFile(datasetPath)
     for (line <- bufferedSource.getLines) {
       if (!line.startsWith("#")) {
         val cols = line.split("\t")
         require(cols.size == 2)
-        output.append((cols(0).toInt, cols(1).toInt))
+        output.append((cols(0).toLong, cols(1).toLong))
       }
     }
     bufferedSource.close

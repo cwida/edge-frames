@@ -11,9 +11,11 @@ import leapfrogTriejoin.implicits._
 import collection.JavaConverters._
 
 
+// TODO change to ArrayTrieiterator?
+
 class LeapfrogTriejoinSpec extends FlatSpec with Matchers with GeneratorDrivenPropertyChecks {
 
-  def assertJoinEqual(join: LeapfrogTriejoin, values: Set[List[Int]]) = {
+  private def assertJoinEqual(join: LeapfrogTriejoin, values: Set[List[Long]]) = {
     for (i <- 0 until values.size) {
       assert(!join.atEnd)
       values should contain(join.next())
@@ -21,18 +23,18 @@ class LeapfrogTriejoinSpec extends FlatSpec with Matchers with GeneratorDrivenPr
     assert(join.atEnd)
   }
 
-  private def parseRegressionTestDataset(ds: String): Array[(Int, Int)] = {
+  private def parseRegressionTestDataset(ds: String): Array[(Long, Long)] = {
     ds.replace("[", "")
       .replace("]", "")
       .split("\n")
       .map(_.trim)
       .filter(_ != "")
       .map(_.split(","))
-      .map(_.map(_.toInt))
+      .map(_.map(_.toLong))
       .map(l => (l(0), l(1)))
   }
 
-  private def parseRegressionTestDatasetFromFile(filePath: String): Array[(Int, Int)] = {
+  private def parseRegressionTestDatasetFromFile(filePath: String): Array[(Long, Long)] = {
     val reader =  new BufferedReader(new FileReader(filePath))
 
     val lines = reader.lines().collect(Collectors.toList()).asScala
@@ -40,12 +42,12 @@ class LeapfrogTriejoinSpec extends FlatSpec with Matchers with GeneratorDrivenPr
       .map(_.trim)
       .filter(_ != "")
       .map(_.split(","))
-      .map(_.map(_.trim.toInt))
+      .map(_.map(_.trim.toLong))
       .map(l => (l(0), l(1))).toArray
   }
 
   "A join on a single relationship" should "be the relationship" in {
-    val tuples = Array((1, 1), (2, 1))
+    val tuples = Array[(Long, Long)]((1, 1), (2, 1))
     val rel = new EdgeRelationship(("a", "b"))
     val trieIterator = new TreeTrieIterator(tuples)
     val join = new LeapfrogTriejoin(Map(rel -> trieIterator), List("a", "b"))
@@ -53,7 +55,7 @@ class LeapfrogTriejoinSpec extends FlatSpec with Matchers with GeneratorDrivenPr
   }
 
   "An empty relationship " should "produce an empty result" in {
-    val tuples = Array[(Int, Int)]()
+    val tuples = Array[(Long, Long)]()
     val rel = new EdgeRelationship(("a", "b"))
     val trieIterator = new TreeTrieIterator(tuples)
     val join = new LeapfrogTriejoin(Map(rel -> trieIterator), List("a", "b"))
@@ -61,7 +63,7 @@ class LeapfrogTriejoinSpec extends FlatSpec with Matchers with GeneratorDrivenPr
   }
 
   "A join on the first attribute" should "be the intersection on the first attribute" in {
-    val positiveIntTuples = Gen.buildableOf[Set[(Int, Int)], (Int, Int)](Gen.zip(Gen.posNum[Int], Gen.posNum[Int]))
+    val positiveIntTuples = Gen.buildableOf[Set[(Long, Long)], (Long, Long)](Gen.zip(Gen.posNum[Long], Gen.posNum[Long]))
 
     forAll(positiveIntTuples, positiveIntTuples) { (tuples1Set, tuples2Set) =>
       whenever(List(tuples1Set, tuples2Set).forall(t => t.forall(t => t._1 > 0 && t._2 > 0))) { // Sad way to ensure numbers are actually positive
@@ -82,8 +84,8 @@ class LeapfrogTriejoinSpec extends FlatSpec with Matchers with GeneratorDrivenPr
 
 
   "A join on the second attribute" should "be the intersection on the second attribute" in {
-    val tuples1 = Array[(Int, Int)]((1, 2), (3, 3), (4, 2), (5, 1))
-    val tuples2 = Array[(Int, Int)]((2, 2), (3, 4), (5, 2))
+    val tuples1 = Array[(Long, Long)]((1, 2), (3, 3), (4, 2), (5, 1))
+    val tuples2 = Array[(Long, Long)]((2, 2), (3, 4), (5, 2))
 
     val rel1 = new EdgeRelationship(("a", "b"))
     val rel2 = new EdgeRelationship(("c", "b"))
@@ -95,9 +97,9 @@ class LeapfrogTriejoinSpec extends FlatSpec with Matchers with GeneratorDrivenPr
   }
 
   "Triangle joins" should "work" in {
-    val tuples1 = Array[(Int, Int)]((1, 2), (3, 3), (4, 7), (5, 1))
-    val tuples2 = Array[(Int, Int)]((2, 4), (3, 5), (5, 2))
-    val tuples3 = Array[(Int, Int)]((1, 2), (3, 3), (3, 5), (5, 8))
+    val tuples1 = Array[(Long, Long)]((1, 2), (3, 3), (4, 7), (5, 1))
+    val tuples2 = Array[(Long, Long)]((2, 4), (3, 5), (5, 2))
+    val tuples3 = Array[(Long, Long)]((1, 2), (3, 3), (3, 5), (5, 8))
 
     val rel1 = new EdgeRelationship(("a", "b"))
     val rel2 = new EdgeRelationship(("b", "c"))

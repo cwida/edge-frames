@@ -3,20 +3,20 @@ package leapfrogTriejoin
 /**
   * An OnHeapColumnVector variant that exposes it's internal array.
   */
-class OpenArrayColumnVector(capacity: Int) extends WritableIntColumnVector(capacity) {
-  var intData = new Array[Int](capacity)
+class OpenArrayColumnVector(capacity: Int) extends WritableLongColumnVector(capacity) {
+  var longData = new Array[Long](capacity)
 
-  override def getInt(i: Int): Int = intData(i)
+  override def getLong(i: Int): Long = longData(i)
 
   override def reserveInternal(newCapacity: Int): Unit = {
-    if (intData.length < newCapacity) {
-      val newData = new Array[Int](newCapacity)
-      System.arraycopy(intData, 0, newData, 0, capacity)
-      intData = newData
+    if (longData.length < newCapacity) {
+      val newData = new Array[Long](newCapacity)
+      System.arraycopy(longData, 0, newData, 0, capacity)
+      longData = newData
     }
   }
 
-  override def putInt(rowId: Int, value: Int): Unit = {
-    intData(rowId) = value
+  override def putLong(rowId: Int, value: Long): Unit = {
+    longData(rowId) = value
   }
 }

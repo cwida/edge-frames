@@ -7,12 +7,12 @@ import testing.Utils.traverseTrieIterator
 class TreeTrieIteratorSpec extends FlatSpec with Matchers with GeneratorDrivenPropertyChecks {
 
   "An empty TrieIterator" should "be at end" in {
-    val iter = new TreeTrieIterator(Array[(Int, Int)]())
+    val iter = new TreeTrieIterator(Array[(Long, Long)]())
     assert(iter.atEnd)
   }
 
   "A TrieIterator" should "be linearly at end after reaching linear atEnd" in {
-    val iter = new TreeTrieIterator(Array((1, 1)))
+    val iter = new TreeTrieIterator(Array[(Long, Long)]((1, 1)))
     assert(!iter.atEnd)
     iter.open()
     iter.next()
@@ -20,7 +20,7 @@ class TreeTrieIteratorSpec extends FlatSpec with Matchers with GeneratorDrivenPr
   }
 
   "A TrieIterator" should "be total at end after the last tuple" in {
-    val iter = new TreeTrieIterator(Array((1, 1)))
+    val iter = new TreeTrieIterator(Array[(Long, Long)]((1, 1)))
     assert(!iter.isAtTotalEnd)
     iter.open()
     iter.next()
@@ -28,7 +28,7 @@ class TreeTrieIteratorSpec extends FlatSpec with Matchers with GeneratorDrivenPr
   }
 
   "open" should "go a level down and to the first element" in {
-    val iter = new TreeTrieIterator(Array((1, 4), (1, 5), (2, 2)))
+    val iter = new TreeTrieIterator(Array[(Long, Long)]((1, 4), (1, 5), (2, 2)))
 
     iter.open()
     iter.key shouldBe 1
@@ -37,14 +37,14 @@ class TreeTrieIteratorSpec extends FlatSpec with Matchers with GeneratorDrivenPr
   }
 
   "open" should "be illegal after the last level" in {
-    val iter = new TreeTrieIterator(Array((1, 1)))
+    val iter = new TreeTrieIterator(Array[(Long, Long)]((1, 1)))
     iter.open()
     iter.open()
     assertThrows[IllegalStateException](iter.open)
   }
 
   "up" should "not change to the next element" in {
-    val iter = new TreeTrieIterator(Array((1, 1), (2, 2)))
+    val iter = new TreeTrieIterator(Array[(Long, Long)]((1, 1), (2, 2)))
     iter.open()
     iter.open()
     iter.up()
@@ -54,7 +54,7 @@ class TreeTrieIteratorSpec extends FlatSpec with Matchers with GeneratorDrivenPr
   }
 
   "A TrieIterator" should "be linearly at end after the last tuple with certain value" in {
-    val iter = new TreeTrieIterator(Array((1, 2), (2, 3)))
+    val iter = new TreeTrieIterator(Array[(Long, Long)]((1, 2), (2, 3)))
     iter.open()
     iter.key shouldBe 1
     iter.open()
@@ -64,7 +64,7 @@ class TreeTrieIteratorSpec extends FlatSpec with Matchers with GeneratorDrivenPr
   }
 
   "A TrieIterator" should "serve a level linearly and jump over values in lower levels" in {
-    val iter = new TreeTrieIterator(Array((1, 4), (1, 5), (2, 1)))
+    val iter = new TreeTrieIterator(Array[(Long, Long)]((1, 4), (1, 5), (2, 1)))
     iter.open()
     iter.key shouldBe 1
     iter.next()
@@ -74,7 +74,7 @@ class TreeTrieIteratorSpec extends FlatSpec with Matchers with GeneratorDrivenPr
   }
 
   "After seek for none-existent argument, a iterator" should "be at the next element" in {
-    val iter = new TreeTrieIterator(Array((1, 1), (2, 3), (2, 4), (4, 0)))
+    val iter = new TreeTrieIterator(Array[(Long, Long)]((1, 1), (2, 3), (2, 4), (4, 0)))
     iter.open()
     iter.key shouldBe 1
     iter.seek(3)
@@ -82,7 +82,7 @@ class TreeTrieIteratorSpec extends FlatSpec with Matchers with GeneratorDrivenPr
   }
 
   "A TrieIterator level that is reopened" should "start from the beginning again" in {
-    val iter = new TreeTrieIterator(Array((1, 2)))
+    val iter = new TreeTrieIterator(Array[(Long, Long)]((1, 2)))
     iter.open()
     iter.open()
     iter.key shouldBe 2
@@ -98,7 +98,7 @@ class TreeTrieIteratorSpec extends FlatSpec with Matchers with GeneratorDrivenPr
     import org.scalacheck.Gen
 
     // Generates sets for uniqueness
-    val positiveIntTuples = Gen.buildableOf[Set[(Int, Int)], (Int, Int)](Gen.zip(Gen.posNum[Int], Gen.posNum[Int]))
+    val positiveIntTuples = Gen.buildableOf[Set[(Long, Long)], (Long, Long)](Gen.zip(Gen.posNum[Long], Gen.posNum[Long]))
 
     forAll (positiveIntTuples) { l =>
       whenever(l.forall(t => t._1 >0 && t._2 > 0)) {  // Sad way to ensure numbers are actually positive

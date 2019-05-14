@@ -8,13 +8,13 @@ import org.apache.spark.sql.{DataFrame, DataFrameReader, Row, SparkSession, type
 
 object Datasets {
   val schema = new StructType()
-    .add("src", IntegerType, false)
-    .add("dst", IntegerType, false)
+    .add("src", LongType, false)
+    .add("dst", LongType, false)
 
   private def makeUndirected(rel: DataFrame, sp: SparkSession): DataFrame = {
     import sp.implicits._
     rel.flatMap({
-      case Row(src: Int, dst: Int) => {
+      case Row(src: Long, dst: Long) => {
         Seq((src, dst), (dst, src))
       }
     }).toDF("src", "dst")
@@ -31,9 +31,12 @@ object Datasets {
   }
 
   def loadAmazonDataset(dataSetPath: String, sp: SparkSession): DataFrame = {
-    loadAndCacheAsParquet(dataSetPath,
+    val df = loadAndCacheAsParquet(dataSetPath,
       snapDatasetReader(sp),
       sp)
+
+    df.printSchema()
+    df
   }
 
   def loadSNBDataset(sp: SparkSession, datasetPath: String): DataFrame = {
@@ -49,7 +52,7 @@ object Datasets {
           .format("csv")
           .option("delimiter", "|")
           //          .option("inferSchema", "true")
-          .schema(new types.StructType().add("src", IntegerType).add("dst", IntegerType).add("creationDate", StringType))
+          .schema(new types.StructType().add("src", LongType).add("dst", LongType).add("creationDate", StringType))
           .csv(Seq(datasetPath, "csv").mkString("."))
           .drop("creationDate")
           .filter($"src".isNotNull && $"dst".isNotNull)
@@ -103,7 +106,7 @@ object Datasets {
       println("Parquet file not existing")
       val df = csvReader.csv(datasetFilePath + ".csv")
       println("Caching as parquet file")
-      df.write.parquet(parquetFile)
+//      df.write.parquet(parquetFile)
       df
     }
   }

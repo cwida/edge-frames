@@ -1,7 +1,8 @@
 package org.apache.spark.sql
 
+import org.apache.orc.impl.TreeReaderFactory.LongTreeReader
 import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.types.IntegerType
+import org.apache.spark.sql.types.{IntegerType, LongType}
 import sparkIntegration.{JoinSpecification, Pattern, ToTrieIterableRDD, WCOJ}
 import org.apache.spark.sql.catalyst.encoders._
 import org.apache.spark.sql.catalyst.expressions.AttributeReference
@@ -28,8 +29,8 @@ class WCOJFunctions[T](ds: Dataset[T]) {
     require(ds.columns.contains("src"), "Edge table should have a column called `src`")
     require(ds.columns.contains("dst"), "Edge table should have a column called `dst`")
 
-    require(ds.col("src").expr.dataType == IntegerType, "Edge table src needs to be an integer")
-    require(ds.col("dst").expr.dataType == IntegerType, "Edge table src needs to be an integer")
+    require(ds.col("src").expr.dataType == LongType, "Edge table src needs to be an long")
+    require(ds.col("dst").expr.dataType == LongType, "Edge table src needs to be an long")
 
     require(!distinctFilter || distinctFilter != smallerThanFilter, "Use either distinct filter or smallerThanFilter, not both")
 
@@ -39,7 +40,7 @@ class WCOJFunctions[T](ds: Dataset[T]) {
 
     val joinSpecification = new JoinSpecification(edges, variableOrdering, distinctFilter, smallerThanFilter)
 
-    val outputVariables = joinSpecification.variableOrdering.map(v => AttributeReference(v, IntegerType, nullable = false)())
+    val outputVariables = joinSpecification.variableOrdering.map(v => AttributeReference(v, LongType, nullable = false)())
 
     Dataset.ofRows(ds.sparkSession, WCOJ(outputVariables, joinSpecification, children.map(_.logicalPlan)))
   }

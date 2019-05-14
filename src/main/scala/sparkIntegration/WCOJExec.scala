@@ -58,9 +58,9 @@ case class WCOJExec(outputVariables: Seq[Attribute], joinSpecification: JoinSpec
         val join = joinSpecification.build(a)
 
         val iter = new RowIterator {
-          var row: Array[Int] = null
+          var row: Array[Long] = null
           val rowSize = joinSpecification.allVariables.size
-          val internalRowBuffer = new WCOJInternalRow(new Array[Int](rowSize))
+          val internalRowBuffer = new WCOJInternalRow(new Array[Long](rowSize))
 
           override def advanceNext(): Boolean = {
             if (join.atEnd) {

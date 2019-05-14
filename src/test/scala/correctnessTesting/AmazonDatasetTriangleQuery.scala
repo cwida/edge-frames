@@ -8,7 +8,7 @@ import sparkIntegration.implicits._
 class AmazonDatasetTriangleQuery extends CorrectnessTest {
   val DATASET_PATH = "/home/per/workspace/master-thesis/datasets/amazon-0302"
 
-  val FAST = false
+  val FAST = true
   if (FAST) {
     System.err.println("Running correctness test in fast mode")
   }

@@ -13,14 +13,14 @@ import scala.reflect.ClassTag
 
 object Utils {
 
-  def traverseTrieIterator(iter: TrieIterator): Seq[(Int, Int)] = {
+  def traverseTrieIterator(iter: TrieIterator): Seq[(Long, Long)] = {
     if (iter.atEnd) {
       return List()
     }
-    var ret: mutable.MutableList[(Int, Int)] = mutable.MutableList()
+    var ret: mutable.MutableList[(Long, Long)] = mutable.MutableList()
     iter.open()
     do {
-      val outer: Int = iter.key
+      val outer: Long = iter.key
       iter.open()
       do {
         ret += ((outer, iter.key))

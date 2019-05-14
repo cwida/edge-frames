@@ -16,8 +16,6 @@ case class ToTrieIterableRDDExec(child: SparkPlan, attributeOrdering: Seq[String
     MEMORY_USAGE_METRIC -> SQLMetrics.createSizeMetric(sparkContext, "materialized memory consumption")
   )
 
-
-
   override protected def doExecute(): RDD[InternalRow] = {
     val matTime = longMetric(MATERIALIZATION_TIME_METRIC)
     val memoryUsage = longMetric(MEMORY_USAGE_METRIC)
@@ -28,9 +26,9 @@ case class ToTrieIterableRDDExec(child: SparkPlan, attributeOrdering: Seq[String
         val trieIterable = new ArrayTrieIterable(iter.map(
           ir => {
             if (attributeOrdering == Seq("src", "dst")) {
-              new GenericInternalRow(Array[Any](ir.getInt(0), ir.getInt(1)))  // TODO should I safe this rewrite, e.g. by doing it in ArrayTrieIterable
+              new GenericInternalRow(Array[Any](ir.getLong(0), ir.getLong(1)))  // TODO should I safe this rewrite, e.g. by doing it in ArrayTrieIterable
             } else {
-              new GenericInternalRow(Array[Any](ir.getInt(1), ir.getInt(0)))
+              new GenericInternalRow(Array[Any](ir.getLong(1), ir.getLong(0)))
             }
           }
         ))

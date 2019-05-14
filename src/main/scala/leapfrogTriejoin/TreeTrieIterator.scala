@@ -6,11 +6,11 @@ import scala.collection.immutable.TreeMap
 import Ordering.Implicits._
 
 // Only as reference implemenation and for testing. Otherwise, unused.
-class TreeTrieIterator(val values: Array[(Int, Int)]) extends TrieIterator {
+class TreeTrieIterator(val values: Array[(Long, Long)]) extends TrieIterator {
   private val logger = LoggerFactory.getLogger(classOf[TreeTrieIterator])
 
   val HIGHEST_LEVEL = -1
-  var map = new TreeMap[Vector[Int], Int]()
+  var map = new TreeMap[Vector[Long], Int]()
 
   for ((t, i) <- values.zipWithIndex) {
     map = map.updated(Vector(t._1, t._2), i)
@@ -20,14 +20,14 @@ class TreeTrieIterator(val values: Array[(Int, Int)]) extends TrieIterator {
   var isAtEnd = map.isEmpty
   var isAtTotalEnd = map.isEmpty
   val maxDepth = 1
-  var triePath = Vector.fill(maxDepth + 1){-1}
+  var triePath = Vector.fill(maxDepth + 1){-1L}
   var mapIterator = map.keysIterator
 
   def up(): Unit = {
     if(depth == HIGHEST_LEVEL) {
       throw new IllegalStateException("Cannot go up in TrieIterator at root level.")
     }
-    triePath = triePath.updated(depth, -1)
+    triePath = triePath.updated(depth, -1L)
     depth -= 1
     isAtEnd = false
   }
@@ -43,7 +43,7 @@ class TreeTrieIterator(val values: Array[(Int, Int)]) extends TrieIterator {
     }
   }
 
-  override def key: Int = triePath(depth)
+  override def key: Long = triePath(depth)
 
   override def next(): Unit = {
     seek(triePath(depth) + 1)
@@ -51,7 +51,7 @@ class TreeTrieIterator(val values: Array[(Int, Int)]) extends TrieIterator {
 
   override def atEnd: Boolean = isAtEnd
 
-  override def seek(key: Int): Boolean = {
+  override def seek(key: Long): Boolean = {
     if (atEnd) {
       throw new IllegalStateException("Cannot move to next at end of branch.")
     }

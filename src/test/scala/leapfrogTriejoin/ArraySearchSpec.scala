@@ -10,7 +10,7 @@ import scala.util.Random
 class ArraySearchSpec extends FlatSpec with Matchers with GeneratorDrivenPropertyChecks {
 
   "For a existing key" should "return the position" in {
-    var v = Array(1)
+    var v = Array(1L)
     ArraySearch.find(v, 1, 0, 1) should equal(0)
 
     v = Array(1, 2)
@@ -24,7 +24,7 @@ class ArraySearchSpec extends FlatSpec with Matchers with GeneratorDrivenPropert
   }
 
   "For a existing key it" should "return the first position" in {
-    var v = Array(2, 2)
+    var v = Array[Long](2, 2)
     ArraySearch.find(v, 2, 0, 2) should equal(0)
 
     v = Array(1, 2, 2, 3)
@@ -32,7 +32,7 @@ class ArraySearchSpec extends FlatSpec with Matchers with GeneratorDrivenPropert
   }
 
   "For a none-existing key it" should "return the first position of the next bigger element" in {
-    var v = Array(1)
+    var v = Array(1L)
     ArraySearch.find(v, 2, 0, 1) should equal(1)
 
     v = Array(1, 3)
@@ -45,7 +45,7 @@ class ArraySearchSpec extends FlatSpec with Matchers with GeneratorDrivenPropert
   "It" should "return the first position of an element in the list if it exists and is in range" in {
     import org.scalacheck.Gen
 
-    val array = Gen.nonEmptyBuildableOf[Array[Int], Int](Gen.posNum[Int])
+    val array = Gen.nonEmptyBuildableOf[Array[Long], Long](Gen.posNum[Long])
 
     forAll(array) { a =>
       val key = Random.shuffle(a.toList).head
@@ -66,7 +66,7 @@ class ArraySearchSpec extends FlatSpec with Matchers with GeneratorDrivenPropert
   "It" should "return the first higher index if an element is not in the list" in {
     import org.scalacheck.Gen
 
-    val array = Gen.buildableOfN[Array[Int], Int](100, Gen.posNum[Int])
+    val array = Gen.buildableOfN[Array[Long], Long](100, Gen.posNum[Long])
 
     forAll(array) { a =>
       whenever(!a.isEmpty) {

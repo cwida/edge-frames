@@ -10,7 +10,7 @@ import testing.SparkTest
 class WCOJSparkIntegration extends FlatSpec with Matchers with BeforeAndAfterAll with SparkTest {
   import sp.implicits._
 
-  val tuples1 = Array[(Int, Int)]((1, 2), (2, 5), (4, 2), (1, 5))
+  val tuples1 = Array[(Long, Long)]((1, 2), (2, 5), (4, 2), (1, 5))
   val df: DataFrame = sp.sparkContext.parallelize(tuples1, 1).toDS()
     .withColumnRenamed("_1", "src")
     .withColumnRenamed("_2", "dst")

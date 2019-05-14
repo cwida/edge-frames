@@ -9,6 +9,6 @@ import org.apache.spark.sql.catalyst.expressions.GenericInternalRow
   * Careful, only use when the client is guaranteed to use only `getInt` and
   * does not check for null values.
   */
-class WCOJInternalRow(var row: Array[Int]) extends GenericInternalRow {
-  override def getInt(offset: Int): Int = row(offset)
+class WCOJInternalRow(var row: Array[Long]) extends GenericInternalRow {
+  override def getLong(offset: Int): Long = row(offset)
 }
