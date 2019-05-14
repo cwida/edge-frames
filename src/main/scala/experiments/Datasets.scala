@@ -103,7 +103,7 @@ object Datasets {
       println("Parquet file not existing")
       val df = csvReader.csv(datasetFilePath + ".csv")
       println("Caching as parquet file")
-      //      df.write.parquet(parquetFile)
+      df.write.parquet(parquetFile)
       df
     }
   }
