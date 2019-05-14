@@ -7,12 +7,12 @@ resolvers += Resolver.sonatypeRepo("public")
 scalacOptions ++= Seq(
 //  "-encoding", "utf8", // Option and arguments on same line
 //  "-Xfatal-warnings",  // New lines for each options
-//  "-deprecation",
-//  "-unchecked",
-//  "-language:implicitConversions",
+  "-deprecation",
+  "-unchecked",
+  "-language:implicitConversions",
 //  "-language:higherKinds",
 //  "-language:existentials",
-//  "-language:postfixOps",
+  "-language:postfixOps",
   "-optimize",
   "-Xdisable-assertions"
 )
@@ -24,8 +24,6 @@ libraryDependencies += "com.github.scopt" %% "scopt" % "4.0.0-RC2"
 test in assembly := {}
 assemblyExcludedJars in assembly := {
   val cp = (fullClasspath in assembly).value
-//  println(cp)
-
   cp filter {_.data.toString.startsWith("/home/per/workspace/SparkTest/lib/")}
 }
 

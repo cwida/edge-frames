@@ -195,7 +195,7 @@ object TriangleQueryTest {
     broadcasted_semi_join_test(spark)
     print("Here1")
 
-    readLine("Exit?")
+    scala.io.StdIn.readLine("Exit?")
 
     spark.stop()
   }

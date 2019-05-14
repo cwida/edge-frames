@@ -5,6 +5,10 @@
       <parameter value="-optimize" />
     </parameters>
     <profile name="sbt 1" modules="SparkTest">
+      <option name="postfixOps" value="true" />
+      <option name="implicitConversions" value="true" />
+      <option name="deprecationWarnings" value="true" />
+      <option name="uncheckedWarnings" value="true" />
       <parameters>
         <parameter value="-optimize" />
         <parameter value="-Xdisable-assertions" />

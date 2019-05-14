@@ -21,7 +21,7 @@ object Queries {
   def withDistinctColumns(df: DataFrame, cols: Seq[String]): DataFrame = {
     var r = df
     for (c <- cols.combinations(2)) {
-      r = r.where(new Column(c(0)) !== new Column(c(1)))
+      r = r.where(new Column(c(0)) =!= new Column(c(1)))
     }
     r
   }
