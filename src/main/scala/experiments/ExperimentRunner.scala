@@ -11,6 +11,10 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.util.kvstore.InMemoryStore
 import scopt.OParser
 import sparkIntegration.{WCOJ2WCOJExec, WCOJExec}
+import java.text.DecimalFormat
+import java.text.DecimalFormatSymbols
+import java.text.NumberFormat
+import java.util.{Formatter, Locale}
 
 import scala.collection.mutable.ListBuffer
 
@@ -163,6 +167,14 @@ case class WCOJQueryResult(query: Query, count: Long, time: Double, wcojTime: Do
 
 object ExperimentRunner extends App {
 
+  val f = new Formatter(Locale.US)
+  val formatter = NumberFormat.getInstance(Locale.US).asInstanceOf[DecimalFormat]
+  val symbols = formatter.getDecimalFormatSymbols
+
+  symbols.setGroupingSeparator(' ')
+  symbols.setDecimalSeparator('.')
+  formatter.setDecimalFormatSymbols(symbols)
+
   val config: ExperimentConfig = parseArgs().orElse(throw new IllegalArgumentException("Couldn't parse args")).get
 
   println("Setting up Spark")
@@ -270,7 +282,7 @@ object ExperimentRunner extends App {
   }
 
   private def setupResultReporting(): Unit = {
-    csvWriter = new CSVWriter(new BufferedWriter(new FileWriter(config.outputPath)))
+    csvWriter = new CSVWriter(new BufferedWriter(new FileWriter(config.outputPath)), ',', 0)
     csvWriter.writeNext(Array("Query", "Algorithm", "Count", "Time", "WCOJTime", "copy", "mat"))
   }
 
@@ -280,6 +292,10 @@ object ExperimentRunner extends App {
     require(results.map(_.count).toSet.size == 1)
     require(results.map(_.algorithm).toSet.size == 1)
     require(results.map(_.query).toSet.size == 1)
+
+    val algorithm = results.head.algorithm
+    val query = results.head.query
+
     val time = Utils.avg(results.map(_.time))
     val count = results.head.count
 
@@ -295,14 +311,20 @@ object ExperimentRunner extends App {
       materializationTime = Utils.avg(wcojResults.map(_.materializationTime))
     }
 
-    println(s"Using ${results.head.algorithm}, ${results.head.query} took $time in average over ${config.reps} repetitions (result size $count).")
+    println(s"Using $algorithm, $query took $time in average over ${config.reps} repetitions (result size $count).")
     if (results.head.algorithm == WCOJ) {
       println(s"WCOJ took $wcojTime, copying took $copyTime took $materializationTime")
     }
 
     println("")
 
-    csvWriter.writeNext(Array[String](results.head.query.toString, results.head.algorithm.toString, count.toString, "%03.2f".format(time), "%03.2f".format(wcojTime), "%03.2f".format(copyTime), "%03.2f".format(materializationTime)))
+    csvWriter.writeNext(Array[String](query.toString,
+      if (algorithm == WCOJ) "WCOJ" else "sbin",
+      String.format(Locale.GERMAN, "%,013d", count.asInstanceOf[Object]),
+      String.format(Locale.US, "%06.2f", time.asInstanceOf[Object]),
+      String.format(Locale.US, "%06.2f", wcojTime.asInstanceOf[Object]),
+      String.format(Locale.US, "%06.2f", copyTime.asInstanceOf[Object]),
+      String.format(Locale.US, "%06.2f", materializationTime.asInstanceOf[Object])))
     csvWriter.flush()
   }
 
