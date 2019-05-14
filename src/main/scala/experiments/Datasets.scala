@@ -31,12 +31,9 @@ object Datasets {
   }
 
   def loadAmazonDataset(dataSetPath: String, sp: SparkSession): DataFrame = {
-    val df = loadAndCacheAsParquet(dataSetPath,
+    loadAndCacheAsParquet(dataSetPath,
       snapDatasetReader(sp),
       sp)
-
-    df.printSchema()
-    df
   }
 
   def loadSNBDataset(sp: SparkSession, datasetPath: String): DataFrame = {
@@ -106,7 +103,7 @@ object Datasets {
       println("Parquet file not existing")
       val df = csvReader.csv(datasetFilePath + ".csv")
       println("Caching as parquet file")
-//      df.write.parquet(parquetFile)
+      //      df.write.parquet(parquetFile)
       df
     }
   }

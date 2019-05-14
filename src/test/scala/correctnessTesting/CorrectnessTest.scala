@@ -23,23 +23,25 @@ class CorrectnessTest extends FlatSpec with Matchers with SparkTest {
     eExtrasEmpty should be(true)
   }
 
-  def assertRDDSetEqual(rdd1: RDD[Row], rdd2: RDD[Row], setSize: Int) = {
-    val rdd1Set = rdd1.map(r => r.toSeq.toSet)
-    val rdd2Set = rdd2.map(r => r.toSeq.toSet)
+  def assertRDDSetEqual(a: RDD[Row], e: RDD[Row], setSize: Int) = {
+    val aSet = a.map(r => r.toSeq.toSet)
+    val eSet = e.map(r => r.toSeq.toSet)
 
-    rdd1Set.filter(_.size != setSize).isEmpty() should be (true)
-    rdd2Set.filter(_.size != setSize).isEmpty() should be (true)
+    aSet.filter(_.size != setSize).isEmpty() should be (true)
+    eSet.filter(_.size != setSize).isEmpty() should be (true)
 
 
-    val diff1 = rdd1Set.subtract(rdd2Set)
-    val diff2 = rdd2Set.subtract(rdd1Set)
+    val aExtra = aSet.subtract(eSet)
+    val eExtra = eSet.subtract(aSet)
 
-    val empty1 = diff1.isEmpty()
-    val empty2 = diff2.isEmpty()
+    val empty1 = aExtra.isEmpty()
+    val empty2 = eExtra.isEmpty()
 
     if (!(empty1 && empty2)) {
-      Utils.printSetRDD(50, diff1)
-      Utils.printSetRDD(50, diff2)
+      println("actual contains following extra rows: ")
+      Utils.printSetRDD(50, aExtra)
+      println("expected contains following extra rows: ")
+      Utils.printSetRDD(50, eExtra)
     }
 
     empty1 should be (true)

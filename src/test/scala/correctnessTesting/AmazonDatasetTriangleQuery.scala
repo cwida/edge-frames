@@ -76,16 +76,19 @@ class AmazonDatasetTriangleQuery extends CorrectnessTest {
   }
 
   "The variable ordering" should "not matter" in {
+    // Cannot use Queries.findPattern(3, ds, false) here because I do not support smallerThanFilter for any variable ordering
+    // but the global one and a, b, c and c, a, b have different results under this condition.
+    val normalVariableOrdering = cliquePattern(3, ds, useDistinctFilter = true)
     val otherVariableOrdering = ds.findPattern(
       """
         |(a) - [] -> (b);
         |(b) - [] -> (c);
         |(a) - [] -> (c)
-        |""".stripMargin, List("c", "a", "b"))
+        |""".stripMargin, List("c", "a", "b"), distinctFilter = true)
 
     val otherReordered = otherVariableOrdering.select("a", "b", "c")
 
-    assertRDDSetEqual(otherReordered.rdd, actualResultTriangles.rdd, 3)
+    assertRDDEqual(otherReordered.rdd, normalVariableOrdering.rdd)
   }
 
   "Circular triangles" should "be found correctly" in {

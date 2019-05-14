@@ -211,7 +211,7 @@ object Queries {
   val fiveVerticePermuations = ('a' to 'e').map(c => s"$c").permutations.toList
   var permCounter = 0
 
-  def cliquePattern(size: Int, rel: DataFrame): DataFrame = {
+  def cliquePattern(size: Int, rel: DataFrame, useDistinctFilter: Boolean = false): DataFrame = {
     //    val perm = fiveVerticePermuations(permCounter)
     //    permCounter += 1
     val alphabet = 'a' to 'z'
@@ -221,7 +221,7 @@ object Queries {
       .map(e => s"(${e(0)}) - [] -> (${e(1)})")
       .mkString(";")
     //    println(s"Perm: ${perm.mkString(",")} at position $permCounter")
-    rel.findPattern(pattern, verticeNames, smallerThanFilter = true)
+    rel.findPattern(pattern, verticeNames, distinctFilter = useDistinctFilter, smallerThanFilter = !useDistinctFilter)
   }
 
   def diamondPattern(rel: DataFrame): DataFrame = {
