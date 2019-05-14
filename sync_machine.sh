@@ -11,7 +11,7 @@ else
 fi
 
 user=perfuchs
-server_dir=/scratch/per/scala-test/
+server_dir=/scratch/per/experimentRunner
 
 dirs="target/scala-2.11/*.jar"
 
