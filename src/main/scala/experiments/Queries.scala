@@ -58,7 +58,7 @@ object Queries {
         threePathPattern(ds, ns1, ns2)
       }
       case 4 => {
-        fourPathBinaryJoins(ds, ns1, ns2)
+        fourPathPattern(ds, ns1, ns2)
       }
     }
   }
