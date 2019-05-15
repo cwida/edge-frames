@@ -114,8 +114,10 @@ class ArrayTrieIterable(iter: Iterator[InternalRow]) extends TrieIterable {
     }
 
     override def seek(key: Long): Boolean = {
-      currentPosition = ArraySearch.find(currentColumn, key, currentPosition, end(depth))
-      updateAtEnd()
+      if (key != this.key) {
+        currentPosition = ArraySearch.find(currentColumn, key, currentPosition, end(depth))
+        updateAtEnd()
+      }
       isAtEnd
     }
 

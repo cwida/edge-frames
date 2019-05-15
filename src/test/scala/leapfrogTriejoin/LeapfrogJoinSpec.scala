@@ -63,9 +63,13 @@ class LeapfrogJoinSpec extends FlatSpec with GeneratorDrivenPropertyChecks with 
       trieIteratorFromUnaryRelationship(Array(22)),
       trieIteratorFromUnaryRelationship(Array(1))))
 
-    val expected = join.iterators.sortBy(_.key)
-    join.sortIterators()
-    join.iterators.map(_.key) should contain theSameElementsInOrderAs expected.map(_.key)
+    val expected = List(join.iterators:_*)
+    val smallestIndex = join.sortIterators()
+    rotateSeq(join.iterators, smallestIndex).map(_.key) should contain theSameElementsInOrderAs expected.sortBy(_.key).map(_.key)
+  }
+
+  private def rotateSeq[A](v : Seq[A], shift: Int): Seq[A]= {
+    v.drop(shift) ++ v.take(shift)
   }
 
   "sortIterators" should "sort the iterators" in {
@@ -81,10 +85,12 @@ class LeapfrogJoinSpec extends FlatSpec with GeneratorDrivenPropertyChecks with 
           trieIteratorFromUnaryRelationship(rel2.toArray),
           trieIteratorFromUnaryRelationship(rel3.toArray)))
 
-        val expected = join.iterators.sortBy(_.key)
-        join.sortIterators()
-        join.iterators should contain theSameElementsInOrderAs expected
-      }
+        val expected = List(join.iterators:_*)
+        val smallestIndex = join.sortIterators()
+        whenever(!join.atEnd) {
+          rotateSeq(join.iterators, smallestIndex).map(_.key) should contain theSameElementsInOrderAs expected.sortBy(_.key).map(_.key)
+        }
+        }
     }
   }
 }
