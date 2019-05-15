@@ -50,17 +50,34 @@ object Queries {
   }
 
   def pathPattern(size: Int, ds: DataFrame, ns1: DataFrame, ns2: DataFrame): DataFrame = {
-    size match {
+    val leftRel = ds.join(ns1.selectExpr("a AS src"), Seq("src"), "left_semi")
+    val rightRel = ds.join(ns2.selectExpr("z AS dst"), Seq("dst"), "left_semi")
+      .select("src", "dst") // Necessary because Spark reorders the columns
+
+    val verticeNames = ('a' to 'z').toList.map(c => s"$c").slice(0, size) ++ Seq("z")
+
+    val pattern = verticeNames.zipWithIndex.filter({ case (_, i) => {
+      i < verticeNames.size - 1
+    }
+    }).map({ case (v1, i) => {
+      s"($v1) - [] -> (${verticeNames(i + 1)})"
+    }
+    }).mkString(";")
+
+    val variableOrdering = size match {
       case 2 => {
-        twoPathPattern(ds, ns1, ns2)
+        Seq("a", "z", "b")
       }
       case 3 => {
-        threePathPattern(ds, ns1, ns2)
+        Seq("a", "b", "z", "c")
       }
       case 4 => {
-        fourPathPattern(ds, ns1, ns2)
+        Seq("a", "b", "z", "d", "c")
       }
     }
+
+    val relationships = Seq(leftRel) ++ (0 until size - 2).map(i => ds.alias(s"edges$i")) ++ Seq(rightRel)
+    ds.findPattern(pattern, variableOrdering, distinctFilter = true, smallerThanFilter = false, relationships).selectExpr(verticeNames: _*)
   }
 
   private def twoPathBinaryJoins(rel: DataFrame, nodeSet1: DataFrame, nodeSet2: DataFrame): DataFrame = {
@@ -68,19 +85,6 @@ object Queries {
     val relRight = rel.selectExpr("dst AS z", "src AS b").join(nodeSet2, Seq("z"), "left_semi")
 
     withDistinctColumns(relLeft.join(relRight, Seq("b")).selectExpr("a", "b", "z"), Seq("a", "b", "z"))
-  }
-
-  private def twoPathPattern(rel: DataFrame, nodeSet1: DataFrame, nodeSet2: DataFrame): DataFrame = {
-    val twoPath = rel.findPattern(
-      """
-        |(a) - [] -> (b);
-        |(b) - [] -> (z)
-      """.stripMargin, Seq("a", "z", "b"), distinctFilter = true)
-    // TODO should be done before the join
-    twoPath.join(nodeSet1, Seq("a"), "left_semi")
-      .join(nodeSet2, Seq("z"), "left_semi")
-      .select("a", "b", "z")
-
   }
 
   private def threePathBinaryJoins(rel: DataFrame, nodeSet1: DataFrame, nodeSet2: DataFrame): DataFrame = {
@@ -91,18 +95,6 @@ object Queries {
     withDistinctColumns(relRight.join(middleLeft, "c").select("a", "b", "c", "z"), Seq("a", "b", "c", "z"))
   }
 
-  private def threePathPattern(rel: DataFrame, nodeSet1: DataFrame, nodeSet2: DataFrame): DataFrame = {
-    val threePath = rel.findPattern(
-      """
-        |(a) - [] -> (b);
-        |(b) - [] -> (c);
-        |(c) - [] -> (z)
-      """.stripMargin, Seq("a", "z", "c", "b"), distinctFilter = true)
-    threePath.join(nodeSet1, Seq("a"), "left_semi")
-      .join(nodeSet2, Seq("z"), "left_semi")
-      .select("a", "b", "c", "z")
-  }
-
   private def fourPathBinaryJoins(rel: DataFrame, nodeSet1: DataFrame, nodeSet2: DataFrame): DataFrame = {
     val relLeft = rel.selectExpr("src AS a", "dst AS b").join(nodeSet1, Seq("a"), "left_semi")
     val relRight = rel.selectExpr("dst AS z", "src AS d").join(nodeSet2, Seq("z"), "left_semi")
@@ -110,32 +102,6 @@ object Queries {
     val middleLeft = relLeft.join(rel.selectExpr("src AS b", "dst AS c"), Seq("b")).selectExpr("a", "b", "c")
     val middleRight = relRight.join(rel.selectExpr("src AS c", "dst AS d"), Seq("d")).selectExpr("c", "d", "z")
     withDistinctColumns(middleRight.join(middleLeft, "c").select("a", "b", "c", "d", "z"), Seq("a", "b", "c", "d", "z"))
-  }
-
-  private def fourPathPattern(rel: DataFrame, nodeSet1: DataFrame, nodeSet2: DataFrame) = {
-    val leftRel = rel.join(nodeSet1.selectExpr("a AS src"), Seq("src"), "left_semi")
-    val rightRel = rel.join(nodeSet2.selectExpr("z AS dst"), Seq("dst"), "left_semi")
-      .select("src", "dst") // Necessary because Spark reorders the columns
-
-    val fourPath = rel.findPattern(
-      """
-        |(a) - [] -> (b);
-        |(b) - [] -> (c);
-        |(c) - [] -> (d);
-        |(d) - [] -> (z)
-      """.stripMargin, Seq("a", "z", "b", "d", "c"),
-      distinctFilter = true,
-      smallerThanFilter = false,
-      Seq(leftRel,
-        rel.alias("edges_2"),
-        rel.alias("edges_3"),
-        rightRel
-      )
-    )
-
-    fourPath.join(nodeSet1, Seq("a"), "left_semi")
-      .join(nodeSet2, Seq("z"), "left_semi")
-      .select("a", "b", "c", "d", "z")
   }
 
   def cliqueBinaryJoins(size: Int, sp: SparkSession, ds: DataFrame): DataFrame = {
@@ -294,10 +260,18 @@ object Queries {
 
 
     val variableOrdering = size match {
-      case 3 => Seq("a", "b", "c")
-      case 4 => Seq("a", "b", "c", "d")
-      case 5 => Seq("a", "b", "e", "c", "d")
-      case 6 => Seq("a", "b", "f", "c", "e", "d")
+      case 3 => {
+        Seq("a", "b", "c")
+      }
+      case 4 => {
+        Seq("a", "b", "c", "d")
+      }
+      case 5 => {
+        Seq("a", "b", "e", "c", "d")
+      }
+      case 6 => {
+        Seq("a", "b", "f", "c", "e", "d")
+      }
     }
 
     rel.findPattern(pattern, variableOrdering, distinctFilter = true)

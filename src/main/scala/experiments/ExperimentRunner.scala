@@ -138,7 +138,8 @@ case class ExperimentConfig(
                              queries: Seq[Query] = Seq.empty,
                              outputPath: File = new File("."),
                              reps: Int = 1,
-                             limitDataset: Int = -1
+                             limitDataset: Int = -1,
+                             comment: String = ""
                            )
 
 
@@ -229,7 +230,10 @@ object ExperimentRunner extends App {
           .action((x, c) => c.copy(limitDataset = x)),
         opt[Int]('r', "reps")
           .optional()
-          .action((x, c) => c.copy(reps = x))
+          .action((x, c) => c.copy(reps = x)),
+        opt[String]('c', "comment")
+          .optional()
+          .action((x, c) => c.copy(comment = x))
       )
     }
     OParser.parse(parser1, args, ExperimentConfig())
@@ -283,6 +287,11 @@ object ExperimentRunner extends App {
 
   private def setupResultReporting(): Unit = {
     csvWriter = new CSVWriter(new BufferedWriter(new FileWriter(config.outputPath)), ',', 0)
+
+
+    csvWriter.writeNext(Array(s"# Dataset: ${config.datasetType} ${ds.count()} ${config.datasetFilePath}"))
+    csvWriter.writeNext(Array(s"# Repetitions: ${config.reps}"))
+    csvWriter.writeNext(Array(s"# Comment: ${config.comment}"))
     csvWriter.writeNext(Array("Query", "Algorithm", "Count", "Time", "WCOJTime", "copy", "mat"))
   }
 
