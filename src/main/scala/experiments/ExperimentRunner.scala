@@ -321,10 +321,10 @@ object ExperimentRunner extends App {
     csvWriter.writeNext(Array[String](query.toString,
       if (algorithm == WCOJ) "WCOJ" else "sbin",
       String.format(Locale.GERMAN, "%,013d", count.asInstanceOf[Object]),
-      String.format(Locale.US, "%06.2f", time.asInstanceOf[Object]),
-      String.format(Locale.US, "%06.2f", wcojTime.asInstanceOf[Object]),
-      String.format(Locale.US, "%06.2f", copyTime.asInstanceOf[Object]),
-      String.format(Locale.US, "%06.2f", materializationTime.asInstanceOf[Object])))
+      String.format(Locale.US, "%.2f", time.asInstanceOf[Object]),
+      String.format(Locale.US, "%.2f", wcojTime.asInstanceOf[Object]),
+      String.format(Locale.US, "%.2f", copyTime.asInstanceOf[Object]),
+      String.format(Locale.US, "%.2f", materializationTime.asInstanceOf[Object])))
     csvWriter.flush()
   }
 
