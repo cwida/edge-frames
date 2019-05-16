@@ -291,6 +291,7 @@ object ExperimentRunner extends App {
 
     csvWriter.writeNext(Array(s"# Dataset: ${config.datasetType} ${ds.count()} ${config.datasetFilePath}"))
     csvWriter.writeNext(Array(s"# Repetitions: ${config.reps}"))
+    csvWriter.writeNext(Array(s"# Git commit: ${BuildInfo.gitCommit}"))
     csvWriter.writeNext(Array(s"# Comment: ${config.comment}"))
     csvWriter.writeNext(Array("Query", "Algorithm", "Count", "Time", "WCOJTime", "copy", "mat"))
   }
