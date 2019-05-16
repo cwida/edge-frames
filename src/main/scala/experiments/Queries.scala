@@ -66,13 +66,13 @@ object Queries {
 
     val variableOrdering = size match {
       case 2 => {
-        Seq("a", "z", "b")
+        Seq("a", "b", "z")
       }
       case 3 => {
-        Seq("a", "b", "z", "c")
+        Seq("a", "b", "c", "z")  // takes 0.285 against 3.975 for a, b, z, c on the first 500000 edges of the directed twitter set
       }
       case 4 => {
-        Seq("a", "b", "z", "d", "c")
+        Seq("a", "b", "c", "d", "z")
       }
     }
 
