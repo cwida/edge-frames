@@ -24,7 +24,7 @@ object ProfilingWCOJ extends App {
 //    .map(l => new EdgeRelationship((s"${l(0)}", s"${l(1)}")))
 //    .toList
 
-
+  // 6 cycle query
   var edges: mutable.Buffer[EdgeRelationship] = ('a' to 'f')
       .sliding(2)
       .toList
@@ -37,7 +37,8 @@ object ProfilingWCOJ extends App {
 //  for (rep <- 0 until REPS) {
     val rels: List[TrieIterator] = edges.toList
       .map(e => new ArrayTrieIterable(ds).trieIterator)
-    val join = new LeapfrogTriejoin(edges.zip(rels).toMap, Seq("a", "b", "c", "d", "e", "f"))
+    val join = new LeapfrogTriejoin(edges.zip(rels).toMap, Seq("a", "b", "c", "d", "e"))
+    scala.io.StdIn.readLine("Ready. Continue?")
     doJoin(join)
 //  }
   println(s"Average of $REPS repetitions: ${Utils.avg(times)}")
