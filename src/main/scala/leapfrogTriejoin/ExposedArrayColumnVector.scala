@@ -3,7 +3,7 @@ package leapfrogTriejoin
 /**
   * An OnHeapColumnVector variant that exposes it's internal array.
   */
-class OpenArrayColumnVector(capacity: Int) extends WritableLongColumnVector(capacity) {
+class ExposedArrayColumnVector(capacity: Int) extends WritableLongColumnVector(capacity) {
   var longData = new Array[Long](capacity)
 
   override def getLong(i: Int): Long = longData(i)

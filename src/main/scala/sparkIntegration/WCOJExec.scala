@@ -95,7 +95,6 @@ case class WCOJExec(outputVariables: Seq[Attribute], joinSpecification: JoinSpec
       case Nil => throw new UnsupportedOperationException("Cannot join without any child.")
       case c1 :: Nil => c1.mapPartitions(i => zipPartitions(List(i)))
       case c1 :: c2 :: t => generalZipPartitions(c1 :: c2 :: t)(zipPartitions)
-      case _ => throw new UnsupportedOperationException("Currently, due to Sparks limited zipping functionality we do not support WCOJ joins with more than 4 children.")
     }
   }
 

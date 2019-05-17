@@ -11,8 +11,8 @@ import collection.JavaConverters._
 
 class ArrayTrieIterable(iter: Iterator[InternalRow]) extends TrieIterable {
   // TODO build needs to tbe done correclty
-  private[this] val srcColumn = new OpenArrayColumnVector(4000000)
-  private[this] val dstColumn = new OpenArrayColumnVector(4000000)
+  private[this] val srcColumn = new ExposedArrayColumnVector(4000000)
+  private[this] val dstColumn = new ExposedArrayColumnVector(4000000)
   private[this] var numRows = 0
 
   while (iter.hasNext) {
@@ -46,7 +46,7 @@ class ArrayTrieIterable(iter: Iterator[InternalRow]) extends TrieIterable {
     private[this] var end = Array.fill(tuples.numCols())(-1)
     private[this] var isAtEnd = numRows == 0
 
-    private[this] val columns = Array(tuples.column(0).asInstanceOf[OpenArrayColumnVector].longData, tuples.column(1).asInstanceOf[OpenArrayColumnVector].longData)
+    private[this] val columns = Array(tuples.column(0).asInstanceOf[ExposedArrayColumnVector].longData, tuples.column(1).asInstanceOf[OpenArrayColumnVector].longData)
     private[this] var currentColumn: Array[Long] = null
     private[this] var currentPosition: Int = -1
     private[this] var currentEnd: Int = -1
