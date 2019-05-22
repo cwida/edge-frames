@@ -54,6 +54,7 @@ class LeapfrogTriejoin(trieIterators: Map[EdgeRelationship, TrieIterator], varia
     moveToNextTuple()
   }
 
+  // TODO avoid copying
   def next(): Array[Long] = {
     if (atEnd) {
       throw new IllegalStateException("Cannot call next of LeapfrogTriejoin when already at end.")

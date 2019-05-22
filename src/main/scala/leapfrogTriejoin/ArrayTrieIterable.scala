@@ -46,7 +46,7 @@ class ArrayTrieIterable(iter: Iterator[InternalRow]) extends TrieIterable {
     private[this] var end = Array.fill(tuples.numCols())(-1)
     private[this] var isAtEnd = numRows == 0
 
-    private[this] val columns = Array(tuples.column(0).asInstanceOf[ExposedArrayColumnVector].longData, tuples.column(1).asInstanceOf[OpenArrayColumnVector].longData)
+    private[this] val columns = Array(tuples.column(0).asInstanceOf[ExposedArrayColumnVector].longData, tuples.column(1).asInstanceOf[ExposedArrayColumnVector].longData)
     private[this] var currentColumn: Array[Long] = null
     private[this] var currentPosition: Int = -1
     private[this] var currentEnd: Int = -1
@@ -115,7 +115,7 @@ class ArrayTrieIterable(iter: Iterator[InternalRow]) extends TrieIterable {
 
     override def seek(key: Long): Boolean = {
       if (key != this.key) {
-        currentPosition = ArraySearch.find(currentColumn, key, currentPosition, end(depth))
+        currentPosition = ArraySearch.find(currentColumn, key, currentPosition, end(depth))  // TODO use currentEnd
         updateAtEnd()
       }
       isAtEnd
