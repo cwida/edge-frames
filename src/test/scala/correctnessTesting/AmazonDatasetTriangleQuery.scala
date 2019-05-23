@@ -8,7 +8,7 @@ import sparkIntegration.implicits._
 class AmazonDatasetTriangleQuery extends CorrectnessTest {
   val DATASET_PATH = "/home/per/workspace/master-thesis/datasets/amazon-0302"
 
-  val FAST = true
+  val FAST = false
   if (FAST) {
     System.err.println("Running correctness test in fast mode")
   }
@@ -158,6 +158,13 @@ class AmazonDatasetTriangleQuery extends CorrectnessTest {
     val e = cycleBinaryJoins(5, ds)
 
     assertRDDSetEqual(a.rdd, e.rdd, 5)
+  }
+
+  "kite" should "be the same" in {
+    val a = kiteBinary(sp, ds)
+    val e = kitePattern(ds)
+
+    assertRDDEqual(a.rdd, e.rdd)
   }
 
 }

@@ -55,7 +55,7 @@ object Readers {
 
   implicit def queryRead: scopt.Read[Query] = {
     scopt.Read.reads(s => {
-      val queryTypes = Seq("cycle", "clique", "path", "diamond", "house")
+      val queryTypes = Seq("cycle", "clique", "path", "diamond", "house", "kite")
 
       queryTypes.find(t => s.startsWith(t)) match {
         case Some(t) => {
@@ -78,6 +78,9 @@ object Readers {
             }
             case "house" => {
               HouseQuery()
+            }
+            case "kite" => {
+              KiteQuery()
             }
             case _ => {
               println(s)
@@ -129,6 +132,8 @@ case class PathQuery(size: Int, selectivity: Double) extends Query
 case class DiamondQuery() extends Query
 
 case class HouseQuery() extends Query
+
+case class KiteQuery() extends Query
 
 
 case class ExperimentConfig(
@@ -365,6 +370,9 @@ object ExperimentRunner extends App {
             case HouseQuery() => {
               Queries.houseBinaryJoins(sp, ds)
             }
+            case KiteQuery() => {
+              Queries.kiteBinary(sp, ds)
+            }
           }
         }
         case WCOJ => {
@@ -385,7 +393,11 @@ object ExperimentRunner extends App {
             case HouseQuery() => {
               Queries.housePattern(ds)
             }
+            case KiteQuery() => {
+              Queries.kitePattern(ds)
+            }
           }
+
         }
       }
 

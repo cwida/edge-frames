@@ -233,6 +233,28 @@ object Queries {
         |""".stripMargin, List("a", "b", "c", "d", "e"), distinctFilter = true)
   }
 
+  def kiteBinary(sp: SparkSession, rel: DataFrame): DataFrame = {
+    import sp.implicits._
+
+    triangleBinaryJoins(sp, rel)
+      .join(rel.alias("cd"), $"src" === $"c")
+      .selectExpr("a", "b", "c", "dst AS d")
+      .join(rel.alias("bd"), $"src" === $"b" && $"dst" === $"d", "left_semi")
+      .filter($"c" < $"b" && $"b" < $"d" && $"d" < $"a" )
+      .selectExpr("a", "b", "c", "d")
+  }
+
+  def kitePattern(rel: DataFrame): DataFrame = {
+    rel.findPattern(
+      """
+        |(a) - [] -> (b);
+        |(a) - [] -> (c);
+        |(b) - [] -> (c);
+        |(b) - [] -> (d);
+        |(c) - [] -> (d)
+        |""".stripMargin, List("c", "b", "d", "a"), smallerThanFilter = true)
+      .selectExpr("a", "b", "c", "d")
+  }
 
   def cycleBinaryJoins(size: Int, rel: DataFrame): DataFrame = {
     require(3 < size, "Use this method only for cyclics of four nodes and above")
@@ -260,9 +282,6 @@ object Queries {
 
 
     val variableOrdering = size match {
-      case 3 => {
-        Seq("a", "b", "c")
-      }
       case 4 => {
         Seq("a", "b", "c", "d")
       }
