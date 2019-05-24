@@ -121,6 +121,7 @@ case object LiveJournal2010 extends DatasetType {
 case object TwitterSnapEgo extends DatasetType {
 }
 
+// TODO Rename queries to match text names
 sealed trait Query
 
 case class Clique(size: Int) extends Query
@@ -170,7 +171,7 @@ case class WCOJQueryResult(query: Query, count: Long, time: Double, wcojTime: Do
   }
 }
 
-
+// TODO exclude count times for Spark joins (time after the join)
 object ExperimentRunner extends App {
 
   val f = new Formatter(Locale.US)

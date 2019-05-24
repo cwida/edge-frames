@@ -4,10 +4,10 @@ import org.apache.spark.{Partition, SparkContext, TaskContext}
 
 import scala.reflect.ClassTag
 
-class GeneralZippedPartitionRDD[A: ClassTag, V: ClassTag](sc: SparkContext,
-                                                          var f: List[Iterator[A]] => Iterator[V],
-                                                          rdds: Seq[RDD[A]],
-                                                          preservesPartitioning: Boolean = false)
+class GeneralZippedPartitionsRDD[A: ClassTag, V: ClassTag](sc: SparkContext,
+                                                           var f: List[Iterator[A]] => Iterator[V],
+                                                           rdds: Seq[RDD[A]],
+                                                           preservesPartitioning: Boolean = false)
   extends ZippedPartitionsBaseRDD[V](sc, rdds, preservesPartitioning) {
 
   override def compute(split: Partition, context: TaskContext): Iterator[V] = {
