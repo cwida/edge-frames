@@ -8,8 +8,7 @@ object WCOJ2WCOJExec extends Strategy {
   override def apply(plan: LogicalPlan): Seq[SparkPlan] = plan match {
     case WCOJ(outputVariables, joinSpecification, cs) => {
       WCOJExec(outputVariables, joinSpecification,  cs.zipWithIndex.map( { case (c, i) =>
-        ToTrieIterableRDDExec(planLater(c),
-          if ( !joinSpecification.dstAccessibleRelationship(i)) Seq("src", "dst") else Seq("dst", "src")) })) :: Nil
+        joinSpecification.buildTrieIterable(planLater(c), i) })) :: Nil
     }
     case _ => Nil
   }
@@ -18,7 +17,7 @@ object WCOJ2WCOJExec extends Strategy {
 object ToTrieIterableRDD2ToTrieIterableRDDExec extends Strategy {
   override def apply(plan: LogicalPlan): Seq[SparkPlan] = plan match {
     case ToTrieIterableRDD(child, variableOrdering) => {
-      ToTrieIterableRDDExec(planLater(child), variableOrdering) :: Nil
+      ToArrayTrieIterableRDDExec(planLater(child), variableOrdering) :: Nil
     }
     case _ => Nil
   }

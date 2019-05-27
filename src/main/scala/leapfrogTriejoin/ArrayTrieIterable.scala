@@ -33,7 +33,7 @@ class ArrayTrieIterable(iter: Iterator[InternalRow]) extends TrieIterable {
     new TrieIteratorImpl(tuples)
   }
 
-  def getMemoryUsage(): Long = {
+  def memoryUsage: Long = {
     numRows * 2 * 4
   }
 

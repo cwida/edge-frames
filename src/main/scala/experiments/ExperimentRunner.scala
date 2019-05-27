@@ -7,7 +7,7 @@ import org.apache.spark.SparkConf
 import org.apache.spark.scheduler.{AccumulableInfo, SparkListener, SparkListenerEvent, SparkListenerExecutorMetricsUpdate, SparkListenerJobEnd, SparkListenerStageCompleted, SparkListenerTaskEnd}
 import org.apache.spark.sql.execution.metric.SQLMetrics
 import org.apache.spark.sql.execution.ui.{SQLAppStatusListener, SQLAppStatusStore, SparkListenerSQLExecutionEnd}
-import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.{DataFrame, SparkSession, WCOJFunctions}
 import org.apache.spark.util.kvstore.InMemoryStore
 import scopt.OParser
 import sparkIntegration.{WCOJ2WCOJExec, WCOJExec}
@@ -23,6 +23,9 @@ object Readers {
     scopt.Read.reads({
       case "WCOJ" => {
         WCOJ
+      }
+      case "graphWCOJ" => {
+        GraphWCOJ
       }
       case "bin" => {
         BinaryJoins
@@ -104,6 +107,9 @@ sealed trait Algorithm {
 }
 
 case object WCOJ extends Algorithm {
+}
+
+case object GraphWCOJ extends Algorithm {
 }
 
 case object BinaryJoins extends Algorithm {
@@ -385,7 +391,8 @@ object ExperimentRunner extends App {
             }
           }
         }
-        case WCOJ => {
+        case WCOJ | GraphWCOJ => {
+          WCOJFunctions.setJoinAlgorithm(algoritm)
           query match {
             case Clique(s) => {
               Queries.cliquePattern(s, ds)
@@ -407,7 +414,6 @@ object ExperimentRunner extends App {
               Queries.kitePattern(ds)
             }
           }
-
         }
       }
 
@@ -425,7 +431,7 @@ object ExperimentRunner extends App {
         val time = (end - start).toDouble / 1000000000
         //        println(s"$algoritm $count")
         algoritm match {
-          case WCOJ => {
+          case WCOJ | GraphWCOJ => {
             results += WCOJQueryResult(query, count, time, wcojTimes.head, copyTimes.head, materializationTimes.head)
           }
           case BinaryJoins => {

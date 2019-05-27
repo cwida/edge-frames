@@ -6,7 +6,7 @@ import sparkIntegration.implicits._
 import testing.SparkTest
 import testing.Utils._
 
-class ToTrieIterableRDDExecSpec extends FlatSpec with Matchers with SparkTest {
+class ToArrayTrieIterableRDDExecSpec extends FlatSpec with Matchers with SparkTest {
   import sp.implicits._
 
   val tuples1 = Array[(Int, Int)]((1, 2), (2, 5), (4, 2), (1, 5))
@@ -19,7 +19,7 @@ class ToTrieIterableRDDExecSpec extends FlatSpec with Matchers with SparkTest {
   "When attribute order from dst to src, it" should "produce a TrieIterator starting on dst" in {
     val trieIterable = ds.toTrieIterableRDD(Seq("dst", "src"))
     val physicalPlan = trieIterable.queryExecution.executedPlan
-    val trieIterableExec = physicalPlan.collect({case t @  ToTrieIterableRDDExec(_, _) => t }).head
+    val trieIterableExec = physicalPlan.collect({case t @  ToArrayTrieIterableRDDExec(_, _) => t }).head
 
     val output = trieIterableExec.execute().asInstanceOf[TrieIterableRDD[TrieIterable]].trieIterables.map(ti => {
       traverseTrieIterator(ti.trieIterator)

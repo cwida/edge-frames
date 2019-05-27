@@ -1,5 +1,6 @@
 package org.apache.spark.sql
 
+import experiments.Algorithm
 import org.apache.orc.impl.TreeReaderFactory.LongTreeReader
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.types.{IntegerType, LongType}
@@ -38,7 +39,8 @@ class WCOJFunctions[T](ds: Dataset[T]) {
 
     require(edges.size == children.size, "WCOJ needs as many children as edges in the pattern.")
 
-    val joinSpecification = new JoinSpecification(edges, variableOrdering, distinctFilter, smallerThanFilter)
+    val joinSpecification = new JoinSpecification(edges, variableOrdering, WCOJFunctions.joinAlgorithm,
+      distinctFilter, smallerThanFilter)
 
     val outputVariables = joinSpecification.variableOrdering.map(v => AttributeReference(v, LongType, nullable = false)())
 
@@ -132,5 +134,14 @@ class WCOJFunctions[T](ds: Dataset[T]) {
   // For testing
   def toTrieIterableRDD(variableOrdering: Seq[String]): DataFrame = {
     Dataset.ofRows(ds.sparkSession, ToTrieIterableRDD(ds.logicalPlan, variableOrdering))
+  }
+}
+
+object WCOJFunctions {
+  private var joinAlgorithm: Algorithm = experiments.WCOJ
+
+  def setJoinAlgorithm(a: Algorithm): Unit = {
+    joinAlgorithm = a
+    println(s"Setting join algorithm to $a")
   }
 }

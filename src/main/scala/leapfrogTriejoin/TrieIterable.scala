@@ -6,4 +6,6 @@ trait TrieIterable extends Iterable[InternalRow] {
 
   def trieIterator: TrieIterator
 
+  def memoryUsage: Long
+
 }
