@@ -47,6 +47,9 @@ object Readers {
       case "twitterSnapEgo" => {
         TwitterSnapEgo
       }
+      case "google" => {
+        GoogleWeb
+      }
       case _ => {
         throw new IllegalArgumentException("Dataset type can be only `ama` or `snb`")
       }
@@ -121,6 +124,9 @@ case object LiveJournal2010 extends DatasetType {
 case object TwitterSnapEgo extends DatasetType {
 }
 
+case object GoogleWeb extends DatasetType {
+}
+
 // TODO Rename queries to match text names
 sealed trait Query
 
@@ -173,7 +179,7 @@ case class WCOJQueryResult(query: Query, count: Long, time: Double, wcojTime: Do
 
 // TODO exclude count times for Spark joins (time after the join)
 object ExperimentRunner extends App {
-
+ // TODO record every run for error bars and variance.
   val f = new Formatter(Locale.US)
   val formatter = NumberFormat.getInstance(Locale.US).asInstanceOf[DecimalFormat]
   val symbols = formatter.getDecimalFormatSymbols
@@ -279,6 +285,9 @@ object ExperimentRunner extends App {
       }
       case TwitterSnapEgo => {
         Datasets.loadTwitterSnapEgo(sp, config.datasetFilePath)
+      }
+      case GoogleWeb => {
+        Datasets.loadGoogleWebGraph(config.datasetFilePath, sp)
       }
     }
     if (config.limitDataset != -1) {
