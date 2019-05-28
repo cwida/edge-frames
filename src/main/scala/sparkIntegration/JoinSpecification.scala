@@ -85,7 +85,7 @@ class JoinSpecification(joinPattern: Seq[Pattern], val variableOrdering: Seq[Str
         ToArrayTrieIterableRDDExec(childPlan, attributeOrdering)
       }
       case GraphWCOJ => {
-        ToCSRTrieIterableRDDExec(childPlan, attributeOrdering)
+        ToArrayTrieIterableRDDExec(childPlan, attributeOrdering) // TODO fix
       }
     }
 
