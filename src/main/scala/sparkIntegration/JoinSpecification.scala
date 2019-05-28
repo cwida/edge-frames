@@ -57,13 +57,29 @@ class JoinSpecification(joinPattern: Seq[Pattern], val variableOrdering: Seq[Str
   }
 
   def build(trieIterables: Seq[TrieIterable]): LeapfrogTriejoin = {
-    val trieIterators = joinPattern.zipWithIndex.map({
+    val trieIterators = joinAlgorithm match {
+      case experiments.WCOJ => {
+        trieIterables.map(_.trieIterator)
+      }
+      case GraphWCOJ => {
+        joinPattern.zipWithIndex.map({
+          case (_, i) => {
+            if (dstAccessibleRelationship(i)) {
+              trieIterables(1).trieIterator
+            } else {
+              trieIterables(0).trieIterator
+            }
+          }
+        })
+      }
+    }
+    val trieIteratorMapping = joinPattern.zipWithIndex.map({
       case (AnonymousEdge(src: NamedVertex, dst: NamedVertex), i) => {
         if (dstAccessibleRelationship(i)) {
-          (new EdgeRelationship((dst.name, src.name)), trieIterables(i).trieIterator)
+          (new EdgeRelationship((dst.name, src.name)), trieIterators(i))
 
         } else {
-          (new EdgeRelationship((src.name, dst.name)), trieIterables(i).trieIterator)
+          (new EdgeRelationship((src.name, dst.name)), trieIterators(i))
         }
       }
       case _ => {
@@ -71,24 +87,25 @@ class JoinSpecification(joinPattern: Seq[Pattern], val variableOrdering: Seq[Str
       }
       // TODO negated edges?
     }).toMap
-    new LeapfrogTriejoin(trieIterators, variableOrdering, distinctFilter, smallerThanFilter)
+    new LeapfrogTriejoin(trieIteratorMapping, variableOrdering, distinctFilter, smallerThanFilter)
   }
 
-  def buildTrieIterable(childPlan: SparkPlan, childIndex: Int): SparkPlan = {
-    val attributeOrdering = if (!dstAccessibleRelationship(childIndex)) {
-      Seq("src", "dst")
-    } else {
-      Seq("dst", "src")
-    }
+  def buildTrieIterables(children: Seq[SparkPlan]): Seq[SparkPlan] = {
     joinAlgorithm match {
       case experiments.WCOJ => {
-        ToArrayTrieIterableRDDExec(childPlan, attributeOrdering)
-      }
+        children.zipWithIndex.map({ case (c, i) =>
+        val attributeOrdering = if (!dstAccessibleRelationship(i)) {
+          Seq("src", "dst")
+        } else {
+          Seq("dst", "src")
+        }
+
+        ToArrayTrieIterableRDDExec(c, attributeOrdering)
+      })}
       case GraphWCOJ => {
-        ToArrayTrieIterableRDDExec(childPlan, attributeOrdering) // TODO fix
+        Seq(ToCSRTrieIterableRDDExec(children))
       }
     }
-
   }
 
 }

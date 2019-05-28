@@ -1,6 +1,6 @@
 package org.apache.spark.sql
 
-import experiments.Algorithm
+import experiments.{Algorithm, GraphWCOJ}
 import org.apache.orc.impl.TreeReaderFactory.LongTreeReader
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.types.{IntegerType, LongType}
@@ -15,18 +15,28 @@ class WCOJFunctions[T](ds: Dataset[T]) {
   def findPattern(pattern: String, variableOrdering: Seq[String], distinctFilter: Boolean = false, smallerThanFilter: Boolean = false): DataFrame = {
     val edges = Pattern.parse(pattern)
 
-    val children = edges.zipWithIndex.map { case (_, i) => {
-      ds.alias(s"edges_${i.toString}")
-        // TODO can I remove this now?
-        .withColumnRenamed("src", s"src") // Needed to guarantee that src and dst on the aliases are referenced by different attributes.
-        .withColumnRenamed("dst", s"dst")
-    }
+    val children = WCOJFunctions.joinAlgorithm match {
+      case experiments.WCOJ => {
+        edges.zipWithIndex.map {
+          case (_, i) => {
+            ds.alias(s"edges_${
+              i.toString
+            }")
+              // TODO can I remove this now?
+              .withColumnRenamed("src", s"src") // Needed to guarantee that src and dst on the aliases are referenced by different attributes.
+              .withColumnRenamed("dst", s"dst")
+          }
+        }
+      }
+      case GraphWCOJ => {
+        Seq(ds.alias("forward").toDF(), ds.alias("backward").toDF())
+      }
     }
     findPattern(pattern, variableOrdering, distinctFilter, smallerThanFilter, children)
   }
 
   def findPattern(pattern: String, variableOrdering: Seq[String], distinctFilter: Boolean, smallerThanFilter: Boolean, children: Seq[DataFrame]): DataFrame = {
-
+    // TODO does not support filtered relationships for GraphWCOJ
     require(ds.columns.contains("src"), "Edge table should have a column called `src`")
     require(ds.columns.contains("dst"), "Edge table should have a column called `dst`")
 
@@ -37,7 +47,11 @@ class WCOJFunctions[T](ds: Dataset[T]) {
 
     val edges = Pattern.parse(pattern)
 
-    require(edges.size == children.size, "WCOJ needs as many children as edges in the pattern.")
+    require((WCOJFunctions.joinAlgorithm == experiments.WCOJ
+      && edges.size == children.size)
+      || (WCOJFunctions.joinAlgorithm == GraphWCOJ
+      && edges.size == 2), "WCOJ needs as many children as edges in the " +
+      "pattern.")
 
     val joinSpecification = new JoinSpecification(edges, variableOrdering, WCOJFunctions.joinAlgorithm,
       distinctFilter, smallerThanFilter)
@@ -127,8 +141,10 @@ class WCOJFunctions[T](ds: Dataset[T]) {
         }
       })
     } else {
-      sorted
-    }.withColumnRenamed("_1", "src").withColumnRenamed("_1", "dst").as[(Int, Int, Boolean)]
+      {
+        sorted
+      }.withColumnRenamed("_1", "src").withColumnRenamed("_1", "dst").as[(Int, Int, Boolean)]
+    }
   }
 
   // For testing

@@ -7,26 +7,20 @@ import org.scalatest.{FlatSpec, Matchers}
 // Tests the initializer of CSRTrieIterable
 class CSRTrieIterableBuilderSpec extends FlatSpec with Matchers with GeneratorDrivenPropertyChecks {
 
-  // TODO log
-  // TODO iterator testcase
-  // TODO split building and final datastructure?
-  // TODO integrate with spark
-
-
   "VerticeIDs" should "be a mapping from index to original source IDs (specific)" in {
-    val tuples1Set = Seq((3L, 1L))
+    val tuples1Set = Seq((1L, 1L))
     val tuplesSrcDst = tuples1Set.toArray.sorted
     val tuplesDstSrc = tuples1Set.map(t => (t._2, t._1)).toArray.sorted
     val allVertices = Set(tuplesSrcDst.map(_._1): _*).union(Set(tuplesDstSrc.map(_._1): _*)).toSeq
 
-    val csrTrieIterable = new CSRTrieIterable(tuplesSrcDst, tuplesDstSrc)
+    val (forwardCSR, backwardCSR) = CSRTrieIterable.buildBothDirectionsFrom(tuplesSrcDst, tuplesDstSrc)
 
-    val verticeIDs = csrTrieIterable.getVerticeIDs
-    verticeIDs should contain theSameElementsInOrderAs allVertices.sorted
-    csrTrieIterable.getTranslatedEdgesDst should contain theSameElementsInOrderAs tuplesSrcDst.map(_._2)
-    csrTrieIterable.getTranslatedEdgesSrc should contain theSameElementsInOrderAs tuplesDstSrc.map(_._2)
+    forwardCSR.verticeIDs should contain theSameElementsInOrderAs allVertices.sorted
+    backwardCSR.verticeIDs should contain theSameElementsInOrderAs allVertices.sorted
+    forwardCSR.getTranslatedEdges should contain theSameElementsInOrderAs tuplesSrcDst.map(_._2)
+    backwardCSR.getTranslatedEdges should contain theSameElementsInOrderAs tuplesDstSrc.map(_._2)
 
-    csrTrieIterable.getTranslatedEdgeIndiceSrc should contain theSameElementsInOrderAs allVertices.sorted.map(
+    forwardCSR.getEdgeIndices should contain theSameElementsInOrderAs allVertices.sorted.map(
       v => tuplesSrcDst.map(_._1).lastIndexOf(v)).map(i => if (i == -1) {
       i
     } else {
@@ -39,7 +33,7 @@ class CSRTrieIterableBuilderSpec extends FlatSpec with Matchers with GeneratorDr
       }
     }
     })
-    csrTrieIterable.getTranslatedEdgeIndiceDst should contain theSameElementsInOrderAs allVertices.sorted.map(
+    backwardCSR.getEdgeIndices should contain theSameElementsInOrderAs allVertices.sorted.map(
       v => tuplesDstSrc.map(_._1).lastIndexOf(v)).map(i => if (i == -1) {
       i
     } else {
@@ -64,10 +58,10 @@ class CSRTrieIterableBuilderSpec extends FlatSpec with Matchers with GeneratorDr
         val tuplesDstSrc = tuples1Set.map(t => (t._2, t._1)).toArray.sorted
         val allVertices = Set(tuplesSrcDst.map(_._1): _*).union(Set(tuplesDstSrc.map(_._1): _*)).toSeq
 
-        val csrTrieIterable = new CSRTrieIterable(tuplesSrcDst, tuplesDstSrc)
+        val (forwardCSR, backwardsCSR) = CSRTrieIterable.buildBothDirectionsFrom(tuplesSrcDst, tuplesDstSrc)
 
-        val verticeIDs = csrTrieIterable.getVerticeIDs
-        verticeIDs should contain theSameElementsInOrderAs allVertices.sorted
+        forwardCSR.getVerticeIDs should contain theSameElementsInOrderAs allVertices.sorted
+        backwardsCSR.getVerticeIDs should contain theSameElementsInOrderAs allVertices.sorted
       }
     }
   }
@@ -82,17 +76,17 @@ class CSRTrieIterableBuilderSpec extends FlatSpec with Matchers with GeneratorDr
         val tuplesDstSrc = tuples1Set.map(t => (t._2, t._1)).toArray.sorted
         val allVertices = Set(tuplesSrcDst.map(_._1): _*).union(Set(tuplesDstSrc.map(_._1): _*)).toSeq
 
-        val csrTrieIterable = new CSRTrieIterable(tuplesSrcDst, tuplesDstSrc)
+        val (forwardCSR, backwardsCSR) = CSRTrieIterable.buildBothDirectionsFrom(tuplesSrcDst, tuplesDstSrc)
 
-        csrTrieIterable.getTranslatedEdgesDst should contain theSameElementsInOrderAs tuplesSrcDst.map(_._2)
-        csrTrieIterable.getTranslatedEdgesSrc should contain theSameElementsInOrderAs tuplesDstSrc.map(_._2)
+
+        forwardCSR.getTranslatedEdges should contain theSameElementsInOrderAs tuplesSrcDst.map(_._2)
+        backwardsCSR.getTranslatedEdges should contain theSameElementsInOrderAs tuplesDstSrc.map(_._2)
       }
     }
   }
 
   "edgeIndicesSrc and edgeIndicesDst" should "equal the last index + 1 foreach vertice in the first attribute or the last index of the " +
-    "vertice before if it is not included"
-  in {
+    "vertice before if it is not included" in {
     import math.Ordering._
     val positiveIntTuples = Gen.nonEmptyBuildableOf[Set[(Long, Long)], (Long, Long)](Gen.zip(Gen.posNum[Long], Gen.posNum[Long]))
 
@@ -102,9 +96,9 @@ class CSRTrieIterableBuilderSpec extends FlatSpec with Matchers with GeneratorDr
         val tuplesDstSrc = tuples1Set.map(t => (t._2, t._1)).toArray.sorted
         val allVertices = Set(tuplesSrcDst.map(_._1): _*).union(Set(tuplesDstSrc.map(_._1): _*)).toSeq
 
-        val csrTrieIterable = new CSRTrieIterable(tuplesSrcDst, tuplesDstSrc)
+        val (forwardCSR, backwardsCSR) = CSRTrieIterable.buildBothDirectionsFrom(tuplesSrcDst, tuplesDstSrc)
 
-        csrTrieIterable.getTranslatedEdgeIndiceSrc should contain theSameElementsInOrderAs allVertices.sorted
+        forwardCSR.getEdgeIndices should contain theSameElementsInOrderAs allVertices.sorted
           .map(v => tuplesSrcDst.map(_._1).lastIndexOf(v)) // last index
           .map(i => if (i == -1) { // last index plus 1 if in array
           i
@@ -119,7 +113,7 @@ class CSRTrieIterableBuilderSpec extends FlatSpec with Matchers with GeneratorDr
             }
           }
           })
-        csrTrieIterable.getTranslatedEdgeIndiceDst should contain theSameElementsInOrderAs allVertices.sorted.map(
+        backwardsCSR.getEdgeIndices should contain theSameElementsInOrderAs allVertices.sorted.map(
           v => tuplesDstSrc.map(_._1).lastIndexOf(v))
           .map(i => if (i == -1) {
             i

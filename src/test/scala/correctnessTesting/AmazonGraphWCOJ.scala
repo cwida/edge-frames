@@ -13,5 +13,9 @@ class AmazonGraphWCOJ extends CorrectnessTest with BeforeAndAfterAll {
     WCOJFunctions.setJoinAlgorithm(GraphWCOJ)
   }
 
+  override def afterAll(): Unit = {
+    WCOJFunctions.setJoinAlgorithm(experiments.WCOJ)
+  }
+
   "WCOJ" should behave like sparkJoins(ds)
 }

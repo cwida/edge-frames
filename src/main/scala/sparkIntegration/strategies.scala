@@ -7,8 +7,8 @@ import org.apache.spark.sql.execution.SparkPlan
 object WCOJ2WCOJExec extends Strategy {
   override def apply(plan: LogicalPlan): Seq[SparkPlan] = plan match {
     case WCOJ(outputVariables, joinSpecification, cs) => {
-      WCOJExec(outputVariables, joinSpecification,  cs.zipWithIndex.map( { case (c, i) =>
-        joinSpecification.buildTrieIterable(planLater(c), i) })) :: Nil
+      WCOJExec(outputVariables, joinSpecification,
+        joinSpecification.buildTrieIterables(cs.map(planLater))) :: Nil
     }
     case _ => Nil
   }
