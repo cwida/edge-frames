@@ -7,13 +7,28 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 // TODO edges[Long] => edges[Int]
-class CSRTrieIterable(val verticeIDs: Array[Long], val edgeIndices: Array[Int], val edges: Array[Long]) extends TrieIterable {
+class CSRTrieIterable(val verticeIDs: Array[Long], val edgeIndices: Array[Int], val edges: Array[Int]) extends TrieIterable {
 
 
   override def trieIterator: TrieIterator = ???
 
   // TODO don't forget to translate
-  override def iterator: Iterator[InternalRow] = { ???
+  override def iterator: Iterator[InternalRow] = {
+    var currentSrcPosition = 0
+    var currentDstPosition = 0
+
+    new Iterator[InternalRow] {
+      override def hasNext: Boolean = currentDstPosition < edges.length
+
+      override def next(): InternalRow = {
+        while (currentDstPosition >= edgeIndices(currentSrcPosition + 1)) {
+          currentSrcPosition += 1
+        }
+        val r = InternalRow(verticeIDs(currentSrcPosition), verticeIDs(edges(currentDstPosition)))
+        currentDstPosition += 1
+        r
+      }
+    }
   }
 
   override def memoryUsage: Long = { ???
@@ -23,7 +38,7 @@ class CSRTrieIterable(val verticeIDs: Array[Long], val edgeIndices: Array[Int], 
   def getVerticeIDs: Array[Long] = verticeIDs
 
   // For testing
-  def getTranslatedEdges: Array[Long] = edges.map(ei => verticeIDs(ei.toInt))
+  def getTranslatedEdges: Array[Long] = edges.map(ei => verticeIDs(ei))
 
   // For testing
   def getEdgeIndices: Array[Int] = edgeIndices
@@ -41,7 +56,7 @@ object CSRTrieIterable {
       val edgesDstBuffer = new ArrayBuffer[Long](10000)
       val edgesSrcBuffer = new ArrayBuffer[Long](10000)
 
-      val verticeIDToIndex = new mutable.HashMap[Long, Long]()
+      val verticeIDToIndex = new mutable.HashMap[Long, Int]()
 
       var lastVertice = alignedZippedIter.head(0)
 
@@ -84,7 +99,8 @@ object CSRTrieIterable {
       (new CSRTrieIterable(verticeIDs, edgeIndicesSrcBuffer.toArray, edgesDstArray), new CSRTrieIterable(verticeIDs, edgeIndicesDstBuffer.toArray,
         edgesSrcArray))
     } else {
-      (new CSRTrieIterable(Array[Long](), Array[Int](), Array[Long]()), new CSRTrieIterable(Array[Long](), Array[Int](), Array[Long]()))
+      (new CSRTrieIterable(Array[Long](), Array[Int](), Array[Int]()),
+        new CSRTrieIterable(Array[Long](), Array[Int](), Array[Int]()))
     }
   }
 

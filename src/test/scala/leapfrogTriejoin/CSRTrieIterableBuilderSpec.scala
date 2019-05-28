@@ -1,14 +1,14 @@
 package leapfrogTriejoin
 
+import org.apache.spark.sql.catalyst.InternalRow
 import org.scalacheck.Gen
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.{FlatSpec, Matchers}
 
-// Tests the initializer of CSRTrieIterable
 class CSRTrieIterableBuilderSpec extends FlatSpec with Matchers with GeneratorDrivenPropertyChecks {
 
   "VerticeIDs" should "be a mapping from index to original source IDs (specific)" in {
-    val tuples1Set = Seq((1L, 1L))
+    val tuples1Set = Seq((7L, 1L), (1L, 3L))
     val tuplesSrcDst = tuples1Set.toArray.sorted
     val tuplesDstSrc = tuples1Set.map(t => (t._2, t._1)).toArray.sorted
     val allVertices = Set(tuplesSrcDst.map(_._1): _*).union(Set(tuplesDstSrc.map(_._1): _*)).toSeq
@@ -46,6 +46,9 @@ class CSRTrieIterableBuilderSpec extends FlatSpec with Matchers with GeneratorDr
       }
     }
     })
+
+    forwardCSR.iterator.toSeq should contain theSameElementsInOrderAs tuplesSrcDst.map(t => InternalRow(t._1, t._2))
+//    backwardCSR.iterator.toSeq should contain theSameElementsInOrderAs tuplesDstSrc.map(t => InternalRow(t._1, t._2))
   }
 
   "VerticeIDs" should "be a mapping from index to original source IDs" in {
@@ -66,7 +69,7 @@ class CSRTrieIterableBuilderSpec extends FlatSpec with Matchers with GeneratorDr
     }
   }
 
-  "edgesDst and edgesSrc" should "equal the second column of the respective input iterator" in {
+  "edges" should "equal the second column of the respective input iterator" in {
     import math.Ordering._
     val positiveIntTuples = Gen.buildableOf[Set[(Long, Long)], (Long, Long)](Gen.zip(Gen.posNum[Long], Gen.posNum[Long]))
 
@@ -85,7 +88,7 @@ class CSRTrieIterableBuilderSpec extends FlatSpec with Matchers with GeneratorDr
     }
   }
 
-  "edgeIndicesSrc and edgeIndicesDst" should "equal the last index + 1 foreach vertice in the first attribute or the last index of the " +
+  "edgeIndices" should "equal the last index + 1 foreach vertice in the first attribute or the last index of the " +
     "vertice before if it is not included" in {
     import math.Ordering._
     val positiveIntTuples = Gen.nonEmptyBuildableOf[Set[(Long, Long)], (Long, Long)](Gen.zip(Gen.posNum[Long], Gen.posNum[Long]))
@@ -132,4 +135,21 @@ class CSRTrieIterableBuilderSpec extends FlatSpec with Matchers with GeneratorDr
     }
   }
 
+  "iterator" should "return the original relationship" in {
+    import math.Ordering._
+    val positiveIntTuples = Gen.buildableOf[Set[(Long, Long)], (Long, Long)](Gen.zip(Gen.posNum[Long], Gen.posNum[Long]))
+
+    forAll(positiveIntTuples) { (tuples1Set) =>
+      whenever(List(tuples1Set).forall(t => t.forall(t => t._1 > 0 && t._2 > 0))) { // Sad way to ensure numbers are actually positive
+        val tuplesSrcDst = tuples1Set.toArray.sorted
+        val tuplesDstSrc = tuples1Set.map(t => (t._2, t._1)).toArray.sorted
+        val allVertices = Set(tuplesSrcDst.map(_._1): _*).union(Set(tuplesDstSrc.map(_._1): _*)).toSeq
+
+        val (forwardCSR, backwardsCSR) = CSRTrieIterable.buildBothDirectionsFrom(tuplesSrcDst, tuplesDstSrc)
+
+        forwardCSR.iterator.toSeq should contain theSameElementsInOrderAs tuplesSrcDst.map(t => InternalRow(t._1, t._2))
+//        backwardsCSR.iterator.toSeq should contain theSameElementsInOrderAs tuplesDstSrc.map(t => InternalRow(t._1, t._2))
+      }
+    }
+  }
 }
