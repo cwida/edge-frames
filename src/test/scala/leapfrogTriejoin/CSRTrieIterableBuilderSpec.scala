@@ -15,8 +15,8 @@ class CSRTrieIterableBuilderSpec extends FlatSpec with Matchers with GeneratorDr
 
     val (forwardCSR, backwardCSR) = CSRTrieIterable.buildBothDirectionsFrom(tuplesSrcDst, tuplesDstSrc)
 
-    forwardCSR.verticeIDs should contain theSameElementsInOrderAs allVertices.sorted
-    backwardCSR.verticeIDs should contain theSameElementsInOrderAs allVertices.sorted
+    forwardCSR.getVerticeIDs should contain theSameElementsInOrderAs allVertices.sorted
+    backwardCSR.getVerticeIDs should contain theSameElementsInOrderAs allVertices.sorted
     forwardCSR.getTranslatedEdges should contain theSameElementsInOrderAs tuplesSrcDst.map(_._2)
     backwardCSR.getTranslatedEdges should contain theSameElementsInOrderAs tuplesDstSrc.map(_._2)
 

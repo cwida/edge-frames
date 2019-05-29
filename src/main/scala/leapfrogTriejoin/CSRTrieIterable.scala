@@ -7,18 +7,106 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 // TODO edges[Long] => edges[Int]
-class CSRTrieIterable(val verticeIDs: Array[Long], val edgeIndices: Array[Int], val edges: Array[Int]) extends TrieIterable {
+class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
+                      private[this] val edgeIndices: Array[Int],
+                      private[this] val edges: Array[Int]) extends TrieIterable {
+
+  override def trieIterator: TrieIteratorImpl = {
+    new TrieIteratorImpl()
+  }
 
 
-  override def trieIterator: TrieIterator = ???
+  // TODO can I remove 0 elements in the first level somehow?
+  class TrieIteratorImpl() extends TrieIterator {
+    private[this] var isAtEnd = verticeIDs.length == 0
 
-  // TODO don't forget to translate
+    private[this] var depth = -1
+
+    private[this] var srcPosition = 0
+    if (!isAtEnd && edgeIndices(srcPosition) == edgeIndices(srcPosition + 1)) {
+      moveToNextSrcPosition()
+    }
+
+    private[this] var dstPosition = 0
+
+    override def open(): Unit = {
+      depth += 1
+
+      if (depth == 1) {  // TODO predicatable
+        dstPosition = edgeIndices(srcPosition)
+      }
+
+      assert(depth < 2)
+    }
+
+    override def up(): Unit = {
+      assert(depth == 1)
+      depth -= 1
+      isAtEnd = false
+    }
+
+    override def key: Long = {
+      assert(depth == 0 || depth == 1, "Wrong key call")
+      if (depth == 0) {
+        srcPosition
+      } else {
+        edges(dstPosition)
+      }
+    }
+
+    override def next(): Unit = {
+      assert(!atEnd)
+      if (depth == 0) {
+        moveToNextSrcPosition()
+        isAtEnd = srcPosition == edgeIndices.length - 1
+      } else {
+        dstPosition += 1
+        isAtEnd = dstPosition == edgeIndices(srcPosition + 1)  // TODO factor out
+      }
+    }
+
+    override def atEnd: Boolean = isAtEnd
+
+    // TODO int / long problem
+    override def seek(key: Long): Boolean = {
+      assert(!atEnd)
+      if (depth == 0) {
+        srcPosition = key.toInt
+        if (edgeIndices(srcPosition) == edgeIndices(srcPosition + 1)) {
+          moveToNextSrcPosition()
+        }
+        isAtEnd = srcPosition == edgeIndices.length - 1
+        isAtEnd
+      } else {
+        dstPosition = ArraySearch.find(edges.map(_.toLong), key, edgeIndices(srcPosition), edgeIndices(srcPosition + 1))  // TODO long
+        // int problem
+        isAtEnd = dstPosition == edgeIndices(srcPosition + 1)
+        isAtEnd
+      }
+    }
+
+    private def moveToNextSrcPosition(): Unit = {
+      var indexToSearch = edgeIndices(srcPosition + 1) // TODO linear search is best? or galloping or binary?
+
+      do {
+        srcPosition += 1
+      } while (srcPosition < edgeIndices.length - 1 && edgeIndices(srcPosition + 1) == indexToSearch)  // TODO sentry element
+    }
+
+    def translate(key: Int): Long = {
+      verticeIDs(key)
+    }
+  }
+
+
   override def iterator: Iterator[InternalRow] = {
     var currentSrcPosition = 0
     var currentDstPosition = 0
 
     new Iterator[InternalRow] {
-      override def hasNext: Boolean = currentDstPosition < edges.length
+      override def hasNext: Boolean = {
+        currentDstPosition < edges.length
+      }
 
       override def next(): InternalRow = {
         while (currentDstPosition >= edgeIndices(currentSrcPosition + 1)) {
@@ -31,17 +119,24 @@ class CSRTrieIterable(val verticeIDs: Array[Long], val edgeIndices: Array[Int], 
     }
   }
 
-  override def memoryUsage: Long = { ???
+  override def memoryUsage: Long = {
+    -1 // TODO implement
   }
 
   // For testing
-  def getVerticeIDs: Array[Long] = verticeIDs
+  def getVerticeIDs: Array[Long] = {
+    verticeIDs
+  }
 
   // For testing
-  def getTranslatedEdges: Array[Long] = edges.map(ei => verticeIDs(ei))
+  def getTranslatedEdges: Array[Long] = {
+    edges.map(ei => verticeIDs(ei))
+  }
 
   // For testing
-  def getEdgeIndices: Array[Int] = edgeIndices
+  def getEdgeIndices: Array[Int] = {
+    edgeIndices
+  }
 }
 
 
