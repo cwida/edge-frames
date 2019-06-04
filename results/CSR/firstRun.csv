@@ -1,0 +1,9 @@
+# Dataset: AmazonCoPurchase 1234877 /home/per/workspace/master-thesis/datasets/amazon-0302
+# Repetitions: 3
+# Git commit: 1b08e713e4e253460fe4fd3123d3c4f5aa4500c6
+# Comment: 
+Query,Algorithm,Count,Time,WCOJTime,copy,mat
+Clique(3),WCOJ,000000188.705,2.61,0.57,0.01,1.72
+Clique(3),WCOJ,000000188.705,2.45,0.21,0.01,2.07
+Clique(5),WCOJ,000000007.064,8.18,2.55,0.00,5.25
+Clique(5),WCOJ,000000007.064,2.11,0.27,-0.00,1.74

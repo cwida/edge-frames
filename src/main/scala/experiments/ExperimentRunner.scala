@@ -31,7 +31,7 @@ object Readers {
         BinaryJoins
       }
       case _ => {
-        throw new IllegalArgumentException("Algorithm can be only `WCOJ` or `bin`")
+        throw new IllegalArgumentException("Algorithm can be only `WCOJ`, `graphWCOJ` or `bin`")
       }
     })
   }
