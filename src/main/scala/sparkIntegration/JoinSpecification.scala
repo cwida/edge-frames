@@ -85,7 +85,6 @@ class JoinSpecification(joinPattern: Seq[Pattern], val variableOrdering: Seq[Str
       case _ => {
         throw new InvalidParseException("Use only anonymous edges with named vertices.")
       }
-      // TODO negated edges?
     }).toMap
     new LeapfrogTriejoin(trieIteratorMapping, variableOrdering, distinctFilter, smallerThanFilter)
   }

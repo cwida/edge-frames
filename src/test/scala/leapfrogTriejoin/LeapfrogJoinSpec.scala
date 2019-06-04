@@ -4,7 +4,6 @@ import org.scalacheck.Gen
 import org.scalatest.{FlatSpec, Matchers}
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 
-// TODO should I still use TreeTrieIterators here?
 class LeapfrogJoinSpec extends FlatSpec with GeneratorDrivenPropertyChecks with Matchers {
 
   def assertJoinEqual(join: LeapfrogJoin, values: Seq[Long]) = {

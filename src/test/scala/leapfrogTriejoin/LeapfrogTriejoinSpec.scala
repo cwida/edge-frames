@@ -11,8 +11,6 @@ import leapfrogTriejoin.implicits._
 import collection.JavaConverters._
 
 
-// TODO change to ArrayTrieiterator?
-
 class LeapfrogTriejoinSpec extends FlatSpec with Matchers with GeneratorDrivenPropertyChecks {
 
   private def assertJoinEqual(join: LeapfrogTriejoin, values: Set[List[Long]]) = {
