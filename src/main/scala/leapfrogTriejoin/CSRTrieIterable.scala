@@ -132,7 +132,7 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
   }
 
   override def memoryUsage: Long = {
-    -1 // TODO implement
+    verticeIDs.length * 8 + edgeIndices.length * 4 + edges.length * 8
   }
 
   // For testing

@@ -34,7 +34,7 @@ class ArrayTrieIterable(iter: Iterator[InternalRow]) extends TrieIterable {
   }
 
   def memoryUsage: Long = {
-    numRows * 2 * 4
+    numRows * 2 * 8
   }
 
   class TrieIteratorImpl(val tuples: ColumnarBatch) extends TrieIterator {
