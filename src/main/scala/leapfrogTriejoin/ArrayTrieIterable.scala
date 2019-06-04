@@ -126,8 +126,9 @@ class ArrayTrieIterable(iter: Iterator[InternalRow]) extends TrieIterable {
       isAtEnd = currentPosition >= currentEnd
     }
 
-    override def translate(keys: Array[Int]): Array[Long] = {
-      keys.map(_.toLong)
+    @inline
+    override def translate(keys: Array[Long]): Array[Long] = {
+      keys
     }
 
   }

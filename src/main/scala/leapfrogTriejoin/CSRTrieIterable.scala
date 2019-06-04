@@ -9,12 +9,11 @@ import scala.collection.mutable.ArrayBuffer
 // TODO edges[Long] => edges[Int]
 class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
                       private[this] val edgeIndices: Array[Int],
-                      private[this] val edges: Array[Int]) extends TrieIterable {
+                      private[this] val edges: Array[Long]) extends TrieIterable {
 
   override def trieIterator: TrieIteratorImpl = {
     new TrieIteratorImpl()
   }
-
 
   // TODO can I remove 0 elements in the first level somehow?
   class TrieIteratorImpl() extends TrieIterator {
@@ -55,7 +54,7 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
     override def key: Long = {
       assert(depth == 0 || depth == 1, "Wrong key call")
       if (depth == 0) {
-        srcPosition
+        srcPosition.toLong
       } else {
         edges(dstPosition)
       }
@@ -86,8 +85,7 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
         isAtEnd = srcPosition >= edgeIndices.length - 1
         isAtEnd
       } else {
-        dstPosition = ArraySearch.find(edges.map(_.toLong), key, edgeIndices(srcPosition), edgeIndices(srcPosition + 1))  // TODO long
-        // int problem
+        dstPosition = ArraySearch.find(edges, key, edgeIndices(srcPosition), edgeIndices(srcPosition + 1))  // TODO long
         isAtEnd = dstPosition == edgeIndices(srcPosition + 1)
         isAtEnd
       }
@@ -101,13 +99,15 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
       } while (srcPosition < edgeIndices.length - 1 && edgeIndices(srcPosition + 1) == indexToSearch)  // TODO sentry element
     }
 
+    // For testing
     def translate(key: Int): Long = {
       verticeIDs(key)
     }
 
-    def translate(keys: Array[Int]): Array[Long] = {
-      keys.map(verticeIDs(_))  // TODO int long sort out
+    def translate(keys: Array[Long]): Array[Long] = {
+      // TODO in place translate
       // TODO inneficient
+      keys.map(l => verticeIDs(l.toInt))
     }
 
   }
@@ -133,7 +133,7 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
         while (currentDstPosition >= edgeIndices(currentSrcPosition + 1)) {
           currentSrcPosition += 1
         }
-        val r = InternalRow(verticeIDs(currentSrcPosition), verticeIDs(edges(currentDstPosition)))
+        val r = InternalRow(verticeIDs(currentSrcPosition), verticeIDs(edges(currentDstPosition).toInt))
         currentDstPosition += 1
         r
       }
@@ -151,7 +151,7 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
 
   // For testing
   def getTranslatedEdges: Array[Long] = {
-    edges.map(ei => verticeIDs(ei))
+    edges.map(ei => verticeIDs(ei.toInt))
   }
 
   // For testing
@@ -172,7 +172,7 @@ object CSRTrieIterable {
       val edgesDstBuffer = new ArrayBuffer[Long](10000)
       val edgesSrcBuffer = new ArrayBuffer[Long](10000)
 
-      val verticeIDToIndex = new mutable.HashMap[Long, Int]()
+      val verticeIDToIndex = new mutable.HashMap[Long, Long]()
 
       var lastVertice = alignedZippedIter.head(0)
 
@@ -216,8 +216,8 @@ object CSRTrieIterable {
       (new CSRTrieIterable(verticeIDs, edgeIndicesSrcBuffer.toArray, edgesDstArray), new CSRTrieIterable(verticeIDs, edgeIndicesDstBuffer.toArray,
         edgesSrcArray))
     } else {
-      (new CSRTrieIterable(Array[Long](), Array[Int](), Array[Int]()),
-        new CSRTrieIterable(Array[Long](), Array[Int](), Array[Int]()))
+      (new CSRTrieIterable(Array[Long](), Array[Int](), Array[Long]()),
+        new CSRTrieIterable(Array[Long](), Array[Int](), Array[Long]()))
     }
   }
 

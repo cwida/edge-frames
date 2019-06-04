@@ -74,7 +74,8 @@ class TreeTrieIterator(val values: Array[(Long, Long)]) extends TrieIterator {
     atEnd
   }
 
-  override def translate(keys: Array[Int]): Array[Long] = {
-    keys.map(_.toLong)
+  @inline
+  override def translate(keys: Array[Long]): Array[Long] = {
+    keys
   }
 }
