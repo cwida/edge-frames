@@ -68,7 +68,7 @@ class CorrectnessTest extends FlatSpec with Matchers with SparkTest {
     }
   }
 
-  def sparkJoins(rawDataset: DataFrame): Unit = {
+  def sparkPathJoins(rawDataset: DataFrame): Unit = {
     val ds = if (FAST) {
       rawDataset.limit(1000)
     } else {
@@ -81,39 +81,47 @@ class CorrectnessTest extends FlatSpec with Matchers with SparkTest {
     nodeSet1.count()
     nodeSet2.count()
 
-//    "two-paths" should "be the same" in {
-//      val pathQuerySet = getPathQueryDataset(ds)
-//
-//      val e = pathBinaryJoins(2, pathQuerySet, nodeSet1, nodeSet2).cache()
-//      val a = pathPattern(2, pathQuerySet, nodeSet1, nodeSet2).cache()
-//
-//      assertRDDEqual(a.rdd, e.rdd)
-//      a.isEmpty should be(false)
-//      e.isEmpty should be(false)
-//    }
-//
-//    "three-paths" should "be the same" in {
-//      val pathQuerySet = getPathQueryDataset(ds)
-//
-//      val e = pathBinaryJoins(3, pathQuerySet, nodeSet1, nodeSet2).cache()
-//      val a = pathPattern(3, pathQuerySet, nodeSet1, nodeSet2).cache()
-//
-//      assertRDDEqual(a.rdd, e.rdd)
-//      a.isEmpty should be(false)
-//      e.isEmpty should be(false)
-//    }
-//
-//    "four-path" should "be the same" in {
-//      val pathQuerySet = getPathQueryDataset(ds)
-//
-//      val e = pathBinaryJoins(4, pathQuerySet, nodeSet1, nodeSet2)
-//      val a = pathPattern(4, pathQuerySet, nodeSet1, nodeSet2)
-//
-//      assertRDDEqual(a.rdd, e.rdd)
-//
-//      a.isEmpty should be(false)
-//      e.isEmpty should be(false)
-//    }
+    "two-paths" should "be the same" in {
+      val pathQuerySet = getPathQueryDataset(ds)
+
+      val e = pathBinaryJoins(2, pathQuerySet, nodeSet1, nodeSet2).cache()
+      val a = pathPattern(2, pathQuerySet, nodeSet1, nodeSet2).cache()
+
+      assertRDDEqual(a.rdd, e.rdd)
+      a.isEmpty should be(false)
+      e.isEmpty should be(false)
+    }
+
+    "three-paths" should "be the same" in {
+      val pathQuerySet = getPathQueryDataset(ds)
+
+      val e = pathBinaryJoins(3, pathQuerySet, nodeSet1, nodeSet2).cache()
+      val a = pathPattern(3, pathQuerySet, nodeSet1, nodeSet2).cache()
+
+      assertRDDEqual(a.rdd, e.rdd)
+      a.isEmpty should be(false)
+      e.isEmpty should be(false)
+    }
+
+    "four-path" should "be the same" in {
+      val pathQuerySet = getPathQueryDataset(ds)
+
+      val e = pathBinaryJoins(4, pathQuerySet, nodeSet1, nodeSet2)
+      val a = pathPattern(4, pathQuerySet, nodeSet1, nodeSet2)
+
+      assertRDDEqual(a.rdd, e.rdd)
+
+      a.isEmpty should be(false)
+      e.isEmpty should be(false)
+    }
+  }
+
+  def sparkTriangleJoins(rawDataset: DataFrame): Unit = {
+    val ds = if (FAST) {
+      rawDataset.limit(1000)
+    } else {
+      rawDataset
+    }
 
     "triangles" should "be the same" in {
       assertRDDEqual(cliquePattern(3, ds).rdd, cliqueBinaryJoins(3, sp, ds).rdd)
@@ -154,26 +162,20 @@ class CorrectnessTest extends FlatSpec with Matchers with SparkTest {
 
       assertRDDEqual(circular.rdd, goldStandard.rdd)
     }
+  }
+
+  def sparkCliqueJoins(rawDataset: DataFrame): Unit = {
+    val ds = if (FAST) {
+      rawDataset.limit(1000)
+    } else {
+      rawDataset
+    }
 
     "Four clique" should "be the same" in {
       val a = cliquePattern(4, ds)
       val e = cliqueBinaryJoins(4, sp, ds)
 
       assertRDDEqual(a.rdd, e.rdd)
-    }
-
-    "Diamond query" should "be the same" in {
-      val a = diamondPattern(ds)
-      val e = diamondBinaryJoins(ds)
-
-      assertRDDSetEqual(a.rdd, e.rdd, 4)
-    }
-
-    "House query" should "be the same" in {
-      val a = housePattern(ds)
-      val e = houseBinaryJoins(sp, ds)
-
-      assertRDDSetEqual(a.rdd, e.rdd, 5)
     }
 
     "5-clique query" should "be the same" in {
@@ -189,6 +191,14 @@ class CorrectnessTest extends FlatSpec with Matchers with SparkTest {
 
       assertRDDEqual(a.rdd, e.rdd)
     }
+  }
+
+  def sparkCycleJoins(rawDataset: DataFrame): Unit = {
+    val ds = if (FAST) {
+      rawDataset.limit(1000)
+    } else {
+      rawDataset
+    }
 
     "4-cylce" should "be the same" in {
       val a = cyclePattern(4, ds)
@@ -200,6 +210,29 @@ class CorrectnessTest extends FlatSpec with Matchers with SparkTest {
     "5-cylce" should "be the same" in {
       val a = cyclePattern(5, ds)
       val e = cycleBinaryJoins(5, ds)
+
+      assertRDDSetEqual(a.rdd, e.rdd, 5)
+    }
+
+  }
+
+  def sparkOtherJoins(rawDataset: DataFrame): Unit = {
+    val ds = if (FAST) {
+      rawDataset.limit(1000)
+    } else {
+      rawDataset
+    }
+
+    "Diamond query" should "be the same" in {
+      val a = diamondPattern(ds)
+      val e = diamondBinaryJoins(ds)
+
+      assertRDDSetEqual(a.rdd, e.rdd, 4)
+    }
+
+    "House query" should "be the same" in {
+      val a = housePattern(ds)
+      val e = houseBinaryJoins(sp, ds)
 
       assertRDDSetEqual(a.rdd, e.rdd, 5)
     }
