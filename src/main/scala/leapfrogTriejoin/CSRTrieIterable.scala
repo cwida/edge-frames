@@ -6,7 +6,6 @@ import org.apache.spark.sql.catalyst.expressions.GenericInternalRow
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
-// TODO edges[Long] => edges[Int]
 class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
                       private[this] val edgeIndices: Array[Int],
                       private[this] val edges: Array[Long]) extends TrieIterable {
@@ -15,7 +14,6 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
     new TrieIteratorImpl()
   }
 
-  // TODO can I remove 0 elements in the first level somehow?
   class TrieIteratorImpl() extends TrieIterator {
     private[this] var isAtEnd = verticeIDs.length == 0
 
@@ -25,6 +23,7 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
     if (!isAtEnd && edgeIndices(srcPosition) == edgeIndices(srcPosition + 1)) {
       moveToNextSrcPosition()
     }
+    private[this] val firstSourcePosition = srcPosition
 
     private[this] var dstPosition = 0
 
@@ -33,10 +32,7 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
       depth += 1
 
       if (depth == 0) {
-        srcPosition = 0
-        if (edgeIndices(srcPosition) == edgeIndices(srcPosition + 1)) {
-          moveToNextSrcPosition()  // TODO optimize by rememebering first src position
-        }
+        srcPosition = firstSourcePosition
       } else if (depth == 1) {  // TODO predicatable
         dstPosition = edgeIndices(srcPosition)
       }
@@ -53,7 +49,7 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
 
     override def key: Long = {
       assert(depth == 0 || depth == 1, "Wrong key call")
-      if (depth == 0) {
+      if (depth == 0) {  // TODO faster to always update?
         srcPosition.toLong
       } else {
         edges(dstPosition)
@@ -73,12 +69,11 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
 
     override def atEnd: Boolean = isAtEnd
 
-    // TODO int / long problem
     override def seek(key: Long): Boolean = {
       assert(!atEnd)
       if (depth == 0) {
         srcPosition = key.toInt
-        if (srcPosition < edgeIndices.length - 1 &&
+        if (srcPosition < edgeIndices.length - 1 &&  // TODO srcPosition should never be bigger than edgeIndices.lenght -  1, investigate
           edgeIndices(srcPosition) == edgeIndices(srcPosition + 1)) {
           moveToNextSrcPosition()
         }
@@ -105,13 +100,17 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
     }
 
     def translate(keys: Array[Long]): Array[Long] = {
-      // TODO in place translate
-      // TODO inneficient
-      keys.map(l => verticeIDs(l.toInt))
+      var i = 0
+      while (i < keys.length) {
+        keys(i) = verticeIDs(keys(i).toInt)
+        i += 1
+      }
+      keys
     }
 
   }
 
+  // TODO can I remove this?
   def translate(key: Int): Long = {
     verticeIDs(key)
   }

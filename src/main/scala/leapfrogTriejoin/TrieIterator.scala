@@ -6,6 +6,7 @@ trait TrieIterator extends LinearIterator {
 
   def up(): Unit // O(log N)
 
+  // Allows iterator to map keys in place, e.g. for CSR form index space to graph key space
   def translate(keys: Array[Long]): Array[Long]
 
 }
