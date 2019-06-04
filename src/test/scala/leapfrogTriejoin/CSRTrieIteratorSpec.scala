@@ -6,6 +6,8 @@ import testing.Utils._
 
 class CSRTrieIteratorSpec extends FlatSpec with Matchers with GeneratorDrivenPropertyChecks {
 
+  // TODO add seek for value outside of range on level 0 and level 1
+  // TODO add open to level -1 to test that src is reset
   "An empty testTrieIterator" should "be at end" in {
     val iter = CSRTrieIterable.buildBothDirectionsFrom(Array[(Long, Long)](), Array[(Long, Long)]())._1.trieIterator
     assert(iter.atEnd)

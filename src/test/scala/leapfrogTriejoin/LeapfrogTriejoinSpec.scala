@@ -35,7 +35,7 @@ class LeapfrogTriejoinSpec extends FlatSpec with Matchers with GeneratorDrivenPr
   }
 
   private def parseRegressionTestDatasetFromFile(filePath: String): Array[(Long, Long)] = {
-    val reader =  new BufferedReader(new FileReader(filePath))
+    val reader = new BufferedReader(new FileReader(filePath))
 
     val lines = reader.lines().collect(Collectors.toList()).asScala
     lines
@@ -144,4 +144,78 @@ class LeapfrogTriejoinSpec extends FlatSpec with Matchers with GeneratorDrivenPr
     resultAsSets should not contain Set(19, 4, 16, 7)
   }
 
+  val regression2Dataset =
+    """
+      |0,1
+      |0,2
+      |0,3
+      |0,4
+      |0,5
+      |1,0
+      |1,2
+      |1,4
+      |1,5
+      |1,15
+    """.stripMargin
+
+
+  val regression2ExpectedResult = Array(
+    Array(0, 1, 2),
+    Array(0, 1, 5),
+    Array(0, 1, 4)
+  )
+
+  val regression2ExpectedResultNoFilter = Array(
+    Array(0, 1, 2),
+    Array(0, 1, 4),
+    Array(0, 1, 5),
+    Array(1, 0, 2),
+    Array(1, 0, 4),
+    Array(1, 0, 5)
+  )
+
+  "Regression 2: " should "test CSRTrieIterables on first 10 edges of Amazon0302" in {
+    val ds = parseRegressionTestDataset(regression2Dataset)
+    val dsReversed = ds.map(t => (t._2, t._1)).sorted
+
+    val edges: List[EdgeRelationship] = ('a' to 'c')
+      .combinations(2)
+      .filter(l => l(0) < l(1))
+      .map(l => new EdgeRelationship((s"${l(0)}", s"${l(1)}")))
+      .toList
+
+      val (ti1, _) = CSRTrieIterable.buildBothDirectionsFrom(ds, dsReversed)
+//    val ti1 = new ArrayTrieIterable(ds)
+
+    val rels: List[TrieIterator] = edges
+      .map(e => ti1.trieIterator)
+
+    val join = new LeapfrogTriejoin(edges.zip(rels).toMap, Seq("a", "b", "c"), smallerThanFilter = true)
+
+    val result = join.toList
+
+    result should contain theSameElementsAs regression2ExpectedResult
+  }
+
+  "Regression 2: " should "test CSRTrieIterables on first 10 edges of Amazon0302 with a differen variable ordering" in {
+    val ds = parseRegressionTestDataset(regression2Dataset)
+    val dsReversed = ds.map(t => (t._2, t._1)).sorted
+
+    val edges: List[EdgeRelationship] = List(new EdgeRelationship(("a", "b")),
+      new EdgeRelationship(("c", "b")), new EdgeRelationship(("c", "a")))
+
+    val (ti1, ti2) = CSRTrieIterable.buildBothDirectionsFrom(ds, dsReversed)
+//    val ti1 = new ArrayTrieIterable(ds)
+//    val ti2 = new ArrayTrieIterable(dsReversed)
+
+
+    val rels: List[TrieIterator] = List(ti1.trieIterator, ti2.trieIterator, ti2.trieIterator)
+
+    val join = new LeapfrogTriejoin(edges.zip(rels).toMap, Seq("c", "a", "b"))
+
+    val result = join.toList
+    val resultReordered = result.map(a => Array(a(1), a(2), a(0)))
+
+    resultReordered should contain theSameElementsAs regression2ExpectedResultNoFilter
+  }
 }

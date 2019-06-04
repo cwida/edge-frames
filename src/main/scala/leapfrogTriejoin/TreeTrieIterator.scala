@@ -73,4 +73,8 @@ class TreeTrieIterator(val values: Array[(Long, Long)]) extends TrieIterator {
     }
     atEnd
   }
+
+  override def translate(keys: Array[Int]): Array[Long] = {
+    keys.map(_.toLong)
+  }
 }

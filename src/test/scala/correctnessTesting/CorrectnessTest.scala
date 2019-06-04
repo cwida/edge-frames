@@ -24,8 +24,10 @@ class CorrectnessTest extends FlatSpec with Matchers with SparkTest {
     val eExtrasEmpty = eExtras.isEmpty()
 
     if (!(aExtrasEmpty && eExtrasEmpty)) {
-      Utils.printSeqRDD(50, aExtras.map(r => r.toSeq))
-      Utils.printSeqRDD(50, eExtras.map(r => r.toSeq))
+      println("actual contains following extra rows: ")
+      Utils.printSeqRDD(50, a.map(r => r.toSeq))
+      println("expected contains following extra rows: ")
+      Utils.printSeqRDD(50, e.map(r => r.toSeq))
     }
 
     aExtrasEmpty should be(true)
@@ -79,39 +81,39 @@ class CorrectnessTest extends FlatSpec with Matchers with SparkTest {
     nodeSet1.count()
     nodeSet2.count()
 
-    "two-paths" should "be the same" in {
-      val pathQuerySet = getPathQueryDataset(ds)
-
-      val e = pathBinaryJoins(2, pathQuerySet, nodeSet1, nodeSet2).cache()
-      val a = pathPattern(2, pathQuerySet, nodeSet1, nodeSet2).cache()
-
-      assertRDDEqual(a.rdd, e.rdd)
-      a.isEmpty should be(false)
-      e.isEmpty should be(false)
-    }
-
-    "three-paths" should "be the same" in {
-      val pathQuerySet = getPathQueryDataset(ds)
-
-      val e = pathBinaryJoins(3, pathQuerySet, nodeSet1, nodeSet2).cache()
-      val a = pathPattern(3, pathQuerySet, nodeSet1, nodeSet2).cache()
-
-      assertRDDEqual(a.rdd, e.rdd)
-      a.isEmpty should be(false)
-      e.isEmpty should be(false)
-    }
-
-    "four-path" should "be the same" in {
-      val pathQuerySet = getPathQueryDataset(ds)
-
-      val e = pathBinaryJoins(4, pathQuerySet, nodeSet1, nodeSet2)
-      val a = pathPattern(4, pathQuerySet, nodeSet1, nodeSet2)
-
-      assertRDDEqual(a.rdd, e.rdd)
-
-      a.isEmpty should be(false)
-      e.isEmpty should be(false)
-    }
+//    "two-paths" should "be the same" in {
+//      val pathQuerySet = getPathQueryDataset(ds)
+//
+//      val e = pathBinaryJoins(2, pathQuerySet, nodeSet1, nodeSet2).cache()
+//      val a = pathPattern(2, pathQuerySet, nodeSet1, nodeSet2).cache()
+//
+//      assertRDDEqual(a.rdd, e.rdd)
+//      a.isEmpty should be(false)
+//      e.isEmpty should be(false)
+//    }
+//
+//    "three-paths" should "be the same" in {
+//      val pathQuerySet = getPathQueryDataset(ds)
+//
+//      val e = pathBinaryJoins(3, pathQuerySet, nodeSet1, nodeSet2).cache()
+//      val a = pathPattern(3, pathQuerySet, nodeSet1, nodeSet2).cache()
+//
+//      assertRDDEqual(a.rdd, e.rdd)
+//      a.isEmpty should be(false)
+//      e.isEmpty should be(false)
+//    }
+//
+//    "four-path" should "be the same" in {
+//      val pathQuerySet = getPathQueryDataset(ds)
+//
+//      val e = pathBinaryJoins(4, pathQuerySet, nodeSet1, nodeSet2)
+//      val a = pathPattern(4, pathQuerySet, nodeSet1, nodeSet2)
+//
+//      assertRDDEqual(a.rdd, e.rdd)
+//
+//      a.isEmpty should be(false)
+//      e.isEmpty should be(false)
+//    }
 
     "triangles" should "be the same" in {
       assertRDDEqual(cliquePattern(3, ds).rdd, cliqueBinaryJoins(3, sp, ds).rdd)
@@ -120,13 +122,13 @@ class CorrectnessTest extends FlatSpec with Matchers with SparkTest {
     "The variable ordering" should "not matter" in {
       // Cannot use Queries.findPattern(3, ds, false) here because I do not support smallerThanFilter for any variable ordering
       // but the global one and a, b, c and c, a, b have different results under this condition.
-      val normalVariableOrdering = cliquePattern(3, ds, useDistinctFilter = true)
+      val normalVariableOrdering = cliquePattern(3, ds, useDistinctFilter = true).cache()
       val otherVariableOrdering = ds.findPattern(
         """
           |(a) - [] -> (b);
           |(b) - [] -> (c);
           |(a) - [] -> (c)
-          |""".stripMargin, List("c", "a", "b"), distinctFilter = true)
+          |""".stripMargin, List("c", "a", "b"), distinctFilter = true).cache()
 
       val otherReordered = otherVariableOrdering.select("a", "b", "c")
 
@@ -209,4 +211,4 @@ class CorrectnessTest extends FlatSpec with Matchers with SparkTest {
       assertRDDEqual(a.rdd, e.rdd)
     }
   }
-}
+}   

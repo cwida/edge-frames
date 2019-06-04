@@ -30,17 +30,24 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
     private[this] var dstPosition = 0
 
     override def open(): Unit = {
+      assert(!isAtEnd, "open cannot be called when atEnd")
       depth += 1
 
-      if (depth == 1) {  // TODO predicatable
+      if (depth == 0) {
+        srcPosition = 0
+        if (edgeIndices(srcPosition) == edgeIndices(srcPosition + 1)) {
+          moveToNextSrcPosition()  // TODO optimize by rememebering first src position
+        }
+      } else if (depth == 1) {  // TODO predicatable
         dstPosition = edgeIndices(srcPosition)
       }
 
+      assert(!isAtEnd, "open cannot be called when atEnd")
       assert(depth < 2)
     }
 
     override def up(): Unit = {
-      assert(depth == 1)
+      assert(depth == 1 || depth == 0, s"Depth was $depth")
       depth -= 1
       isAtEnd = false
     }
@@ -72,10 +79,11 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
       assert(!atEnd)
       if (depth == 0) {
         srcPosition = key.toInt
-        if (edgeIndices(srcPosition) == edgeIndices(srcPosition + 1)) {
+        if (srcPosition < edgeIndices.length - 1 &&
+          edgeIndices(srcPosition) == edgeIndices(srcPosition + 1)) {
           moveToNextSrcPosition()
         }
-        isAtEnd = srcPosition == edgeIndices.length - 1
+        isAtEnd = srcPosition >= edgeIndices.length - 1
         isAtEnd
       } else {
         dstPosition = ArraySearch.find(edges.map(_.toLong), key, edgeIndices(srcPosition), edgeIndices(srcPosition + 1))  // TODO long
@@ -96,8 +104,21 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
     def translate(key: Int): Long = {
       verticeIDs(key)
     }
+
+    def translate(keys: Array[Int]): Array[Long] = {
+      keys.map(verticeIDs(_))  // TODO int long sort out
+      // TODO inneficient
+    }
+
   }
 
+  def translate(key: Int): Long = {
+    verticeIDs(key)
+  }
+
+  def translate(keys: Array[Int]): Array[Long] = {
+    keys.map(verticeIDs(_))
+  }
 
   override def iterator: Iterator[InternalRow] = {
     var currentSrcPosition = 0
@@ -165,6 +186,7 @@ object CSRTrieIterable {
           edgeIndicesDstBuffer.append(edgesSrcBuffer.size)
 
           verticeIDToIndex.put(lastVertice, verticeIDsBuffer.size)
+//          println(lastVertice)
 
           verticeIDsBuffer.append(lastVertice)
 
@@ -203,6 +225,5 @@ object CSRTrieIterable {
   def buildBothDirectionsFrom(srcDst: Array[(Long, Long)], dstSrc: Array[(Long, Long)]): (CSRTrieIterable, CSRTrieIterable) = {
     buildBothDirectionsFrom(srcDst.map(t => new GenericInternalRow(Array[Any](t._1, t._2))).iterator,
       dstSrc.map(t => new GenericInternalRow(Array[Any](t._1, t._2))).iterator)
-
   }
 }

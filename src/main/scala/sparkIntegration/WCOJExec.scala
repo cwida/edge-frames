@@ -1,7 +1,9 @@
 package sparkIntegration
 
+import experiments.GraphWCOJ
 import leapfrogTriejoin.TrieIterable
 import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.WCOJFunctions
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.{Attribute, AttributeSet, BaseGenericInternalRow, BoundReference, GenericInternalRow, UnsafeProjection}
 import org.apache.spark.sql.catalyst.util.{ArrayData, MapData}
@@ -9,11 +11,14 @@ import org.apache.spark.sql.execution.metric.SQLMetrics
 import org.apache.spark.sql.execution.{RowIterator, SparkPlan}
 import org.apache.spark.sql.types.{DataType, Decimal}
 import org.apache.spark.unsafe.types.{CalendarInterval, UTF8String}
+import org.slf4j.LoggerFactory
 import sparkIntegration.implicits._
 
 import scala.reflect.ClassTag
 
 case class WCOJExec(outputVariables: Seq[Attribute], joinSpecification: JoinSpecification, children: Seq[SparkPlan]) extends SparkPlan {
+  private val logger = LoggerFactory.getLogger(classOf[WCOJExec])
+
   val JOIN_TIME_METRIC = "wcoj_join_time"
   val COPY_OUTPUT_TIME_METRIC = "copy_time"
   val BEFORE_AFTER_TIME_METRIC = "before_after_time"
@@ -44,8 +49,6 @@ case class WCOJExec(outputVariables: Seq[Attribute], joinSpecification: JoinSpec
 
     // TODO ask Bogdan if we can enforce that the child needs a specific RDD type
 //    require(childRDDs.forall(_.isInstanceOf[TrieIterableRDD[TrieIterable]]))
-
-    val trieIterableRDDs = childRDDs.map(_.asInstanceOf[TrieIterableRDD[TrieIterable]].trieIterables)
 
     def zipPartitions(is : List[Iterator[TrieIterable]]): Iterator[InternalRow] = {
       val toUnsafeProjection = UnsafeProjection.create(output.zipWithIndex.map( {
@@ -90,11 +93,27 @@ case class WCOJExec(outputVariables: Seq[Attribute], joinSpecification: JoinSpec
       }
       )
     }
-
-    trieIterableRDDs match {
-      case Nil => throw new UnsupportedOperationException("Cannot join without any child.")
-      case c1 :: Nil => c1.mapPartitions(i => zipPartitions(List(i)))
-      case c1 :: c2 :: t => generalZipPartitions(c1 :: c2 :: t)(zipPartitions)
+    WCOJFunctions.getJoinAlgorithm match {
+      case experiments.WCOJ => {
+        val trieIterableRDDs = childRDDs.map(_.asInstanceOf[TrieIterableRDD[TrieIterable]].trieIterables)
+        trieIterableRDDs match {
+          case Nil => throw new UnsupportedOperationException("Cannot join without any child.")
+          case c1 :: Nil => c1.mapPartitions(i => zipPartitions(List(i)))
+          case c1 :: c2 :: t => generalZipPartitions(c1 :: c2 :: t)(zipPartitions)
+        }
+      }
+      case GraphWCOJ => {
+        require(childRDDs.size == 1, "GraphWCOJ supports only a single child RDD")
+        require(childRDDs.head.getNumPartitions == 1, "The child should have only one partition")
+        require(childRDDs.forall(_.isInstanceOf[TwoTrieIterableRDD[TrieIterable]]), "GraphWCOJ requires children to be of type " +
+          "TwoTrieIterable[TrieIterable]")
+        val trieIterablePair: RDD[(TrieIterable, TrieIterable)] = childRDDs.map(_.asInstanceOf[TwoTrieIterableRDD[TrieIterable]]
+          .trieIterables).head
+        trieIterablePair.mapPartitions(i => {
+          val singlePartition = i.next()
+          zipPartitions(List(Iterator(singlePartition._1), Iterator(singlePartition._2)))
+        })
+      }
     }
   }
 

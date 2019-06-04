@@ -125,6 +125,11 @@ class ArrayTrieIterable(iter: Iterator[InternalRow]) extends TrieIterable {
     private def updateAtEnd(): Unit = {
       isAtEnd = currentPosition >= currentEnd
     }
+
+    override def translate(keys: Array[Int]): Array[Long] = {
+      keys.map(_.toLong)
+    }
+
   }
 
   override def iterator: Iterator[InternalRow] = {

@@ -59,7 +59,8 @@ class LeapfrogTriejoin(trieIterators: Map[EdgeRelationship, TrieIterator], varia
     if (atEnd) {
       throw new IllegalStateException("Cannot call next of LeapfrogTriejoin when already at end.")
     }
-    val tuple = bindings.clone()
+    // TODO opitmize tranlator call
+    val tuple = trieIterators.values.head.translate(bindings.clone().map(_.toInt))  // TODO inefficient
     moveToNextTuple()
 
     tuple

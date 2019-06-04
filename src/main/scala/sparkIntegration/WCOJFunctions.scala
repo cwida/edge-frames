@@ -50,7 +50,7 @@ class WCOJFunctions[T](ds: Dataset[T]) {
     require((WCOJFunctions.joinAlgorithm == experiments.WCOJ
       && edges.size == children.size)
       || (WCOJFunctions.joinAlgorithm == GraphWCOJ
-      && edges.size == 2), "WCOJ needs as many children as edges in the " +
+      && children.size == 2), "WCOJ needs as many children as edges in the " +
       "pattern.")
 
     val joinSpecification = new JoinSpecification(edges, variableOrdering, WCOJFunctions.joinAlgorithm,
@@ -160,4 +160,6 @@ object WCOJFunctions {
     joinAlgorithm = a
     println(s"Setting join algorithm to $a")
   }
+
+  def getJoinAlgorithm: Algorithm = joinAlgorithm
 }

@@ -6,4 +6,6 @@ trait TrieIterator extends LinearIterator {
 
   def up(): Unit // O(log N)
 
+  def translate(keys: Array[Int]): Array[Long]
+
 }

@@ -34,7 +34,8 @@ case class ToCSRTrieIterableRDDExec(children: Seq[SparkPlan]) extends SparkPlan 
 
     new TwoTrieIterableRDD[CSRTrieIterable](children(0).execute().zipPartitions(children(1).execute())( { case (srcDstIter: Iterator[InternalRow], dstSrcIter: Iterator[InternalRow]) => {
         val start = System.nanoTime()
-        val (srcDstCSR, dstSrcCSR) = CSRTrieIterable.buildBothDirectionsFrom(srcDstIter, dstSrcIter)
+        val (srcDstCSR, dstSrcCSR) = CSRTrieIterable.buildBothDirectionsFrom(srcDstIter, dstSrcIter.map(t => InternalRow(t.getLong(1), t
+          .getLong(0))))  // TODO I don't actually need the order exchange if I rewrite the build code a bit
 
         matTime += (System.nanoTime() - start) / 1000000
         memoryUsage += srcDstCSR.memoryUsage
