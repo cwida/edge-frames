@@ -111,15 +111,6 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
 
   }
 
-  // TODO can I remove this?
-  def translate(key: Int): Long = {
-    verticeIDs(key)
-  }
-
-  def translate(keys: Array[Int]): Array[Long] = {
-    keys.map(verticeIDs(_))
-  }
-
   override def iterator: Iterator[InternalRow] = {
     var currentSrcPosition = 0
     var currentDstPosition = 0
