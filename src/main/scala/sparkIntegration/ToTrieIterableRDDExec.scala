@@ -4,6 +4,7 @@ import org.apache.spark.sql.catalyst.expressions.{Ascending, Attribute, SortOrde
 import org.apache.spark.sql.execution.metric.SQLMetrics
 import org.apache.spark.sql.execution.{SparkPlan, UnaryExecNode}
 
+// TODO remove this abstract superclass, it is not shared anymore.
 abstract class ToTrieIterableRDDExec(child: SparkPlan, attributeOrdering: Seq[String]) extends UnaryExecNode {
   val MATERIALIZATION_TIME_METRIC = "materializationTime"
   val MEMORY_USAGE_METRIC = "memoryConsumption"
