@@ -63,7 +63,8 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
         isAtEnd = srcPosition == edgeIndices.length - 1
       } else {
         dstPosition += 1
-        isAtEnd = dstPosition == edgeIndices(srcPosition + 1)  // TODO factor out
+        isAtEnd = dstPosition == edgeIndices(srcPosition + 1)  // edgeIndices(srcPosition + 1) should not be factored out, it does not
+        // look like this improves performance (looks!)
       }
     }
 
@@ -80,7 +81,7 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
         isAtEnd = srcPosition >= edgeIndices.length - 1
         isAtEnd
       } else {
-        dstPosition = ArraySearch.find(edges, key, edgeIndices(srcPosition), edgeIndices(srcPosition + 1))  // TODO long
+        dstPosition = ArraySearch.find(edges, key, dstPosition, edgeIndices(srcPosition + 1))
         isAtEnd = dstPosition == edgeIndices(srcPosition + 1)
         isAtEnd
       }
