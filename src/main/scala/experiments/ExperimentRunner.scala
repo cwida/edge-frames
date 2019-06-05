@@ -177,10 +177,8 @@ case class BinaryQueryResult(query: Query, count: Long, time: Double) extends Qu
   }
 }
 
-case class WCOJQueryResult(query: Query, count: Long, time: Double, wcojTime: Double, copyTime: Double, materializationTime: Double) extends QueryResult {
-  override def algorithm: Algorithm = {
-    WCOJ
-  }
+case class WCOJQueryResult(algorithm: Algorithm, query: Query, count: Long, time: Double, wcojTime: Double, copyTime: Double,
+                           materializationTime: Double) extends QueryResult {
 }
 
 // TODO exclude count times for Spark joins (time after the join)
@@ -309,7 +307,6 @@ object ExperimentRunner extends App {
   private def setupResultReporting(): Unit = {
     csvWriter = new CSVWriter(new BufferedWriter(new FileWriter(config.outputPath)), ',', 0)
 
-
     csvWriter.writeNext(Array(s"# Dataset: ${config.datasetType} ${ds.count()} ${config.datasetFilePath}"))
     csvWriter.writeNext(Array(s"# Repetitions: ${config.reps}"))
     csvWriter.writeNext(Array(s"# Git commit: ${BuildInfo.gitCommit}"))
@@ -326,37 +323,40 @@ object ExperimentRunner extends App {
 
     val algorithm = results.head.algorithm
     val query = results.head.query
-
-    val time = Utils.avg(results.map(_.time))
     val count = results.head.count
 
-    var wcojTime = 0.0
-    var copyTime = 0.0
-    var materializationTime = 0.0
+    for (result <- results) {
+      val time = result.time
 
-    if (results.head.algorithm == WCOJ) {
+      var wcojTime = 0.0
+      var copyTime = 0.0
+      var materializationTime = 0.0
+
+      if (Seq(GraphWCOJ, WCOJ).contains(algorithm)) {
+        val wcojResult = result.asInstanceOf[WCOJQueryResult]
+
+        wcojTime = wcojResult.wcojTime
+        copyTime = wcojResult.copyTime
+        materializationTime = wcojResult.materializationTime
+      }
+
+      csvWriter.writeNext(Array[String](query.toString,
+        algorithm.toString,
+        String.format(Locale.GERMAN, "%,013d", count.asInstanceOf[Object]),
+        String.format(Locale.US, "%.2f", time.asInstanceOf[Object]),
+        String.format(Locale.US, "%.2f", wcojTime.asInstanceOf[Object]),
+        String.format(Locale.US, "%.2f", copyTime.asInstanceOf[Object]),
+        String.format(Locale.US, "%.2f", materializationTime.asInstanceOf[Object])))
+      csvWriter.flush()
+    }
+
+    println(s"Using $algorithm, $query took ${Utils.avg(results.map(_.time))} in average over ${config.reps} repetitions (result size $count).")
+    if (Seq(GraphWCOJ, WCOJ).contains(algorithm)) {
       val wcojResults = results.map(_.asInstanceOf[WCOJQueryResult])
-
-      wcojTime = Utils.avg(wcojResults.map(_.wcojTime))
-      copyTime = Utils.avg(wcojResults.map(_.copyTime))
-      materializationTime = Utils.avg(wcojResults.map(_.materializationTime))
+      println(s"WCOJ took ${Utils.avg(wcojResults.map(_.wcojTime))}, copying took ${Utils.avg(wcojResults.map(_.copyTime))} took " +
+        s"${Utils.avg(wcojResults.map(_.materializationTime))}.")
     }
-
-    println(s"Using $algorithm, $query took $time in average over ${config.reps} repetitions (result size $count).")
-    if (results.head.algorithm == WCOJ) {
-      println(s"WCOJ took $wcojTime, copying took $copyTime took $materializationTime")
-    }
-
     println("")
-
-    csvWriter.writeNext(Array[String](query.toString,
-      if (algorithm == WCOJ) "WCOJ" else "sbin",
-      String.format(Locale.GERMAN, "%,013d", count.asInstanceOf[Object]),
-      String.format(Locale.US, "%.2f", time.asInstanceOf[Object]),
-      String.format(Locale.US, "%.2f", wcojTime.asInstanceOf[Object]),
-      String.format(Locale.US, "%.2f", copyTime.asInstanceOf[Object]),
-      String.format(Locale.US, "%.2f", materializationTime.asInstanceOf[Object])))
-    csvWriter.flush()
   }
 
   private def runQueries() = {
@@ -429,10 +429,10 @@ object ExperimentRunner extends App {
         val count = queryDataFrame.count()
         val end = System.nanoTime()
         val time = (end - start).toDouble / 1000000000
-        //        println(s"$algoritm $count")
+
         algoritm match {
           case WCOJ | GraphWCOJ => {
-            results += WCOJQueryResult(query, count, time, wcojTimes.head, copyTimes.head, materializationTimes.head)
+            results += WCOJQueryResult(algoritm, query, count, time, wcojTimes.head, copyTimes.head, materializationTimes.head)
           }
           case BinaryJoins => {
             results += BinaryQueryResult(query, count, time)
