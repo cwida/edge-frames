@@ -133,20 +133,51 @@ case object TwitterSnapEgo extends DatasetType {
 case object GoogleWeb extends DatasetType {
 }
 
-// TODO Rename queries to match text names
-sealed trait Query
+sealed trait Query {
+  def name: String
 
-case class Clique(size: Int) extends Query
+  override def toString: String = {
+    name
+  }
+}
 
-case class Cycle(size: Int) extends Query
+case class Clique(size: Int) extends Query {
+  override def name: String = {
+    s"$size-clique"
+  }
+}
 
-case class PathQuery(size: Int, selectivity: Double) extends Query
+case class Cycle(size: Int) extends Query {
 
-case class DiamondQuery() extends Query
+  override def name: String = {
+    s"$size-cycle"
+  }
 
-case class HouseQuery() extends Query
+}
 
-case class KiteQuery() extends Query
+case class PathQuery(size: Int, selectivity: Double) extends Query {
+  override def name: String = {
+    s"$size-${"%.2f".format(selectivity)}-path"
+  }
+}
+
+case class DiamondQuery() extends Query {
+  override def name: String = {
+    "diamond"
+  }
+}
+
+case class HouseQuery() extends Query {
+  override def name: String = {
+    "house"
+  }
+}
+
+case class KiteQuery() extends Query {
+  override def name: String = {
+    "kite"
+  }
+}
 
 
 case class ExperimentConfig(
@@ -183,7 +214,7 @@ case class WCOJQueryResult(algorithm: Algorithm, query: Query, count: Long, time
 
 // TODO exclude count times for Spark joins (time after the join)
 object ExperimentRunner extends App {
- // TODO record every run for error bars and variance.
+  // TODO record every run for error bars and variance.
   val f = new Formatter(Locale.US)
   val formatter = NumberFormat.getInstance(Locale.US).asInstanceOf[DecimalFormat]
   val symbols = formatter.getDecimalFormatSymbols
@@ -264,7 +295,7 @@ object ExperimentRunner extends App {
       .set("spark.cores.max", "1")
       .set("spark.sql.autoBroadcastJoinThreshold", "104857600") // High threshold
     //          .set("spark.sql.autoBroadcastJoinThreshold", "-1")  // No broadcast
-//          .set("spark.sql.codegen.wholeStage", "false")
+    //          .set("spark.sql.codegen.wholeStage", "false")
     val spark = SparkSession.builder()
       .config(conf)
       .getOrCreate()
