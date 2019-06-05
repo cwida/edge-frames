@@ -1,0 +1,7 @@
+# Dataset: TwitterSnapEgo 2420744 /home/per/workspace/master-thesis/datasets/snap-twitter-ego-combined
+# Repetitions: 1
+# Comment: 
+Query,Algorithm,Count,Time,WCOJTime,copy,mat
+Clique(3),WCOJ,00004.403.014,11.99,3.46,0.14,7.75
+Clique(4),WCOJ,00019.139.081,55.49,38.24,0.70,14.92
+Cycle(4),WCOJ,00051.346.996,90.12,74.05,1.78,10.93

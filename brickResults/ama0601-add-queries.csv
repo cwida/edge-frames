@@ -1,0 +1,13 @@
+# Dataset: AmazonCoPurchase 3387388 file:///scratch/per/datasets/amazon-0601
+# Repetitions: 3
+# Git commit: 1b08e713e4e253460fe4fd3123d3c4f5aa4500c6
+# Comment: 
+Query,Algorithm,Count,Time,WCOJTime,copy,mat
+HouseQuery(),WCOJ,00177.745.510,94.00,57.37,7.52,15.93
+HouseQuery(),sbin,00177.745.510,66.53,0.00,0.00,0.00
+KiteQuery(),WCOJ,00003.672.375,21.84,5.40,0.15,15.78
+KiteQuery(),sbin,00003.672.375,13.67,0.00,0.00,0.00
+PathQuery(3,0.001),WCOJ,000000098.929,2.87,0.07,0.00,2.30
+PathQuery(3,0.001),sbin,000000098.929,2.31,0.00,0.00,0.00
+PathQuery(4,0.001),WCOJ,000000922.888,5.31,0.52,0.04,4.21
+PathQuery(4,0.001),sbin,000000922.888,5.61,0.00,0.00,0.00

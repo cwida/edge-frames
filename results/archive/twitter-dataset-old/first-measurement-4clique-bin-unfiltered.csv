@@ -1,0 +1,7 @@
+"Query","Algorithm","Time","WCOJTime","copy","mat"
+"Clique(3)","BinaryJoins","42,10","0,00","0,00","0,00"
+"Clique(3)","WCOJ","10,07","5,23","0,39","3,50"
+"Clique(4)","BinaryJoins","903,34","0,00","0,00","0,00"
+"Clique(4)","WCOJ","114,83","97,00","3,99","7,14"
+
+# Dataset: twitter, undirected, pre-sorted, filter a < b < c < d... (except for 4-clique and bin),

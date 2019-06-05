@@ -1,0 +1,7 @@
+"Query","Algorithm","Count","Time","WCOJTime","copy","mat"
+"Clique(3)","BinaryJoins","188705","1,94","0,00","0,00","0,00"
+"Clique(4)","BinaryJoins","47824","2,35","0,00","0,00","0,00"
+"Clique(5)","BinaryJoins","7064","2,79","0,00","0,00","0,00"
+"Cycle(4)","BinaryJoins","3076324","3,16","0,00","0,00","0,00"
+"Cycle(5)","BinaryJoins","6389425","7,80","0,00","0,00","0,00"
+"Cycle(6)","BinaryJoins","11682732","20,67","0,00","0,00","0,00"

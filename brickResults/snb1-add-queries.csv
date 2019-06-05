@@ -1,0 +1,13 @@
+# Dataset: SNB 453030 file:///scratch/per/datasets/snb1
+# Repetitions: 3
+# Git commit: 1b08e713e4e253460fe4fd3123d3c4f5aa4500c6
+# Comment: 
+Query,Algorithm,Count,Time,WCOJTime,copy,mat
+HouseQuery(),WCOJ,00100.206.468,99.45,85.18,3.99,2.59
+HouseQuery(),sbin,00100.206.468,300.13,0.00,0.00,0.00
+KiteQuery(),WCOJ,00001.780.235,5.05,2.45,0.07,2.13
+KiteQuery(),sbin,00001.780.235,21.59,0.00,0.00,0.00
+PathQuery(3,0.001),WCOJ,00065.290.479,14.47,6.05,2.71,0.57
+PathQuery(3,0.001),sbin,00065.290.479,1.76,0.00,0.00,0.00
+PathQuery(4,0.001),WCOJ,7.235.522.926,1462.70,655.52,292.51,0.76
+PathQuery(4,0.001),sbin,7.235.522.926,111.73,0.00,0.00,0.00

@@ -1,0 +1,7 @@
+# Dataset: AmazonCoPurchase 3387388 file:///scratch/per/datasets/amazon-0601
+# Repetitions: 3
+# Git commit: c4211e149428d1e36d2290d102bd1193f7d55bff
+# Comment: 
+Query,Algorithm,Count,Time,WCOJTime,copy,mat
+Cycle(6),WCOJ,1.484.438.088,1060.45,872.62,64.73,18.39
+Cycle(6),sbin,1.484.438.088,2020.04,0.00,0.00,0.00
