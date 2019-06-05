@@ -88,7 +88,7 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
     }
 
     private def moveToNextSrcPosition(): Unit = {
-      var indexToSearch = edgeIndices(srcPosition + 1) // TODO linear search is best? or galloping or binary?
+      var indexToSearch = edgeIndices(srcPosition + 1) // A linear search is ideal, see log 05.06
 
       do {
         srcPosition += 1
