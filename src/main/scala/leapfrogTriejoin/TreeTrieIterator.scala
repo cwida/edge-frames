@@ -78,4 +78,14 @@ class TreeTrieIterator(val values: Array[(Long, Long)]) extends TrieIterator {
   override def translate(keys: Array[Long]): Array[Long] = {
     keys
   }
+
+  override def estimateSize: Int = {
+    -1
+  }
+
+  override def min: Int = {
+    ???
+  }
+
+  override def max: Int = ???
 }

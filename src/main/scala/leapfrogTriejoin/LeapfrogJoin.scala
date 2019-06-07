@@ -16,11 +16,13 @@ class LeapfrogJoin(var iterators: Array[LinearIterator]) {
     key = -1
 
     if (!atEnd) {
+//      println(iterators.map(_.estimateSize).mkString(", "))
       sortIterators()
       if (!atEnd && key == -1) {
         leapfrogSearch()
       }
     }
+//    println(atEnd)
   }
 
   @inline

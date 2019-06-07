@@ -27,14 +27,18 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
 
     private[this] var dstPosition = 0
 
+    private[this] var keyValue = 0L
+
     override def open(): Unit = {
       assert(!isAtEnd, "open cannot be called when atEnd")
       depth += 1
 
       if (depth == 0) {
         srcPosition = firstSourcePosition
+        keyValue = srcPosition.toLong
       } else if (depth == 1) {  // TODO predicatable
         dstPosition = edgeIndices(srcPosition)
+        keyValue = edges(dstPosition)
       }
 
       assert(!isAtEnd, "open cannot be called when atEnd")
@@ -45,15 +49,13 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
       assert(depth == 1 || depth == 0, s"Depth was $depth")
       depth -= 1
       isAtEnd = false
+      if (depth == 0) {
+        keyValue = srcPosition
+      }
     }
 
     override def key: Long = {
-      assert(depth == 0 || depth == 1, "Wrong key call")
-      if (depth == 0) {  // TODO faster to always update?
-        srcPosition.toLong
-      } else {
-        edges(dstPosition)
-      }
+     keyValue
     }
 
     override def next(): Unit = {
@@ -61,10 +63,14 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
       if (depth == 0) {
         moveToNextSrcPosition()
         isAtEnd = srcPosition == edgeIndices.length - 1
+        keyValue = srcPosition.toLong
       } else {
         dstPosition += 1
         isAtEnd = dstPosition == edgeIndices(srcPosition + 1)  // edgeIndices(srcPosition + 1) should not be factored out, it does not
         // look like this improves performance (looks!)
+        if (!isAtEnd) {
+          keyValue = edges(dstPosition)
+        }
       }
     }
 
@@ -79,10 +85,14 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
           moveToNextSrcPosition()
         }
         isAtEnd = srcPosition >= edgeIndices.length - 1
+        this.keyValue = srcPosition.toLong
         isAtEnd
       } else {
         dstPosition = ArraySearch.find(edges, key, dstPosition, edgeIndices(srcPosition + 1))
         isAtEnd = dstPosition == edgeIndices(srcPosition + 1)
+        if (!isAtEnd) {
+          this.keyValue = edges(dstPosition)
+        }
         isAtEnd
       }
     }
@@ -109,6 +119,32 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
       keys
     }
 
+    override def estimateSize: Int = {
+      if (depth == 0) {
+        -1
+      } else {
+        edgeIndices(srcPosition + 1) - edgeIndices(srcPosition)
+      }
+    }
+
+    override def min: Int = {
+      if (depth == 0) {
+        0
+      } else {
+        edges(edgeIndices(srcPosition)).toInt
+      }
+    }
+
+    override def max: Int = if (depth == 0) {
+      verticeIDs.length - 1
+    } else {
+      if (srcPosition + 1 != verticeIDs.length) {
+        edges(edgeIndices(srcPosition + 1) - 1).toInt
+      } else {
+        Integer.MAX_VALUE
+      }
+
+    }
   }
 
   override def iterator: Iterator[InternalRow] = {

@@ -13,4 +13,10 @@ trait LinearIterator {
 
   def seek(key: Long): Boolean  // O(log N)
 
+  def estimateSize: Int
+
+  def min: Int
+
+  def max: Int
+
 }
