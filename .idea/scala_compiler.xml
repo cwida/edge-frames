@@ -11,6 +11,7 @@
       <option name="uncheckedWarnings" value="true" />
       <parameters>
         <parameter value="-optimize" />
+        <parameter value="-Xdisable-assertions" />
       </parameters>
     </profile>
   </component>
