@@ -1,0 +1,21 @@
+# Dataset: SNB 453030 /home/per/workspace/master-thesis/datasets/snb1
+# Repetitions: 5
+# Git commit: 27781f1afc6ad90fd39552e853eba06f05770436
+# Comment: 
+Query,Algorithm,Count,Time,WCOJTime,copy,mat
+3-clique,GraphWCOJ,000000540.225,2.27,0.54,0.02,1.25
+3-clique,GraphWCOJ,000000540.225,1.60,0.55,0.02,0.83
+3-clique,GraphWCOJ,000000540.225,1.29,0.54,0.02,0.55
+3-clique,GraphWCOJ,000000540.225,1.12,0.45,0.02,0.50
+3-clique,GraphWCOJ,000000540.225,1.21,0.49,0.02,0.54
+5-clique,GraphWCOJ,000000040.137,3.12,2.39,0.00,0.58
+5-clique,GraphWCOJ,000000040.137,3.17,2.45,0.00,0.58
+5-clique,GraphWCOJ,000000040.137,3.14,2.47,0.00,0.55
+5-clique,GraphWCOJ,000000040.137,3.00,2.39,0.00,0.48
+5-clique,GraphWCOJ,000000040.137,2.86,2.21,0.00,0.54
+#Using GraphWCOJ, 3-clique took 1.4969512796 in average over 5 repetitions (result size 540225).
+#WCOJ took 0.513, copying took 0.0184 took 0.7354.
+#Setting join algorithm to GraphWCOJ
+#.....
+#sing GraphWCOJ, 5-clique took 3.057931638 in average over 5 repetitions (result size 40137).
+#COJ took 2.3802, copying took 4.0E-4 took 0.5458000000000001.
