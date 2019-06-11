@@ -18,7 +18,7 @@ class MaterializingLeapfrogJoin(var iterators: Array[LinearIterator]) extends Le
   private[this] var firstLevelIterators: Array[LinearIterator] = null
   private[this] var secondLevelIterators: Array[LinearIterator] = null
 
-  private[this] var materializedValues: Array[Long] = null
+  private[this] var materializedValues: Array[Long] = new Array[Long](200)
 
   private[this] var position = 0
 
@@ -28,7 +28,6 @@ class MaterializingLeapfrogJoin(var iterators: Array[LinearIterator]) extends Le
     if (!initialized) {
       firstLevelIterators = iterators.filter(_.getDepth == 0)
       secondLevelIterators = iterators.filter(_.getDepth == 1)
-//      println("init", secondLevelIteraors.length)
       initialized = true
 
       if (secondLevelIterators.length == 0 || !shouldMaterialize) {
@@ -58,11 +57,17 @@ class MaterializingLeapfrogJoin(var iterators: Array[LinearIterator]) extends Le
   }
 
   private def materialize(): Unit = {
-    materializedValues = new Array[Long](secondLevelIterators(0).estimateSize + 1)
     if (secondLevelIterators.length == 1) {
+      if (materializedValues.length < secondLevelIterators(0).estimateSize + 1) {
+        materializedValues = new Array[Long](secondLevelIterators(0).estimateSize + 1)
+      }
       materializeSingleIterator(secondLevelIterators(0))
     } else {
       moveSmallestIteratorFirst()
+      if (materializedValues.length < secondLevelIterators(0).estimateSize + 1) {
+        materializedValues = new Array[Long](secondLevelIterators(0).estimateSize + 1)
+      }
+
       intersect(secondLevelIterators(0), secondLevelIterators(1))
 
       var i = 2
@@ -97,7 +102,7 @@ class MaterializingLeapfrogJoin(var iterators: Array[LinearIterator]) extends Le
     var i = 0
     while (!iter.atEnd) {
       materializedValues(i) = iter.key
-      iter.next() // TODO optimize such that next returns boolean
+      iter.next()
       i += 1
     }
     materializedValues(i) = -1
@@ -108,8 +113,6 @@ class MaterializingLeapfrogJoin(var iterators: Array[LinearIterator]) extends Le
   private def intersect(i1: LinearIterator, i2: LinearIterator): Unit = {
     var valueCounter = 0
     while (!i1.atEnd && !i2.atEnd) {
-      //      println("here4")
-
       if (i1.key == i2.key) {
         materializedValues(valueCounter) = i1.key
         valueCounter += 1
@@ -203,9 +206,10 @@ class MaterializingLeapfrogJoin(var iterators: Array[LinearIterator]) extends Le
     var i = 0
     var in = true
     while (!isAtEnd && i < firstLevelIterators.length) {
-      isAtEnd = firstLevelIterators(i).seek(value)
-      if (!isAtEnd) {
+      if (!firstLevelIterators(i).seek(value)) {  // TODO can i optimize that for the case that it is nearly always true?
         in &= firstLevelIterators(i).key == value
+      } else {
+        isAtEnd = true
       }
       i += 1
     }
