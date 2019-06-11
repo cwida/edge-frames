@@ -1,0 +1,17 @@
+# Dataset: AmazonCoPurchase 1234877 /home/per/workspace/master-thesis/datasets/amazon-0302
+# Repetitions: 5
+# Git commit: 7a5b98920de0579a93d0c7e30932531713888293
+# Comment: 
+Query,Algorithm,Count,Time,WCOJTime,copy,mat
+3-clique,GraphWCOJ,000000188.705,3.00,0.31,0.01,2.25
+3-clique,GraphWCOJ,000000188.705,2.42,0.24,0.01,1.95
+3-clique,GraphWCOJ,000000188.705,2.04,0.13,0.01,1.76
+3-clique,GraphWCOJ,000000188.705,2.07,0.13,0.01,1.76
+3-clique,GraphWCOJ,000000188.705,2.15,0.13,0.00,1.89
+5-clique,GraphWCOJ,000000007.064,2.81,0.26,0.00,2.37
+5-clique,GraphWCOJ,000000007.064,2.13,0.20,-0.00,1.80
+5-clique,GraphWCOJ,000000007.064,2.12,0.22,-0.00,1.79
+5-clique,GraphWCOJ,000000007.064,2.09,0.20,-0.00,1.78
+5-clique,GraphWCOJ,000000007.064,2.18,0.20,-0.00,1.86
+# clique-3 average 0.18
+# clique-5 0.21
