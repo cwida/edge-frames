@@ -16,7 +16,7 @@ class MaterializingLeapfrogJoin(var iterators: Array[LinearIterator]) extends Le
   private[this] var initialized = false
 
   private[this] var firstLevelIterators: Array[LinearIterator] = null
-  private[this] var secondLevelIteraors: Array[LinearIterator] = null
+  private[this] var secondLevelIterators: Array[LinearIterator] = null
 
   private[this] var materializedValues: Array[Long] = null
 
@@ -27,16 +27,16 @@ class MaterializingLeapfrogJoin(var iterators: Array[LinearIterator]) extends Le
   def init(): Unit = {
     if (!initialized) {
       firstLevelIterators = iterators.filter(_.getDepth == 0)
-      secondLevelIteraors = iterators.filter(_.getDepth == 1)
+      secondLevelIterators = iterators.filter(_.getDepth == 1)
 //      println("init", secondLevelIteraors.length)
       initialized = true
 
-      if (secondLevelIteraors.length == 0 || !shouldMaterialize) {
+      if (secondLevelIterators.length == 0 || !shouldMaterialize) {
         fallback = new LeapfrogJoin(iterators)
       }
     }
 
-    if (secondLevelIteraors.length == 0 || !shouldMaterialize) {
+    if (secondLevelIterators.length == 0 || !shouldMaterialize) {
       fallback.init()
       isAtEnd = fallback.atEnd
       if (!isAtEnd) {
@@ -58,19 +58,39 @@ class MaterializingLeapfrogJoin(var iterators: Array[LinearIterator]) extends Le
   }
 
   private def materialize(): Unit = {
-    materializedValues = new Array[Long](secondLevelIteraors(0).estimateSize + 1)
-    if (secondLevelIteraors.length == 1) {
-      materializeSingleIterator(secondLevelIteraors(0))
+    materializedValues = new Array[Long](secondLevelIterators(0).estimateSize + 1)
+    if (secondLevelIterators.length == 1) {
+      materializeSingleIterator(secondLevelIterators(0))
     } else {
-      intersect(secondLevelIteraors(0), secondLevelIteraors(1))
+      moveSmallestIteratorFirst()
+      intersect(secondLevelIterators(0), secondLevelIterators(1))
 
       var i = 2
-      while (i < secondLevelIteraors.length) {
-        intersect(secondLevelIteraors(i))
+      while (i < secondLevelIterators.length) {
+        intersect(secondLevelIterators(i))
         i += 1
       }
     }
     isAtEnd = materializedValues(0) == -1
+  }
+
+  @inline
+  private def moveSmallestIteratorFirst(): Unit = {
+    var i = 0
+    var smallestSize = Integer.MAX_VALUE
+    var smallestPosition = 0
+    while (i < secondLevelIterators.length) {
+      val size = secondLevelIterators(i).estimateSize
+      if (size < smallestSize) {
+        smallestSize = size
+        smallestPosition = i
+      }
+      i += 1
+    }
+
+    val temp = secondLevelIterators(0)
+    secondLevelIterators(0) = secondLevelIterators(smallestPosition)
+    secondLevelIterators(smallestPosition) = temp
   }
 
   private def materializeSingleIterator(iter: LinearIterator): Unit = {
