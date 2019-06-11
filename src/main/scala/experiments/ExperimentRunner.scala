@@ -16,6 +16,8 @@ import java.text.DecimalFormatSymbols
 import java.text.NumberFormat
 import java.util.{Formatter, Locale}
 
+import leapfrogTriejoin.MaterializingLeapfrogJoin
+
 import scala.collection.mutable.ListBuffer
 
 object Readers {
@@ -188,7 +190,8 @@ case class ExperimentConfig(
                              outputPath: File = new File("."),
                              reps: Int = 1,
                              limitDataset: Int = -1,
-                             comment: String = ""
+                             comment: String = "",
+                             materializeLeapfrogs: Boolean = true
                            )
 
 
@@ -239,6 +242,8 @@ object ExperimentRunner extends App {
 
   setupResultReporting()
 
+  MaterializingLeapfrogJoin.setShouldMaterialize(config.materializeLeapfrogs)
+
   runQueries()
 
   scala.io.StdIn.readLine("Stop?")
@@ -280,7 +285,10 @@ object ExperimentRunner extends App {
           .action((x, c) => c.copy(reps = x)),
         opt[String]('c', "comment")
           .optional()
-          .action((x, c) => c.copy(comment = x))
+          .action((x, c) => c.copy(comment = x)),
+        opt[Boolean]('m', "materializeLeapfrogs")
+          .optional()
+          .action((x, c) => c.copy(materializeLeapfrogs = x))
       )
     }
     OParser.parse(parser1, args, ExperimentConfig())

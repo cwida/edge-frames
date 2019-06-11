@@ -3,7 +3,6 @@ package leapfrogTriejoin
 import scala.collection.mutable
 
 class MaterializingLeapfrogJoin(var iterators: Array[LinearIterator]) extends LeapfrogJoinInterface {
-  var shouldMaterialize = true
   private[this] val DELETED_VALUE = -2
 
   if (iterators.isEmpty) {
@@ -30,12 +29,12 @@ class MaterializingLeapfrogJoin(var iterators: Array[LinearIterator]) extends Le
       secondLevelIterators = iterators.filter(_.getDepth == 1)
       initialized = true
 
-      if (secondLevelIterators.length == 0 || !shouldMaterialize) {
+      if (secondLevelIterators.length == 0 || !MaterializingLeapfrogJoin.shouldMaterialize) {
         fallback = new LeapfrogJoin(iterators)
       }
     }
 
-    if (secondLevelIterators.length == 0 || !shouldMaterialize) {
+    if (secondLevelIterators.length == 0 || !MaterializingLeapfrogJoin.shouldMaterialize) {
       fallback.init()
       isAtEnd = fallback.atEnd
       if (!isAtEnd) {
@@ -219,4 +218,18 @@ class MaterializingLeapfrogJoin(var iterators: Array[LinearIterator]) extends Le
   override def key: Long = keyValue
 
   override def atEnd: Boolean = isAtEnd
+}
+
+object MaterializingLeapfrogJoin {
+  private var shouldMaterialize = true
+
+  def setShouldMaterialize(value: Boolean): Unit ={
+    if (value) {
+      println("Using materializing Leapfrogjoins")
+    } else {
+      println("Not using materializing Leapfrogjoins")
+    }
+    shouldMaterialize = value
+  }
+
 }
