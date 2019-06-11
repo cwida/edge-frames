@@ -3,12 +3,15 @@ package leapfrogTriejoin
 import scala.collection.mutable
 
 class MaterializingLeapfrogJoin(var iterators: Array[LinearIterator]) extends LeapfrogJoinInterface {
+  var shouldMaterialize = true
+  private[this] val DELETED_VALUE = -2
+
   if (iterators.isEmpty) {
     throw new IllegalArgumentException("iterators cannot be empty")
   }
 
-  var atEnd: Boolean = false
-  var key = 0L
+  private[this] var isAtEnd: Boolean = false
+  private[this] var keyValue = 0L
 
   private[this] var initialized = false
 
@@ -25,29 +28,29 @@ class MaterializingLeapfrogJoin(var iterators: Array[LinearIterator]) extends Le
     if (!initialized) {
       firstLevelIterators = iterators.filter(_.getDepth == 0)
       secondLevelIteraors = iterators.filter(_.getDepth == 1)
-      println("init", secondLevelIteraors.length)
+//      println("init", secondLevelIteraors.length)
       initialized = true
 
-      if (secondLevelIteraors.length == 0) {
+      if (secondLevelIteraors.length == 0 || !shouldMaterialize) {
         fallback = new LeapfrogJoin(iterators)
       }
     }
 
-    if (secondLevelIteraors.length == 0) {
+    if (secondLevelIteraors.length == 0 || !shouldMaterialize) {
       fallback.init()
-      atEnd = fallback.atEnd
-      if (!atEnd) {
-        key = fallback.key
+      isAtEnd = fallback.atEnd
+      if (!isAtEnd) {
+        keyValue = fallback.key
       }
     } else {
       iteratorAtEndExists()
 
-      key = -1
+      keyValue = -1
 
-      if (!atEnd) {
+      if (!isAtEnd) {
         materialize()
         position = -1
-        if (!atEnd) {
+        if (!isAtEnd) {
           leapfrogNext()
         }
       }
@@ -55,9 +58,9 @@ class MaterializingLeapfrogJoin(var iterators: Array[LinearIterator]) extends Le
   }
 
   private def materialize(): Unit = {
-    materializedValues = new Array[Long](secondLevelIteraors.head.estimateSize + 1)
+    materializedValues = new Array[Long](secondLevelIteraors(0).estimateSize + 1)
     if (secondLevelIteraors.length == 1) {
-      materializeSingleIterator(secondLevelIteraors.head)
+      materializeSingleIterator(secondLevelIteraors(0))
     } else {
       intersect(secondLevelIteraors(0), secondLevelIteraors(1))
 
@@ -67,12 +70,7 @@ class MaterializingLeapfrogJoin(var iterators: Array[LinearIterator]) extends Le
         i += 1
       }
     }
-    atEnd = materializedValues.head == -1
-
-
-    val withoutEnd = materializedValues.takeWhile(_ != -1).toArray
-    assert(Set(withoutEnd).size == withoutEnd.size, s"mat is not a set $withoutEnd")
-    //    println(materializedValues.mkString(", "))
+    isAtEnd = materializedValues(0) == -1
   }
 
   private def materializeSingleIterator(iter: LinearIterator): Unit = {
@@ -83,7 +81,6 @@ class MaterializingLeapfrogJoin(var iterators: Array[LinearIterator]) extends Le
       i += 1
     }
     materializedValues(i) = -1
-
   }
 
   // TODO reused of intersection! see print of mat after first and second intersection
@@ -91,7 +88,7 @@ class MaterializingLeapfrogJoin(var iterators: Array[LinearIterator]) extends Le
   private def intersect(i1: LinearIterator, i2: LinearIterator): Unit = {
     var valueCounter = 0
     while (!i1.atEnd && !i2.atEnd) {
-//      println("here4")
+      //      println("here4")
 
       if (i1.key == i2.key) {
         materializedValues(valueCounter) = i1.key
@@ -105,47 +102,55 @@ class MaterializingLeapfrogJoin(var iterators: Array[LinearIterator]) extends Le
       }
     }
     materializedValues(valueCounter) = -1
-//    if (secondLevelIteraors.length == 3) {
-//      println("mat 1", materializedValues.mkString(", "))
-//    }
   }
 
-  private def intersect(iter: LinearIterator): Unit = {  // TODO optimizable?
-    var i = 0
-//    while (materializedValues(i) != -1 && !iter.seek(materializedValues(i))) {
-//      //      println("here3")
-//
-//      if (iter.key != materializedValues(i)) {
-//        var j = i // TODO inneficient???
-//        do {
-//          materializedValues(j) = materializedValues(j + 1)
-//          j += 1
-//        } while (materializedValues(j) != -1)
-//      } else {
-//        i += 1
-//      }
+  private def intersect(iter: LinearIterator): Unit = { // TODO optimizable?
+
+//    val buffer = mutable.Buffer[Long]()
+//    val clone = iter.clone()
+//    while (!clone.atEnd) {
+//      buffer.append(clone.key)
+//      clone.next()
 //    }
+//    val expected = materializedValues.intersect(buffer)
 
-    // TODO inneficient
+//    val before = new Array[Long](materializedValues.length)
+//    materializedValues.copyToArray(before)
 
-    val buffer = mutable.Buffer[Long]()
-    while (!iter.atEnd) {
-      buffer.append(iter.key)
-      iter.next()
+    var i = 0
+    var value = materializedValues(i)
+    while (value != -1 && !iter.atEnd) {
+      if (value != DELETED_VALUE) {
+        iter.seek(value)
+        if (iter.key != value) {
+          materializedValues(i) = DELETED_VALUE
+        }
+      }
+      i += 1
+      value = materializedValues(i)
     }
-    materializedValues = materializedValues.intersect(buffer) ++ Seq(-1L)
 
-//    println("mat 2", materializedValues.mkString(", "))
+    while (materializedValues(i) != -1) {
+      materializedValues(i) = DELETED_VALUE
+      i += 1
+    }
+
+
+//    if (!(materializedValues.filter(_ != DELETED_VALUE).takeWhile(_ != -1) sameElements expected)) {
+//      println("is", materializedValues.mkString(", "), "but should be", expected.mkString(", ") )
+//      println("before", before.mkString(", "))
+//      println("buffer", buffer.mkString(", "))
+//    }
 
   }
 
   @inline
   private def iteratorAtEndExists(): Unit = {
-    atEnd = false
+    isAtEnd = false
     var i = 0
     while (i < iterators.length) {
       if (iterators(i).atEnd) {
-        atEnd = true
+        isAtEnd = true
       }
       i += 1
     }
@@ -154,41 +159,40 @@ class MaterializingLeapfrogJoin(var iterators: Array[LinearIterator]) extends Le
   def leapfrogNext(): Unit = {
     if (fallback == null) {
       var found = false
-      do  {
-//        println("here")
-        position += 1  // TODO moves position even though value was found
-        found |= filterAgainstFirstLevelIterators(materializedValues(position))
-      } while (!found && !atEnd)
 
-      key = materializedValues(position)
+      do {
+        position += 1
+        keyValue = materializedValues(position)
+        if (keyValue >= 0) {
+          found |= filterAgainstFirstLevelIterators(keyValue)
+        } else if (keyValue == -1) {
+          isAtEnd = true
+        }
+      } while (!found && !isAtEnd)
     } else {
       fallback.leapfrogNext()
-      atEnd = fallback.atEnd
-      if (!atEnd) {
-        key = fallback.key
+      isAtEnd = fallback.atEnd
+      if (!isAtEnd) {
+        keyValue = fallback.key
       }
     }
   }
 
   @inline
   private def filterAgainstFirstLevelIterators(value: Long): Boolean = {
-    if (value != -1) {  // TODO get rid of this if
-      var i = 0
-      var in = true
-      while (!atEnd && i < firstLevelIterators.length) {
-//        println("here1")
-
-        atEnd = firstLevelIterators(i).seek(value)
-        if (!atEnd) {
-          in &= firstLevelIterators(i).key == value
-        }
-        i += 1
+    var i = 0
+    var in = true
+    while (!isAtEnd && i < firstLevelIterators.length) {
+      isAtEnd = firstLevelIterators(i).seek(value)
+      if (!isAtEnd) {
+        in &= firstLevelIterators(i).key == value
       }
-      in
-    } else {
-      atEnd = true
-      false
+      i += 1
     }
+    in
   }
 
+  override def key: Long = keyValue
+
+  override def atEnd: Boolean = isAtEnd
 }

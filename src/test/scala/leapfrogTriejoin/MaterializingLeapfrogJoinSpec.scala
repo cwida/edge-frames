@@ -6,7 +6,7 @@ import org.scalatest.{FlatSpec, Matchers}
 
 import scala.collection.mutable
 
-class MaterializingMaterializingLeapfrogJoinSpec extends FlatSpec with GeneratorDrivenPropertyChecks with Matchers {
+class MaterializingLeapfrogJoinSpec extends FlatSpec with GeneratorDrivenPropertyChecks with Matchers {
 
   def assertJoinEqual(join: MaterializingLeapfrogJoin, values: Seq[Long], translator: TrieIterator) = {
     val buffer = mutable.Buffer[Long]()
