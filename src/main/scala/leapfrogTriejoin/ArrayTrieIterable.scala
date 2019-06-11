@@ -140,6 +140,12 @@ class ArrayTrieIterable(iter: Iterator[InternalRow]) extends TrieIterable {
     }
 
     override def max: Int = ???
+
+    override def clone(): LinearIterator = ???
+
+    override def getDepth: Int = {
+      ???
+    }
   }
 
   override def iterator: Iterator[InternalRow] = {

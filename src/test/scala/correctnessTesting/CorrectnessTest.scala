@@ -25,9 +25,9 @@ class CorrectnessTest extends FlatSpec with Matchers with SparkTest {
 
     if (!(aExtrasEmpty && eExtrasEmpty)) {
       println("actual contains following extra rows: ")
-      Utils.printSeqRDD(50, a.map(r => r.toSeq))
+      Utils.printSeqRDD(50, aExtras.map(r => r.toSeq))
       println("expected contains following extra rows: ")
-      Utils.printSeqRDD(50, e.map(r => r.toSeq))
+      Utils.printSeqRDD(50, eExtras.map(r => r.toSeq))
     }
 
     aExtrasEmpty should be(true)

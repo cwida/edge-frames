@@ -88,4 +88,10 @@ class TreeTrieIterator(val values: Array[(Long, Long)]) extends TrieIterator {
   }
 
   override def max: Int = ???
+
+  override def clone(): LinearIterator = ???
+
+  override def getDepth: Int = {
+    ???
+  }
 }

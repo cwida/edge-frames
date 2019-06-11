@@ -15,19 +15,31 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
   }
 
   class TrieIteratorImpl() extends TrieIterator {
-    private[this] var isAtEnd = verticeIDs.length == 0
+    override def clone(): LinearIterator = {
+      val c = new TrieIteratorImpl()
+      c.isAtEnd = this.isAtEnd
+      c.depth = this.depth
+      c.srcPosition = this.srcPosition
+      c.dstPosition = this.dstPosition
+      c.keyValue = this.keyValue
+      c
+    }
 
-    private[this] var depth = -1
+    // TODO make private this again
 
-    private[this] var srcPosition = 0
+    private var isAtEnd = verticeIDs.length == 0
+
+    private var depth = -1
+
+    private var srcPosition = 0
     if (!isAtEnd && edgeIndices(srcPosition) == edgeIndices(srcPosition + 1)) {
       moveToNextSrcPosition()
     }
-    private[this] val firstSourcePosition = srcPosition
+    private val firstSourcePosition = srcPosition
 
-    private[this] var dstPosition = 0
+    private var dstPosition = 0
 
-    private[this] var keyValue = 0L
+    private var keyValue = 0L
 
     override def open(): Unit = {
       assert(!isAtEnd, "open cannot be called when atEnd")
@@ -144,6 +156,10 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
         Integer.MAX_VALUE
       }
 
+    }
+
+    override def getDepth: Int = {
+      depth
     }
   }
 

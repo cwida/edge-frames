@@ -19,4 +19,9 @@ trait LinearIterator {
 
   def max: Int
 
+  override def clone(): LinearIterator = ???
+
+  def getDepth: Int
+
+
 }

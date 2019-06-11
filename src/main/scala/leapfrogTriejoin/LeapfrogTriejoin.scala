@@ -29,9 +29,9 @@ class LeapfrogTriejoin(trieIterators: Map[EdgeRelationship, TrieIterator], varia
     "Variable ordering differs for some relationships."
   )
 
-  private[this] val leapfrogJoins: Array[LeapfrogJoin] = variableOrdering
+  private[this] val leapfrogJoins: Array[LeapfrogJoinInterface] = variableOrdering
     .map(v =>
-      new LeapfrogJoin(trieIterators
+      new MaterializingLeapfrogJoin(trieIterators
         .filter({ case (r, _) => {
           r.variables.contains(v)
         }
@@ -193,7 +193,7 @@ class LeapfrogTriejoin(trieIterators: Map[EdgeRelationship, TrieIterator], varia
   }
 
   @inline
-  private def currentLeapfrogJoin: LeapfrogJoin = {
+  private def currentLeapfrogJoin: LeapfrogJoinInterface = {
     leapfrogJoins(depth)
   }
 }

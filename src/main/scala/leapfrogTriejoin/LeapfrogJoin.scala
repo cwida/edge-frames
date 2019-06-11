@@ -1,6 +1,8 @@
 package leapfrogTriejoin
 
-class LeapfrogJoin(var iterators: Array[LinearIterator]) {
+import scala.collection.mutable
+
+class LeapfrogJoin(var iterators: Array[LinearIterator]) extends LeapfrogJoinInterface {
   if (iterators.isEmpty) {
     throw new IllegalArgumentException("iterators cannot be empty")
   }
@@ -17,12 +19,41 @@ class LeapfrogJoin(var iterators: Array[LinearIterator]) {
 
     if (!atEnd) {
 //      println(iterators.map(_.estimateSize).mkString(", "))
+//      test(iterators.map(_.clone().asInstanceOf[LinearIterator]))
       sortIterators()
       if (!atEnd && key == -1) {
         leapfrogSearch()
       }
     }
 //    println(atEnd)
+  }
+
+  def test(iterators: Array[LinearIterator]): Unit = {
+    println("Best estimate", iterators.map(_.estimateSize).mkString(", "))
+    val materialized = iterators.map(toList)
+    println("Total intersection", intersect(materialized.toList).length)
+    println("Intersection between two", materialized.combinations(2)
+      .map(a => ((a.head.length, a(1).length), intersect(a.toList).length)).mkString(", "))
+    println()
+  }
+
+  def toList(i: LinearIterator): Array[Long]=  {
+    val values = mutable.Buffer[Long]()
+    while (!i.atEnd) {
+      i.next()
+      if (!i.atEnd) {
+        values.append(i.key)
+      }
+    }
+    values.toArray
+  }
+
+  def intersect(values: List[Array[Long]]): Array[Long] = {
+    values match {
+      case Nil => ???
+      case x :: Nil => x
+      case x :: xs => x.intersect(intersect(xs))
+    }
   }
 
   @inline
