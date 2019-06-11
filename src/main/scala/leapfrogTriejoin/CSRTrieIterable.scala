@@ -93,7 +93,8 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
       if (depth == 0) {
         srcPosition = key.toInt
         if (srcPosition < edgeIndices.length - 1 &&  // TODO srcPosition should never be bigger than edgeIndices.lenght -  1, investigate
-          edgeIndices(srcPosition) == edgeIndices(srcPosition + 1)) {
+          edgeIndices(srcPosition) == edgeIndices(srcPosition + 1)) {  // TODO does srcPosition < edgeIndices.length - 1 ruin
+          // predicatability?
           moveToNextSrcPosition()
         }
         isAtEnd = srcPosition >= edgeIndices.length - 1
