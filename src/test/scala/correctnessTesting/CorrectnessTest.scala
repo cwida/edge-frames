@@ -12,7 +12,7 @@ import sparkIntegration.implicits._
 class CorrectnessTest extends FlatSpec with Matchers with SparkTest {
 
   private val FAST = true
-  private val FAST_LIMIT = 1000000
+  private val FAST_LIMIT = 10000
   if (FAST) {
     System.err.println("Running correctness test in fast mode")
   }
