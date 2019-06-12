@@ -17,6 +17,8 @@ class CorrectnessTest extends FlatSpec with Matchers with SparkTest {
     System.err.println("Running correctness test in fast mode")
   }
 
+  private val queryCache = new QueryCache("./query-cache", sp)
+
   def assertRDDEqual(a: RDD[Row], e: RDD[Row]) = {
     val aExtras = a.subtract(e)
     val eExtras = e.subtract(a)
@@ -69,7 +71,14 @@ class CorrectnessTest extends FlatSpec with Matchers with SparkTest {
     }
   }
 
-  def sparkPathJoins(rawDataset: DataFrame): Unit = {
+  def sparkPathJoins(dataSetPath: String, rawDataset: DataFrame): Unit = {
+    val cacheKey = if (FAST) {
+      CacheKey(dataSetPath, "", FAST_LIMIT, -1)
+    } else {
+      CacheKey(dataSetPath, "", -1, -1)
+    }
+    // TODO rewrite to use cache
+
     val ds = if (FAST) {
       rawDataset.limit(1000)
     } else {
@@ -117,7 +126,13 @@ class CorrectnessTest extends FlatSpec with Matchers with SparkTest {
     }
   }
 
-  def sparkTriangleJoins(rawDataset: DataFrame): Unit = {
+  def sparkTriangleJoins(dataSetPath: String, rawDataset: DataFrame): Unit = {
+    val cacheKey = if (FAST) {
+      CacheKey(dataSetPath, "", FAST_LIMIT, -1)
+    } else {
+      CacheKey(dataSetPath, "", -1, -1)
+    }
+
     val ds = if (FAST) {
       rawDataset.limit(FAST_LIMIT)
     } else {
@@ -125,47 +140,56 @@ class CorrectnessTest extends FlatSpec with Matchers with SparkTest {
     }
 
     "triangles" should "be the same" in {
-      assertRDDEqual(cliquePattern(3, ds).rdd, cliqueBinaryJoins(3, sp, ds).rdd)
+      val e = queryCache.getOrCompute(cacheKey.copy(queryName = "clique", size=3), cliqueBinaryJoins(3, sp, ds))
+      val a = cliquePattern(3, ds)
+
+      assertRDDEqual(a.rdd, e.rdd)
     }
 
-    "The variable ordering" should "not matter" in {
-      // Cannot use Queries.findPattern(3, ds, false) here because I do not support smallerThanFilter for any variable ordering
-      // but the global one and a, b, c and c, a, b have different results under this condition.
-      val normalVariableOrdering = cliquePattern(3, ds, useDistinctFilter = true).cache()
-      val otherVariableOrdering = ds.findPattern(
-        """
-          |(a) - [] -> (b);
-          |(b) - [] -> (c);
-          |(a) - [] -> (c)
-          |""".stripMargin, List("c", "a", "b"), distinctFilter = true).cache()
+//    "The variable ordering" should "not matter" in {
+//      // Cannot use Queries.findPattern(3, ds, false) here because I do not support smallerThanFilter for any variable ordering
+//      // but the global one and a, b, c and c, a, b have different results under this condition.
+//      val normalVariableOrdering = cliquePattern(3, ds, useDistinctFilter = true).cache()
+//      val otherVariableOrdering = ds.findPattern(
+//        """
+//          |(a) - [] -> (b);
+//          |(b) - [] -> (c);
+//          |(a) - [] -> (c)
+//          |""".stripMargin, List("c", "a", "b"), distinctFilter = true).cache()
+//
+//      val otherReordered = otherVariableOrdering.select("a", "b", "c")
+//
+//      assertRDDEqual(otherReordered.rdd, normalVariableOrdering.rdd)
+//    }
 
-      val otherReordered = otherVariableOrdering.select("a", "b", "c")
-
-      assertRDDEqual(otherReordered.rdd, normalVariableOrdering.rdd)
-    }
-
-    "Circular triangles" should "be found correctly" in {
-      import sp.implicits._
-
-      val circular = ds.findPattern(
-        """
-          |(a) - [] -> (b);
-          |(b) - [] -> (c);
-          |(c) - [] -> (a)
-          |""".stripMargin, List("a", "b", "c"))
-
-      val duos = ds.as("R")
-        .joinWith(ds.as("S"), $"R.dst" === $"S.src")
-      val triangles = duos.joinWith(ds.as("T"),
-        condition = $"_2.dst" === $"T.src" && $"_1.src" === $"T.dst")
-
-      val goldStandard = triangles.selectExpr("_2.dst AS a", "_1._1.dst AS b", "_2.src AS c")
-
-      assertRDDEqual(circular.rdd, goldStandard.rdd)
-    }
+//    "Circular triangles" should "be found correctly" in {
+//      import sp.implicits._
+//
+//      val circular = ds.findPattern(
+//        """
+//          |(a) - [] -> (b);
+//          |(b) - [] -> (c);
+//          |(c) - [] -> (a)
+//          |""".stripMargin, List("a", "b", "c"))
+//
+//      val duos = ds.as("R")
+//        .joinWith(ds.as("S"), $"R.dst" === $"S.src")
+//      val triangles = duos.joinWith(ds.as("T"),
+//        condition = $"_2.dst" === $"T.src" && $"_1.src" === $"T.dst")
+//
+//      val goldStandard = triangles.selectExpr("_2.dst AS a", "_1._1.dst AS b", "_2.src AS c")
+//
+//      assertRDDEqual(circular.rdd, goldStandard.rdd)
+//    }
   }
 
-  def sparkCliqueJoins(rawDataset: DataFrame): Unit = {
+  def sparkCliqueJoins(dataSetPath: String, rawDataset: DataFrame): Unit = {
+    val cacheKey = if (FAST) {
+      CacheKey(dataSetPath, "clique", FAST_LIMIT, -1)
+    } else {
+      CacheKey(dataSetPath, "clique", -1, -1)
+    }
+
     val ds = if (FAST) {
       rawDataset.limit(FAST_LIMIT)
     } else {
@@ -174,27 +198,34 @@ class CorrectnessTest extends FlatSpec with Matchers with SparkTest {
 
     "Four clique" should "be the same" in {
       val a = cliquePattern(4, ds)
-      val e = cliqueBinaryJoins(4, sp, ds)
+      val e = queryCache.getOrCompute(cacheKey.copy(size= 4), cliqueBinaryJoins(4, sp, ds))
 
       assertRDDEqual(a.rdd, e.rdd)
     }
 
     "5-clique query" should "be the same" in {
       val a = cliquePattern(5, ds)
-      val e = cliqueBinaryJoins(5, sp, ds)
+      val e = queryCache.getOrCompute(cacheKey.copy(size = 5), cliqueBinaryJoins(5, sp, ds))
 
       assertRDDEqual(a.rdd, e.rdd)
     }
 
     "6-clique query" should "be the same" in {
       val a = cliquePattern(6, ds)
-      val e = cliqueBinaryJoins(6, sp, ds)
+      val e = queryCache.getOrCompute(cacheKey.copy(size = 6), cliqueBinaryJoins(6, sp, ds))
 
       assertRDDEqual(a.rdd, e.rdd)
     }
   }
 
-  def sparkCycleJoins(rawDataset: DataFrame): Unit = {
+  def sparkCycleJoins(dataSetPath: String, rawDataset: DataFrame): Unit = {
+    val cacheKey = if (FAST) {
+      CacheKey(dataSetPath, "cycle", FAST_LIMIT, -1)
+    } else {
+      CacheKey(dataSetPath, "cycle", -1, -1)
+    }
+
+
     val ds = if (FAST) {
       rawDataset.limit(FAST_LIMIT)
     } else {
@@ -203,21 +234,27 @@ class CorrectnessTest extends FlatSpec with Matchers with SparkTest {
 
     "4-cylce" should "be the same" in {
       val a = cyclePattern(4, ds)
-      val e = cycleBinaryJoins(4, ds)
+      val e = queryCache.getOrCompute(cacheKey.copy(size=4), cycleBinaryJoins(4, ds))
 
       assertRDDSetEqual(a.rdd, e.rdd, 4)
     }
 
     "5-cylce" should "be the same" in {
       val a = cyclePattern(5, ds)
-      val e = cycleBinaryJoins(5, ds)
+      val e = queryCache.getOrCompute(cacheKey.copy(size=5), cycleBinaryJoins(5, ds))
 
       assertRDDSetEqual(a.rdd, e.rdd, 5)
     }
 
   }
 
-  def sparkOtherJoins(rawDataset: DataFrame): Unit = {
+  def sparkOtherJoins(dataSetPath: String, rawDataset: DataFrame): Unit = {
+    val cacheKey = if (FAST) {
+      CacheKey(dataSetPath, "cycle", FAST_LIMIT, -1)
+    } else {
+      CacheKey(dataSetPath, "cycle", -1, -1)
+    }
+
     val ds = if (FAST) {
       rawDataset.limit(FAST_LIMIT)
     } else {
@@ -226,20 +263,20 @@ class CorrectnessTest extends FlatSpec with Matchers with SparkTest {
 
     "Diamond query" should "be the same" in {
       val a = diamondPattern(ds)
-      val e = diamondBinaryJoins(ds)
+      val e = queryCache.getOrCompute(cacheKey.copy(queryName = "diamond"), diamondBinaryJoins(ds))
 
       assertRDDSetEqual(a.rdd, e.rdd, 4)
     }
 
     "House query" should "be the same" in {
       val a = housePattern(ds)
-      val e = houseBinaryJoins(sp, ds)
+      val e = queryCache.getOrCompute(cacheKey.copy(queryName = "house"), houseBinaryJoins(sp, ds))
 
       assertRDDSetEqual(a.rdd, e.rdd, 5)
     }
 
     "kite" should "be the same" in {
-      val a = kiteBinary(sp, ds)
+      val a = queryCache.getOrCompute(cacheKey.copy(queryName = "kite"), kiteBinary(sp, ds))
       val e = kitePattern(ds)
 
       assertRDDEqual(a.rdd, e.rdd)

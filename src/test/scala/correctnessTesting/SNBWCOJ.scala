@@ -13,9 +13,9 @@ class SNBWCOJ extends CorrectnessTest with BeforeAndAfterAll {
     WCOJFunctions.setJoinAlgorithm(WCOJ)
   }
 
-  "WCOJ" should behave like sparkTriangleJoins(ds)
-  "WCOJ" should behave like sparkCliqueJoins(ds)
-  "WCOJ" should behave like sparkCycleJoins(ds)
-  "WCOJ" should behave like sparkOtherJoins(ds)
+  "WCOJ" should behave like sparkTriangleJoins(DATASET_PATH, ds)
+  "WCOJ" should behave like sparkCliqueJoins(DATASET_PATH, ds)
+  "WCOJ" should behave like sparkCycleJoins(DATASET_PATH, ds)
+  "WCOJ" should behave like sparkOtherJoins(DATASET_PATH, ds)
   "WCOJ" should behave like sparkPathJoins(ds)
 }

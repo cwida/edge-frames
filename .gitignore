@@ -18,3 +18,4 @@ project/plugins/project/
 
 !/.idea/
 /.idea/workspace.xml
+/query-cache/
