@@ -12,6 +12,7 @@ import sparkIntegration.implicits._
 class CorrectnessTest extends FlatSpec with Matchers with SparkTest {
 
   private val FAST = true
+  private val FAST_LIMIT = 1000000
   if (FAST) {
     System.err.println("Running correctness test in fast mode")
   }
@@ -118,7 +119,7 @@ class CorrectnessTest extends FlatSpec with Matchers with SparkTest {
 
   def sparkTriangleJoins(rawDataset: DataFrame): Unit = {
     val ds = if (FAST) {
-      rawDataset.limit(1000)
+      rawDataset.limit(FAST_LIMIT)
     } else {
       rawDataset
     }
@@ -166,7 +167,7 @@ class CorrectnessTest extends FlatSpec with Matchers with SparkTest {
 
   def sparkCliqueJoins(rawDataset: DataFrame): Unit = {
     val ds = if (FAST) {
-      rawDataset.limit(1000)
+      rawDataset.limit(FAST_LIMIT)
     } else {
       rawDataset
     }
@@ -195,7 +196,7 @@ class CorrectnessTest extends FlatSpec with Matchers with SparkTest {
 
   def sparkCycleJoins(rawDataset: DataFrame): Unit = {
     val ds = if (FAST) {
-      rawDataset.limit(1000)
+      rawDataset.limit(FAST_LIMIT)
     } else {
       rawDataset
     }
@@ -218,7 +219,7 @@ class CorrectnessTest extends FlatSpec with Matchers with SparkTest {
 
   def sparkOtherJoins(rawDataset: DataFrame): Unit = {
     val ds = if (FAST) {
-      rawDataset.limit(1000)
+      rawDataset.limit(FAST_LIMIT)
     } else {
       rawDataset
     }

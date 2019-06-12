@@ -39,11 +39,11 @@ object Datasets {
   def loadGoogleWebGraph(dataSetPath: String, sp: SparkSession): DataFrame = {
     val parquetFile = dataSetPath + ".parquet"
     if (Files.exists(Paths.get(parquetFile.replace("file://", "")))) {
-      sp.read.parquet(parquetFile)
+      sp.read.parquet(parquetFile).repartition(1)
     } else {
       println("Parquet file not existing")
       val df = snapDatasetReader(sp).csv(dataSetPath + ".csv")
-      val sorted = df.sort("src", "dst")
+      val sorted = df.sort("src", "dst").repartition(1)
       println("Caching as parquet file")
       sorted.write.parquet(parquetFile)
       sorted
