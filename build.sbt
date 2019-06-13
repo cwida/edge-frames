@@ -15,7 +15,7 @@ lazy val root = (project in file(".")).
     buildInfoPackage := "experiments",
     buildInfoOptions += BuildInfoOption.ToMap)
 
-
+// Compiler options
 scalacOptions ++= Seq(
   //  "-encoding", "utf8", // Option and arguments on same line
   //  "-Xfatal-warnings",  // New lines for each options
@@ -29,11 +29,12 @@ scalacOptions ++= Seq(
   "-Xdisable-assertions"
 )
 
-
 libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.5" % "test"
 libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.14.0" % "test"
 libraryDependencies += "com.github.scopt" %% "scopt" % "4.0.0-RC2"
 
+
+// Compile src's to Jar
 test in assembly := {}
 assemblyExcludedJars in assembly := {
   val cp = (fullClasspath in assembly).value
@@ -50,5 +51,21 @@ assemblyMergeStrategy in assembly := {
   case x => {
     val oldStrategy = (assemblyMergeStrategy in assembly).value
     oldStrategy(x)
+  }
+}
+
+// Compile tests to jar.
+
+Project.inConfig(Test)(baseAssemblySettings)
+assemblyJarName in (Test, assembly) := s"${name.value}-test-${version.value}.jar"
+
+test in (Test, assembly) := {}
+
+mainClass in (Test, assembly) := Some("correctnessTesting.Runner")
+
+assemblyExcludedJars in (Test, assembly) := {
+  val cp = (fullClasspath in assembly).value
+  cp filter {
+    _.data.toString.startsWith("/home/per/workspace/SparkTest/lib/")
   }
 }

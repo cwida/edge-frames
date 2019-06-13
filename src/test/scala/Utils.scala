@@ -1,6 +1,7 @@
 package testing
 
 import java.io.File
+import java.net.InetAddress
 
 import leapfrogTriejoin.TrieIterator
 import org.apache.spark.SparkConf
@@ -55,6 +56,22 @@ object Utils {
     val size = rdd.count()
     if (size > n) {
       println(s"Showing only $n out of $size rows.")
+    }
+  }
+
+  def getDatasetPath(datasetName: String): String = {
+    InetAddress.getLocalHost.getHostName match {
+      case "bluefox" => "/home/per/workspace/master-thesis/datasets/" + datasetName
+      case "bricks02.scilens.private" => "file:///scratch/per/datasets/" + datasetName
+      case s => throw new IllegalStateException("Unknown dataset path location for hostname: " + s)
+    }
+  }
+
+  def getQueryCachePath: String = {
+    InetAddress.getLocalHost.getHostName match {
+      case "bluefox" => "./queryCache"
+      case "bricks02.scilens.private" => "file:///scratch/per/query-cache/"
+      case s => throw new IllegalStateException("Unknown dataset path location for hostname: " + s)
     }
   }
 

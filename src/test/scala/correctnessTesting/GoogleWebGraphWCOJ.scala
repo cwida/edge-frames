@@ -4,9 +4,10 @@ import experiments.Datasets._
 import experiments.GraphWCOJ
 import org.apache.spark.sql.WCOJFunctions
 import org.scalatest.BeforeAndAfterAll
+import testing.Utils
 
 class GoogleWebGraphWCOJ extends CorrectnessTest with BeforeAndAfterAll {
-  val DATASET_PATH = "/home/per/workspace/master-thesis/datasets/web-google"
+  val DATASET_PATH = Utils.getDatasetPath("web-google")
   val ds = loadGoogleWebGraph(DATASET_PATH, sp).cache()
 
   override def beforeAll(): Unit = {

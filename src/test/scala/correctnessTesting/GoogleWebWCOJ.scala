@@ -4,9 +4,10 @@ import experiments.Datasets._
 import experiments.{GraphWCOJ, WCOJ}
 import org.apache.spark.sql.WCOJFunctions
 import org.scalatest.BeforeAndAfterAll
+import testing.Utils
 
 class GoogleWebWCOJ extends CorrectnessTest with BeforeAndAfterAll {
-  val DATASET_PATH = "/home/per/workspace/master-thesis/datasets/web-google"
+  val DATASET_PATH = Utils.getDatasetPath("web-google")
   val ds = loadGoogleWebGraph(DATASET_PATH, sp).cache()
 
   override def beforeAll(): Unit = {
@@ -21,5 +22,5 @@ class GoogleWebWCOJ extends CorrectnessTest with BeforeAndAfterAll {
   "WCOJ" should behave like sparkCliqueJoins(DATASET_PATH, ds)
   "WCOJ" should behave like sparkCycleJoins(DATASET_PATH, ds)
   "WCOJ" should behave like sparkOtherJoins(DATASET_PATH, ds)
-  "WCOJ" should behave like sparkPathJoins(ds)
+  "WCOJ" should behave like sparkPathJoins(DATASET_PATH, ds)
 }

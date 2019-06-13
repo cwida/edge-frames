@@ -1,23 +1,22 @@
 package correctnessTesting
 
-import experiments.Algorithm
+import experiments.Queries._
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.{DataFrame, Row, WCOJFunctions}
+import org.apache.spark.sql.{DataFrame, Row}
 import org.scalatest.{FlatSpec, Matchers}
 import testing.{SparkTest, Utils}
-import experiments.Queries._
-import org.apache.spark.mllib.tree.configuration.Algo.Algo
-import sparkIntegration.implicits._
+
+object CorrectnessTest {
+  var FAST = true
+  val FAST_LIMIT = 10000
+}
 
 class CorrectnessTest extends FlatSpec with Matchers with SparkTest {
-
-  private val FAST = true
-  private val FAST_LIMIT = 10000
-  if (FAST) {
+  if (CorrectnessTest.FAST) {
     System.err.println("Running correctness test in fast mode")
   }
 
-  private val queryCache = new QueryCache("./query-cache", sp)
+  private val queryCache = new QueryCache(Utils.getQueryCachePath, sp)
 
   def assertRDDEqual(a: RDD[Row], e: RDD[Row]) = {
     val aExtras = a.subtract(e)
@@ -64,7 +63,7 @@ class CorrectnessTest extends FlatSpec with Matchers with SparkTest {
 
   private def getPathQueryDataset(ds: DataFrame): DataFrame = {
     // TODO remove once path queries are fast enough
-    if (FAST) {
+    if (CorrectnessTest.FAST) {
       ds
     } else {
       ds.limit(1000)
@@ -72,14 +71,14 @@ class CorrectnessTest extends FlatSpec with Matchers with SparkTest {
   }
 
   def sparkPathJoins(dataSetPath: String, rawDataset: DataFrame): Unit = {
-    val cacheKey = if (FAST) {
-      CacheKey(dataSetPath, "", FAST_LIMIT, -1)
+    val cacheKey = if (CorrectnessTest.FAST) {
+      CacheKey(dataSetPath, "", CorrectnessTest.FAST_LIMIT, -1)
     } else {
       CacheKey(dataSetPath, "", -1, -1)
     }
     // TODO rewrite to use cache
 
-    val ds = if (FAST) {
+    val ds = if (CorrectnessTest.FAST) {
       rawDataset.limit(1000)
     } else {
       rawDataset
@@ -127,14 +126,14 @@ class CorrectnessTest extends FlatSpec with Matchers with SparkTest {
   }
 
   def sparkTriangleJoins(dataSetPath: String, rawDataset: DataFrame): Unit = {
-    val cacheKey = if (FAST) {
-      CacheKey(dataSetPath, "", FAST_LIMIT, -1)
+    val cacheKey = if (CorrectnessTest.FAST) {
+      CacheKey(dataSetPath, "", CorrectnessTest.FAST_LIMIT, -1)
     } else {
       CacheKey(dataSetPath, "", -1, -1)
     }
 
-    val ds = if (FAST) {
-      rawDataset.limit(FAST_LIMIT)
+    val ds = if (CorrectnessTest.FAST) {
+      rawDataset.limit(CorrectnessTest.FAST_LIMIT)
     } else {
       rawDataset
     }
@@ -184,14 +183,14 @@ class CorrectnessTest extends FlatSpec with Matchers with SparkTest {
   }
 
   def sparkCliqueJoins(dataSetPath: String, rawDataset: DataFrame): Unit = {
-    val cacheKey = if (FAST) {
-      CacheKey(dataSetPath, "clique", FAST_LIMIT, -1)
+    val cacheKey = if (CorrectnessTest.FAST) {
+      CacheKey(dataSetPath, "clique", CorrectnessTest.FAST_LIMIT, -1)
     } else {
       CacheKey(dataSetPath, "clique", -1, -1)
     }
 
-    val ds = if (FAST) {
-      rawDataset.limit(FAST_LIMIT)
+    val ds = if (CorrectnessTest.FAST) {
+      rawDataset.limit(CorrectnessTest.FAST_LIMIT)
     } else {
       rawDataset
     }
@@ -219,15 +218,15 @@ class CorrectnessTest extends FlatSpec with Matchers with SparkTest {
   }
 
   def sparkCycleJoins(dataSetPath: String, rawDataset: DataFrame): Unit = {
-    val cacheKey = if (FAST) {
-      CacheKey(dataSetPath, "cycle", FAST_LIMIT, -1)
+    val cacheKey = if (CorrectnessTest.FAST) {
+      CacheKey(dataSetPath, "cycle", CorrectnessTest.FAST_LIMIT, -1)
     } else {
       CacheKey(dataSetPath, "cycle", -1, -1)
     }
 
 
-    val ds = if (FAST) {
-      rawDataset.limit(FAST_LIMIT)
+    val ds = if (CorrectnessTest.FAST) {
+      rawDataset.limit(CorrectnessTest.FAST_LIMIT)
     } else {
       rawDataset
     }
@@ -249,14 +248,14 @@ class CorrectnessTest extends FlatSpec with Matchers with SparkTest {
   }
 
   def sparkOtherJoins(dataSetPath: String, rawDataset: DataFrame): Unit = {
-    val cacheKey = if (FAST) {
-      CacheKey(dataSetPath, "cycle", FAST_LIMIT, -1)
+    val cacheKey = if (CorrectnessTest.FAST) {
+      CacheKey(dataSetPath, "cycle", CorrectnessTest.FAST_LIMIT, -1)
     } else {
       CacheKey(dataSetPath, "cycle", -1, -1)
     }
 
-    val ds = if (FAST) {
-      rawDataset.limit(FAST_LIMIT)
+    val ds = if (CorrectnessTest.FAST) {
+      rawDataset.limit(CorrectnessTest.FAST_LIMIT)
     } else {
       rawDataset
     }
