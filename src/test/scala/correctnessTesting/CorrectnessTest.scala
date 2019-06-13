@@ -5,6 +5,7 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{DataFrame, Row}
 import org.scalatest.{FlatSpec, Matchers}
 import testing.{SparkTest, Utils}
+import sparkIntegration.implicits._
 
 object CorrectnessTest {
   var FAST = true
@@ -145,41 +146,41 @@ class CorrectnessTest extends FlatSpec with Matchers with SparkTest {
       assertRDDEqual(a.rdd, e.rdd)
     }
 
-//    "The variable ordering" should "not matter" in {
-//      // Cannot use Queries.findPattern(3, ds, false) here because I do not support smallerThanFilter for any variable ordering
-//      // but the global one and a, b, c and c, a, b have different results under this condition.
-//      val normalVariableOrdering = cliquePattern(3, ds, useDistinctFilter = true).cache()
-//      val otherVariableOrdering = ds.findPattern(
-//        """
-//          |(a) - [] -> (b);
-//          |(b) - [] -> (c);
-//          |(a) - [] -> (c)
-//          |""".stripMargin, List("c", "a", "b"), distinctFilter = true).cache()
-//
-//      val otherReordered = otherVariableOrdering.select("a", "b", "c")
-//
-//      assertRDDEqual(otherReordered.rdd, normalVariableOrdering.rdd)
-//    }
+    "The variable ordering" should "not matter" in {
+      // Cannot use Queries.findPattern(3, ds, false) here because I do not support smallerThanFilter for any variable ordering
+      // but the global one and a, b, c and c, a, b have different results under this condition.
+      val normalVariableOrdering = cliquePattern(3, ds, useDistinctFilter = true).cache()
+      val otherVariableOrdering = ds.findPattern(
+        """
+          |(a) - [] -> (b);
+          |(b) - [] -> (c);
+          |(a) - [] -> (c)
+          |""".stripMargin, List("c", "a", "b"), distinctFilter = true).cache()
 
-//    "Circular triangles" should "be found correctly" in {
-//      import sp.implicits._
-//
-//      val circular = ds.findPattern(
-//        """
-//          |(a) - [] -> (b);
-//          |(b) - [] -> (c);
-//          |(c) - [] -> (a)
-//          |""".stripMargin, List("a", "b", "c"))
-//
-//      val duos = ds.as("R")
-//        .joinWith(ds.as("S"), $"R.dst" === $"S.src")
-//      val triangles = duos.joinWith(ds.as("T"),
-//        condition = $"_2.dst" === $"T.src" && $"_1.src" === $"T.dst")
-//
-//      val goldStandard = triangles.selectExpr("_2.dst AS a", "_1._1.dst AS b", "_2.src AS c")
-//
-//      assertRDDEqual(circular.rdd, goldStandard.rdd)
-//    }
+      val otherReordered = otherVariableOrdering.select("a", "b", "c")
+
+      assertRDDEqual(otherReordered.rdd, normalVariableOrdering.rdd)
+    }
+
+    "Circular triangles" should "be found correctly" in {
+      import sp.implicits._
+
+      val circular = ds.findPattern(
+        """
+          |(a) - [] -> (b);
+          |(b) - [] -> (c);
+          |(c) - [] -> (a)
+          |""".stripMargin, List("a", "b", "c"))
+
+      val duos = ds.as("R")
+        .joinWith(ds.as("S"), $"R.dst" === $"S.src")
+      val triangles = duos.joinWith(ds.as("T"),
+        condition = $"_2.dst" === $"T.src" && $"_1.src" === $"T.dst")
+
+      val goldStandard = triangles.selectExpr("_2.dst AS a", "_1._1.dst AS b", "_2.src AS c")
+
+      assertRDDEqual(circular.rdd, goldStandard.rdd)
+    }
   }
 
   def sparkCliqueJoins(dataSetPath: String, rawDataset: DataFrame): Unit = {

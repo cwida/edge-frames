@@ -5,7 +5,9 @@ import java.nio.file.{Files, Path, Paths}
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
 case class CacheKey(dataset: String, queryName: String, limit: Int, size: Int)  {
-  def fileName: String = hashCode().toString
+  def fileName: String = {
+    Math.abs(hashCode()).toString
+  }
 }
 
 class QueryCache(cachePath: String, sp: SparkSession) {
@@ -25,7 +27,8 @@ class QueryCache(cachePath: String, sp: SparkSession) {
   }
 
   def isCached(key: CacheKey): Boolean =  {
-    Files.exists(Paths.get(cachePath, key.fileName + ".parquet"))
+    Files.exists(Paths.get(cachePath.replace("file://", ""),
+      key.fileName + ".parquet"))
   }
 
 
