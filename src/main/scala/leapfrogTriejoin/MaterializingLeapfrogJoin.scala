@@ -2,7 +2,24 @@ package leapfrogTriejoin
 
 import scala.collection.mutable
 
-class MaterializingLeapfrogJoin(var iterators: Array[LinearIterator]) extends LeapfrogJoinInterface {
+/**
+  * Optimized Leapfrog join for small iterators and intersections.
+  *
+  * If the resulting intersections are small, it is faster to materialize them into an array all at once
+  * and return results from this buffer on every next call, due to better locality.
+  *
+  * This optimized version materializes the intersection of 2nd level iterators (usual very small in graphs)
+  * and intersects the intersection of 2nd level iterators with the 1st level iterators in the next call.
+  * This is a conscious design decission because the 1st level iterators need to be moved to the right
+  * position on every next call anyhow - hence they need to be touched.
+  *
+  * We use iterative 2-way in-tandem intersection building to intersect the 2nd level itertors.
+  * We start this process with the smallest interator to limit the intesection as much as possible from the
+  * beginning.
+  *
+  * @param iterators
+  */
+class MaterializingLeapfrogJoin(var iterators: Array[TrieIterator]) extends LeapfrogJoinInterface {
   private[this] val DELETED_VALUE = -2
 
   if (iterators.isEmpty) {
@@ -14,8 +31,8 @@ class MaterializingLeapfrogJoin(var iterators: Array[LinearIterator]) extends Le
 
   private[this] var initialized = false
 
-  private[this] var firstLevelIterators: Array[LinearIterator] = null
-  private[this] var secondLevelIterators: Array[LinearIterator] = null
+  private[this] var firstLevelIterators: Array[TrieIterator] = null
+  private[this] var secondLevelIterators: Array[TrieIterator] = null
 
   private[this] var materializedValues: Array[Long] = new Array[Long](200)
 
@@ -30,7 +47,7 @@ class MaterializingLeapfrogJoin(var iterators: Array[LinearIterator]) extends Le
       initialized = true
 
       if (secondLevelIterators.length == 0 || !MaterializingLeapfrogJoin.shouldMaterialize) {
-        fallback = new LeapfrogJoin(iterators)
+        fallback = new LeapfrogJoin(iterators.map(_.asInstanceOf[LinearIterator]))
       }
     }
 
@@ -225,9 +242,9 @@ object MaterializingLeapfrogJoin {
 
   def setShouldMaterialize(value: Boolean): Unit ={
     if (value) {
-      println("Using materializing Leapfrogjoins")
+      println("Leapfrogjoins ARE materialized")
     } else {
-      println("Not using materializing Leapfrogjoins")
+      println("Leapfrogjoins are NOT materialized")
     }
     shouldMaterialize = value
   }

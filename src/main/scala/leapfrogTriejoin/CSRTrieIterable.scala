@@ -134,29 +134,10 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
 
     override def estimateSize: Int = {
       if (depth == 0) {
-        -1
+        Integer.MAX_VALUE
       } else {
         edgeIndices(srcPosition + 1) - edgeIndices(srcPosition)
       }
-    }
-
-    override def min: Int = {
-      if (depth == 0) {
-        0
-      } else {
-        edges(edgeIndices(srcPosition)).toInt
-      }
-    }
-
-    override def max: Int = if (depth == 0) {
-      verticeIDs.length - 1
-    } else {
-      if (srcPosition + 1 != verticeIDs.length) {
-        edges(edgeIndices(srcPosition + 1) - 1).toInt
-      } else {
-        Integer.MAX_VALUE
-      }
-
     }
 
     override def getDepth: Int = {

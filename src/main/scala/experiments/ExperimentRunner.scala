@@ -242,6 +242,7 @@ object ExperimentRunner extends App {
 
   setupResultReporting()
 
+  require(!config.materializeLeapfrogs || !config.algorithms.contains(WCOJ), "Cannot use materializing Leapfrog joins with WCOJ, yet.")
   MaterializingLeapfrogJoin.setShouldMaterialize(config.materializeLeapfrogs)
 
   runQueries()

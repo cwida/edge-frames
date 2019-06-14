@@ -1,6 +1,7 @@
 package org.apache.spark.sql
 
 import experiments.{Algorithm, GraphWCOJ}
+import leapfrogTriejoin.MaterializingLeapfrogJoin
 import org.apache.orc.impl.TreeReaderFactory.LongTreeReader
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.types.{IntegerType, LongType}
@@ -157,6 +158,9 @@ object WCOJFunctions {
   private var joinAlgorithm: Algorithm = experiments.WCOJ
 
   def setJoinAlgorithm(a: Algorithm): Unit = {
+    if (a == experiments.WCOJ) {
+      MaterializingLeapfrogJoin.setShouldMaterialize(false)
+    }
     joinAlgorithm = a
     println(s"Setting join algorithm to $a")
   }

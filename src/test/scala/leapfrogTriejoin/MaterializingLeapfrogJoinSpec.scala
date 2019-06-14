@@ -22,7 +22,7 @@ class MaterializingLeapfrogJoinSpec extends FlatSpec with GeneratorDrivenPropert
  }
 
   "A empty join " should "throw an error on creation" in {
-    assertThrows[IllegalArgumentException](new MaterializingLeapfrogJoin(Array[LinearIterator]()))
+    assertThrows[IllegalArgumentException](new MaterializingLeapfrogJoin(Array[TrieIterator]()))
   }
 
   "A join over an empty relationship" should "at end" in {

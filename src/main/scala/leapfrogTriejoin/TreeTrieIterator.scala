@@ -79,18 +79,6 @@ class TreeTrieIterator(val values: Array[(Long, Long)]) extends TrieIterator {
     keys
   }
 
-  override def estimateSize: Int = {
-    -1
-  }
-
-  override def min: Int = {
-    ???
-  }
-
-  override def max: Int = ???
-
-  override def clone(): LinearIterator = ???
-
   override def getDepth: Int = {
     ???
   }

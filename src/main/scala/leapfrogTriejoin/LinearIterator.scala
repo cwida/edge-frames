@@ -13,15 +13,10 @@ trait LinearIterator {
 
   def seek(key: Long): Boolean  // O(log N)
 
-  def estimateSize: Int
-
-  def min: Int
-
-  def max: Int
-
-  override def clone(): LinearIterator = ???
-
-  def getDepth: Int
-
+  /**
+    *
+    * @return A size estimate which can be too big but never too small.
+    */
+  def estimateSize: Int = Integer.MAX_VALUE
 
 }
