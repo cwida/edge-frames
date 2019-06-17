@@ -81,9 +81,9 @@ object TestSparkSession {
   val conf = new SparkConf()
     .setMaster("local[1]")
     .setAppName("Spark test")
-    .set("spark.executor.memory", "2g")
-    .set("spark.driver.memory", "2g")
-    .set("spark.sql.autoBroadcastJoinThreshold", "104857600") // High threshold
+    .set("spark.executor.memory", "40g")
+    .set("spark.driver.memory", "40g")
+    .set("spark.sql.autoBroadcastJoinThreshold", "1048576000") // High threshold
 
 
   val spark = SparkSession.builder().config(conf).getOrCreate()
