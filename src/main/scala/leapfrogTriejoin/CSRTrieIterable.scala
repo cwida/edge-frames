@@ -15,31 +15,20 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
   }
 
   class TrieIteratorImpl() extends TrieIterator {
-    override def clone(): LinearIterator = {
-      val c = new TrieIteratorImpl()
-      c.isAtEnd = this.isAtEnd
-      c.depth = this.depth
-      c.srcPosition = this.srcPosition
-      c.dstPosition = this.dstPosition
-      c.keyValue = this.keyValue
-      c
-    }
 
-    // TODO make private this again
+    private[this] var isAtEnd = verticeIDs.length == 0
 
-    private var isAtEnd = verticeIDs.length == 0
+    private[this] var depth = -1
 
-    private var depth = -1
-
-    private var srcPosition = 0
+    private[this] var srcPosition = 0
     if (!isAtEnd && edgeIndices(srcPosition) == edgeIndices(srcPosition + 1)) {
       moveToNextSrcPosition()
     }
-    private val firstSourcePosition = srcPosition
+    private[this] val firstSourcePosition = srcPosition
 
-    private var dstPosition = 0
+    private[this] var dstPosition = 0
 
-    private var keyValue = 0L
+    private[this] var keyValue = 0L
 
     override def open(): Unit = {
       assert(!isAtEnd, "open cannot be called when atEnd")
@@ -142,6 +131,20 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
 
     override def getDepth: Int = {
       depth
+    }
+
+    override def clone(): LinearIterator = {
+      val c = new TrieIteratorImpl()
+      c.copy(isAtEnd, depth, srcPosition, dstPosition, keyValue)
+      c
+    }
+
+    private def copy(atEnd: Boolean, depth: Int, srcPosition: Int, dstPosition: Int, keyValue: Long) {
+      isAtEnd = atEnd
+      this.depth = depth
+      this.srcPosition = srcPosition
+      this.dstPosition = dstPosition
+      this.keyValue = keyValue
     }
   }
 
