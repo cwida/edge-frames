@@ -261,12 +261,12 @@ class CorrectnessTest extends FlatSpec with Matchers with SparkTest {
       rawDataset
     }
 
-    "Diamond query" should "be the same" in {
-      val a = diamondPattern(ds)
-      val e = queryCache.getOrCompute(cacheKey.copy(queryName = "diamond"), diamondBinaryJoins(ds))
-
-      assertRDDSetEqual(a.rdd, e.rdd, 4)
-    }
+//    "Diamond query" should "be the same" in {
+//      val a = diamondPattern(ds)
+//      val e = queryCache.getOrCompute(cacheKey.copy(queryName = "diamond"), diamondBinaryJoins(ds))
+//
+//      assertRDDSetEqual(a.rdd, e.rdd, 4)
+//    }
 
     "House query" should "be the same" in {
       val a = housePattern(ds)

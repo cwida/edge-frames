@@ -122,4 +122,28 @@ object Datasets {
     }
   }
 
+  implicit def datasetTypeRead: scopt.Read[DatasetType] = {
+    scopt.Read.reads({
+      case "ama" => {
+        AmazonCoPurchase
+      }
+      case "snb" => {
+        SNB
+      }
+      case "liv" => {
+        LiveJournal2010
+      }
+      case "twitterSnapEgo" => {
+        TwitterSnapEgo
+      }
+      case "google" => {
+        GoogleWeb
+      }
+      case _ => {
+        throw new IllegalArgumentException("Dataset type can be only `ama` or `snb`")
+      }
+    })
+  }
+
+
 }

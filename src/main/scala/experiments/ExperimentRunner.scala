@@ -1,22 +1,16 @@
 package experiments
 
 import java.io.{BufferedWriter, File, FileWriter}
-
-import au.com.bytecode.opencsv.CSVWriter
-import org.apache.spark.SparkConf
-import org.apache.spark.scheduler.{AccumulableInfo, SparkListener, SparkListenerEvent, SparkListenerExecutorMetricsUpdate, SparkListenerJobEnd, SparkListenerStageCompleted, SparkListenerTaskEnd}
-import org.apache.spark.sql.execution.metric.SQLMetrics
-import org.apache.spark.sql.execution.ui.{SQLAppStatusListener, SQLAppStatusStore, SparkListenerSQLExecutionEnd}
-import org.apache.spark.sql.{DataFrame, SparkSession, WCOJFunctions}
-import org.apache.spark.util.kvstore.InMemoryStore
-import scopt.OParser
-import sparkIntegration.{WCOJ2WCOJExec, WCOJExec}
-import java.text.DecimalFormat
-import java.text.DecimalFormatSymbols
-import java.text.NumberFormat
+import java.text.{DecimalFormat, NumberFormat}
 import java.util.{Formatter, Locale}
 
+import au.com.bytecode.opencsv.CSVWriter
 import leapfrogTriejoin.MaterializingLeapfrogJoin
+import org.apache.spark.SparkConf
+import org.apache.spark.scheduler.{AccumulableInfo, SparkListener, SparkListenerStageCompleted}
+import org.apache.spark.sql.{DataFrame, SparkSession, WCOJFunctions}
+import scopt.OParser
+import sparkIntegration.WCOJ2WCOJExec
 
 import scala.collection.mutable.ListBuffer
 
@@ -37,30 +31,6 @@ object Readers {
       }
     })
   }
-
-  implicit def datasetTypeRead: scopt.Read[DatasetType] = {
-    scopt.Read.reads({
-      case "ama" => {
-        AmazonCoPurchase
-      }
-      case "snb" => {
-        SNB
-      }
-      case "liv" => {
-        LiveJournal2010
-      }
-      case "twitterSnapEgo" => {
-        TwitterSnapEgo
-      }
-      case "google" => {
-        GoogleWeb
-      }
-      case _ => {
-        throw new IllegalArgumentException("Dataset type can be only `ama` or `snb`")
-      }
-    })
-  }
-
 }
 
 sealed trait Algorithm {
@@ -76,21 +46,37 @@ case object BinaryJoins extends Algorithm {
 }
 
 sealed trait DatasetType {
+  def loadDataset(filePath: String, sp: SparkSession): DataFrame
 }
 
 case object AmazonCoPurchase extends DatasetType {
+  override def loadDataset(filePath: String, sp: SparkSession): DataFrame = {
+    Datasets.loadAmazonDataset(filePath, sp)
+  }
 }
 
 case object SNB extends DatasetType {
+  override def loadDataset(filePath: String, sp: SparkSession): DataFrame = {
+    Datasets.loadSNBDataset(sp, filePath)
+  }
 }
 
 case object LiveJournal2010 extends DatasetType {
+  override def loadDataset(filePath: String, sp: SparkSession): DataFrame = {
+    Datasets.loadLiveJournalDataset(sp, filePath)
+  }
 }
 
 case object TwitterSnapEgo extends DatasetType {
+  override def loadDataset(filePath: String, sp: SparkSession): DataFrame = {
+    Datasets.loadTwitterSnapEgo(sp, filePath)
+  }
 }
 
 case object GoogleWeb extends DatasetType {
+  override def loadDataset(filePath: String, sp: SparkSession): DataFrame = {
+    Datasets.loadGoogleWebGraph(filePath, sp)
+  }
 }
 
 case class ExperimentConfig(
@@ -163,8 +149,9 @@ object ExperimentRunner extends App {
   sp.stop()
 
   private def parseArgs(): Option[ExperimentConfig] = {
-    import Readers._
     import Queries.queryRead
+    import Datasets.datasetTypeRead
+    import Readers._
 
     val builder = OParser.builder[ExperimentConfig]
     val parser1 = {
@@ -229,23 +216,7 @@ object ExperimentRunner extends App {
     val dt = config.datasetType
 
     println(s"Loading ${dt} dataset from ${config.datasetFilePath}")
-    var d = config.datasetType match {
-      case AmazonCoPurchase => {
-        Datasets.loadAmazonDataset(config.datasetFilePath, sp)
-      }
-      case SNB => {
-        Datasets.loadSNBDataset(sp, config.datasetFilePath)
-      }
-      case LiveJournal2010 => {
-        Datasets.loadLiveJournalDataset(sp, config.datasetFilePath)
-      }
-      case TwitterSnapEgo => {
-        Datasets.loadTwitterSnapEgo(sp, config.datasetFilePath)
-      }
-      case GoogleWeb => {
-        Datasets.loadGoogleWebGraph(config.datasetFilePath, sp)
-      }
-    }
+    var d = config.datasetType.loadDataset(config.datasetFilePath, sp)
     if (config.limitDataset != -1) {
       d = d.limit(config.limitDataset)
     }

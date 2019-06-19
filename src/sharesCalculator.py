@@ -165,5 +165,5 @@ def check_against_paper_results():
   print("Calculated tuples to shuffle: ", calculated_tuple_shuffles)
 
 
-check_against_paper_results()
-write_replication_file()
+# check_against_paper_results()
+# write_replication_file()
