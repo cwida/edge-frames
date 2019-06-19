@@ -17,10 +17,11 @@ case class ExperimentConfig(
                            )
 
 
-object ExperimentRunner extends App {
+object Simulator extends App {
   val config: ExperimentConfig = parseArgs().orElse(throw new IllegalArgumentException("Couldn't parse args")).get
 
   val sp = setupSpark()
+
 
   val ds = loadDataset()
 
@@ -81,8 +82,8 @@ object ExperimentRunner extends App {
 
     println(s"Loading ${dt} dataset from ${config.datasetFilePath}")
     val d = config.datasetType.loadDataset(config.datasetFilePath, sp).cache()
-    val count = d.count() // Trigger dataset caching
-    println(s"Running on $count rows")
+//    val count = d.count() // Trigger dataset caching
+//    println(s"Running on $count rows")
     d
   }
 
@@ -90,9 +91,10 @@ object ExperimentRunner extends App {
 
     import sp.implicits._
     val hypercube = new Hypercube(config.workers, query)
-    val mappedDataset = hypercube.calculateWorkers(ds).toDF
+    val mappedDataset = hypercube.calculateWorkers(ds).toDF().cache()
 
     mappedDataset.show()
+    println(mappedDataset.count())
 
   }
 }

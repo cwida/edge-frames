@@ -3,7 +3,7 @@ package sharesSimulator
 import scala.util.hashing.MurmurHash3
 
 // TODO much shorter hash functions for ints: https://burtleburtle.net/bob/hash/integer.html
-class Hash(seed: Int, max: Int) {
+case class Hash(seed: Int, max: Int) {
 
   /**
     * Hashes i to a number between 0 and max (max exclusive)

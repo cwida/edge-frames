@@ -5,13 +5,18 @@
 # Example python best-configurations.py 64 a b a c b c
 
 import sys
-from src.sharesCalculator import best_configuration
+from sharesCalculator import best_configuration
 
-workers = sys.argv[1]
-edges = sys.argv[1:]
+workers = int(sys.argv[1])
+edges = sys.argv[2:]
+
+print(edges, file=sys.stderr)
 
 edgeTuples = []
 vertices = set()
+
+# print(workers, file=sys.stderr)
+# print(edges, file=sys.stderr)
 
 for (i, src) in enumerate(edges):
   if i % 2 == 0:
@@ -20,4 +25,4 @@ for (i, src) in enumerate(edges):
 
 configuration = best_configuration(workers, edgeTuples, vertices)
 
-print(",".join(configuration))
+print(configuration)

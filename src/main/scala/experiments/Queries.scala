@@ -27,7 +27,7 @@ case class Clique(size: Int) extends Query {
   }
 
   override def edges: Seq[(String, String)] = {
-    vertices.toSeq.combinations(2).filter(e => e(0) < e(1)).map(e => (e.head, e(1))).toSeq
+    vertices.toSeq.sorted.combinations(2).filter(e => e(0) < e(1)).map(e => (e.head, e(1))).toSeq
   }
 
   override def vertices: Set[String] = {

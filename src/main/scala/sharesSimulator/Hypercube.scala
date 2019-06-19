@@ -6,10 +6,10 @@ import org.apache.spark.sql.{DataFrame, Row}
 
 import scala.sys.process.Process
 
-class Hypercube(workers: Int, query: Query) {
+class Hypercube(workers: Int, query: Query) extends Serializable {
   val BEST_CONFIGURATION_SCRIPT = "src/best-configuration.py"
 
-  private val vertices = query.vertices.toSeq
+  private val vertices: Seq[String] = query.vertices.toSeq.sorted
   private val dimensions = vertices.size
 
   private val configuration = callBestConfigurationSkript
@@ -28,8 +28,10 @@ class Hypercube(workers: Int, query: Query) {
 
   private def getWildCoordinate(tuple: Row, cols: (String, String)): Seq[Int] = {
     val coordinate = Array.fill(dimensions)(WILD_VALUE)
-    coordinate(verticeToDimension(cols._1)) = hashes(cols._1).hash(tuple.getInt(0))
-    coordinate(verticeToDimension(cols._2)) = hashes(cols._2).hash(tuple.getInt(1))
+
+    // TODO needs hash for long
+    coordinate(verticeToDimension(cols._1)) = hashes(cols._1).hash(tuple.getLong(0).toInt)
+    coordinate(verticeToDimension(cols._2)) = hashes(cols._2).hash(tuple.getLong(1).toInt)
     coordinate
   }
 
@@ -38,7 +40,7 @@ class Hypercube(workers: Int, query: Query) {
       case (WILD_VALUE, i) => 0 until configuration(i)
       case (v, i) => Seq(v)
     }
-    cartesian(possibleValuesPerDimension)
+    cartesian(possibleValuesPerDimension.map(_.toList).toList)
   }
 
   private def coordinate2Worker(c: Seq[Int]): Int = {
@@ -51,22 +53,40 @@ class Hypercube(workers: Int, query: Query) {
     worker
   }
 
-  private def cartesian(seq: Seq[Seq[Int]]): Seq[Seq[Int]] = {
-    ???
+  private def cartesian(seq: List[List[Int]]): List[List[Int]] = seq match {
+    case Nil => Nil
+    case x :: xs => x.flatMap(v => cartesian(xs).map(ls => v :: ls))
   }
 
   private def callBestConfigurationSkript: Seq[Int] = {
     val edges: Seq[String] = query.edges.map(e => s"${e._1} ${e._2}").mkString(" ").split(" ")
     val cmd: Seq[String] = Seq("python3", BEST_CONFIGURATION_SCRIPT, workers.toString) ++ edges
     val output = Process(cmd).lineStream
-    output.head.split(",").map(_.toInt)
+
+    val verticesToDimesionSize = parsePythonDict(output.head)
+    vertices.map(v => {
+      verticesToDimesionSize(v)
+    })
+  }
+
+  private def parsePythonDict(dict: String): Map[String, Int] = {
+    dict
+      .replace("{", "")
+      .replace("}", "")
+      .replace("'", "")
+      .split(",")
+      .map(s => {
+        val keyValue = s.split(":").map(_.trim)
+        (keyValue(0), keyValue(1).toInt)
+      })
+      .toMap
   }
 
 
-  def calculateWorkers(ds: DataFrame): RDD[(Int, Row)] = {
+  def calculateWorkers(ds: DataFrame): RDD[(Int, (Long, Long))] = {
     // TODO would I need to copy the row?
     ds.rdd.flatMap(t =>
-      query.edges.flatMap(cols => getWorkers(t, cols)).map(w => (w, t))
+      query.edges.flatMap(cols => getWorkers(t, cols)).map(w => (w, (t.getLong(0), t.getLong(1))))
       )
   }
 
