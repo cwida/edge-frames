@@ -61,48 +61,6 @@ object Readers {
     })
   }
 
-  implicit def queryRead: scopt.Read[Query] = {
-    scopt.Read.reads(s => {
-      val queryTypes = Seq("cycle", "clique", "path", "diamond", "house", "kite")
-
-      queryTypes.find(t => s.startsWith(t)) match {
-        case Some(t) => {
-          val parameter = s.replace(t, "")
-          t match {
-            case "cycle" => {
-              val size = parameter.toInt
-              Cycle(size)
-            }
-            case "clique" => {
-              val size = parameter.toInt
-              Clique(size)
-            }
-            case "path" => {
-              val parts = parameter.split('|')
-              PathQuery(parts(0).toInt, parts(1).toDouble)
-            }
-            case "diamond" => {
-              DiamondQuery()
-            }
-            case "house" => {
-              HouseQuery()
-            }
-            case "kite" => {
-              KiteQuery()
-            }
-            case _ => {
-              println(s)
-              throw new IllegalArgumentException(s"Unknown query: $s")
-            }
-          }
-        }
-        case None => {
-          println(s)
-          throw new IllegalArgumentException(s"Unknown query: $s")
-        }
-      }
-    })
-  }
 }
 
 sealed trait Algorithm {
@@ -134,53 +92,6 @@ case object TwitterSnapEgo extends DatasetType {
 
 case object GoogleWeb extends DatasetType {
 }
-
-sealed trait Query {
-  def name: String
-
-  override def toString: String = {
-    name
-  }
-}
-
-case class Clique(size: Int) extends Query {
-  override def name: String = {
-    s"$size-clique"
-  }
-}
-
-case class Cycle(size: Int) extends Query {
-
-  override def name: String = {
-    s"$size-cycle"
-  }
-
-}
-
-case class PathQuery(size: Int, selectivity: Double) extends Query {
-  override def name: String = {
-    s"$size-${"%.2f".format(selectivity)}-path"
-  }
-}
-
-case class DiamondQuery() extends Query {
-  override def name: String = {
-    "diamond"
-  }
-}
-
-case class HouseQuery() extends Query {
-  override def name: String = {
-    "house"
-  }
-}
-
-case class KiteQuery() extends Query {
-  override def name: String = {
-    "kite"
-  }
-}
-
 
 case class ExperimentConfig(
                              algorithms: Seq[Algorithm] = Seq(WCOJ, BinaryJoins),
@@ -253,6 +164,7 @@ object ExperimentRunner extends App {
 
   private def parseArgs(): Option[ExperimentConfig] = {
     import Readers._
+    import Queries.queryRead
 
     val builder = OParser.builder[ExperimentConfig]
     val parser1 = {
@@ -409,51 +321,11 @@ object ExperimentRunner extends App {
     for (algoritm <- algorithms) {
       val queryDataFrame = algoritm match {
         case BinaryJoins => {
-          query match {
-            case Clique(s) => {
-              Queries.cliqueBinaryJoins(s, sp, ds)
-            }
-            case Cycle(s) => {
-              Queries.cycleBinaryJoins(s, ds)
-            }
-            case PathQuery(s, selectivity) => {
-              val (ns1, ns2) = Queries.pathQueryNodeSets(ds, selectivity)
-              Queries.pathBinaryJoins(s, ds, ns1, ns2)
-            }
-            case DiamondQuery() => {
-              Queries.diamondBinaryJoins(ds)
-            }
-            case HouseQuery() => {
-              Queries.houseBinaryJoins(sp, ds)
-            }
-            case KiteQuery() => {
-              Queries.kiteBinary(sp, ds)
-            }
-          }
+          query.applyBinaryQuery(ds, sp)
         }
         case WCOJ | GraphWCOJ => {
           WCOJFunctions.setJoinAlgorithm(algoritm)
-          query match {
-            case Clique(s) => {
-              Queries.cliquePattern(s, ds)
-            }
-            case Cycle(s) => {
-              Queries.cyclePattern(s, ds)
-            }
-            case PathQuery(s, selectivity) => {
-              val (ns1, ns2) = Queries.pathQueryNodeSets(ds, selectivity)
-              Queries.pathPattern(s, ds, ns1, ns2)
-            }
-            case DiamondQuery() => { // TODO remove diamond query, it is a four cycle
-              Queries.diamondPattern(ds)
-            }
-            case HouseQuery() => {
-              Queries.housePattern(ds)
-            }
-            case KiteQuery() => {
-              Queries.kitePattern(ds)
-            }
-          }
+          query.applyPatternQuery(ds)
         }
       }
 

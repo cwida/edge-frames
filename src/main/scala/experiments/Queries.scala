@@ -3,6 +3,162 @@ package experiments
 import org.apache.spark.sql.{Column, DataFrame, SparkSession}
 import sparkIntegration.implicits._
 
+sealed trait Query {
+  def name: String
+
+  override def toString: String = {
+    name
+  }
+
+  def edges: Seq[(String, String)]
+
+  def vertices: Set[String] = {
+    edges.flatMap(e => Seq(e._1, e._2)).toSet
+  }
+
+  def applyPatternQuery(df: DataFrame): DataFrame
+
+  def applyBinaryQuery(df: DataFrame, sp: SparkSession): DataFrame
+}
+
+case class Clique(size: Int) extends Query {
+  override def name: String = {
+    s"$size-clique"
+  }
+
+  override def edges: Seq[(String, String)] = {
+    vertices.toSeq.combinations(2).filter(e => e(0) < e(1)).map(e => (e.head, e(1))).toSeq
+  }
+
+  override def vertices: Set[String] = {
+    ('a' to 'z').take(size).map(c => s"$c").toSet
+  }
+
+  override def applyPatternQuery(df: DataFrame): DataFrame = {
+    Queries.cliquePattern(size, df)
+  }
+
+  override def applyBinaryQuery(df: DataFrame, sp: SparkSession): DataFrame = {
+    Queries.cliqueBinaryJoins(size, sp, df)
+  }
+}
+
+case class Cycle(size: Int) extends Query {
+
+  override def name: String = {
+    s"$size-cycle"
+  }
+
+  override def edges: Seq[(String, String)] = {
+    val sortedVertices = vertices.toSeq.sorted
+    sortedVertices.zipWithIndex.map {
+      case (v1, i) => {
+        (v1, sortedVertices((i + 1) % sortedVertices.size))
+      }
+    }
+  }
+
+  override def vertices: Set[String] = {
+    ('a' to 'z').slice(0, size).map(c => s"$c").toSet
+  }
+
+  override def applyPatternQuery(df: DataFrame): DataFrame = {
+    Queries.cyclePattern(size, df)
+  }
+
+  override def applyBinaryQuery(df: DataFrame, sp: SparkSession): DataFrame = {
+    Queries.cycleBinaryJoins(size, df)
+  }
+}
+
+case class PathQuery(size: Int, selectivity: Double) extends Query {
+  override def name: String = {
+    s"$size-${"%.2f".format(selectivity)}-path"
+  }
+
+  override def edges: Seq[(String, String)] = {
+    ???
+  }
+
+  override def applyPatternQuery(df: DataFrame): DataFrame = {
+    val (ns1, ns2) = Queries.pathQueryNodeSets(df, selectivity)
+    Queries.pathPattern(size, df, ns1, ns2)
+  }
+
+  override def applyBinaryQuery(df: DataFrame, sp: SparkSession): DataFrame = {
+    val (ns1, ns2) = Queries.pathQueryNodeSets(df, selectivity)
+    Queries.pathBinaryJoins(size, df, ns1, ns2)
+  }
+}
+
+// TODO redo diamond query with parameter and correctly
+case class DiamondQuery() extends Query {
+
+  override def name: String = {
+    "diamond"
+  }
+
+  override def edges: Seq[(String, String)] = {
+    ???
+  }
+
+  override def applyPatternQuery(df: DataFrame): DataFrame = {
+    Queries.diamondPattern(df)
+  }
+
+  override def applyBinaryQuery(df: DataFrame, sp: SparkSession): DataFrame = {
+    Queries.diamondBinaryJoins(df)
+  }
+}
+
+case class HouseQuery() extends Query {
+  override def name: String = {
+    "house"
+  }
+
+  override def edges: Seq[(String, String)] = Seq(
+    ("a", "b"),
+    ("b", "c"),
+    ("c", "d"),
+    ("a", "d"),
+    ("a", "c"),
+    ("b", "d"),
+    ("c", "e"),
+    ("d", "e")
+  )
+
+  override def applyPatternQuery(df: DataFrame): DataFrame = {
+    Queries.housePattern(df)
+  }
+
+  override def applyBinaryQuery(df: DataFrame, sp: SparkSession): DataFrame = {
+    Queries.houseBinaryJoins(sp, df)
+  }
+}
+
+case class KiteQuery() extends Query {
+
+  override def name: String = {
+    "kite"
+  }
+
+  override def edges: Seq[(String, String)] = Seq(
+    ("a", "b"),
+    ("a", "c"),
+    ("b", "c"),
+    ("b", "d"),
+    ("c", "d")
+  )
+
+  override def applyPatternQuery(df: DataFrame): DataFrame = {
+    Queries.kitePattern(df)
+  }
+
+  override def applyBinaryQuery(df: DataFrame, sp: SparkSession): DataFrame = {
+    Queries.kiteBinary(sp, df)
+  }
+}
+
 object Queries {
   val FIXED_SEED_1 = 42
   val FIXED_SEED_2 = 220
@@ -10,6 +166,10 @@ object Queries {
   def pathQueryNodeSets(rel: DataFrame, selectivity: Double = 0.1): (DataFrame, DataFrame) = {
     (rel.selectExpr("src AS a").sample(selectivity, FIXED_SEED_1),
       rel.selectExpr("dst AS z").sample(selectivity, FIXED_SEED_2))
+  }
+
+  def edgesToPatternString(edges: Seq[(String, String)]): String = {
+    edges.map(e => s"(${e._1}) - [] -> (${e._2})").mkString(";")
   }
 
   /**
@@ -69,7 +229,7 @@ object Queries {
         Seq("a", "b", "z")
       }
       case 3 => {
-        Seq("a", "b", "c", "z")  // takes 0.285 against 3.975 for a, b, z, c on the first 500000 edges of the directed twitter set
+        Seq("a", "b", "c", "z") // takes 0.285 against 3.975 for a, b, z, c on the first 500000 edges of the directed twitter set
       }
       case 4 => {
         Seq("a", "b", "c", "d", "z")
@@ -220,17 +380,7 @@ object Queries {
   }
 
   def housePattern(rel: DataFrame): DataFrame = {
-    rel.findPattern(
-      """
-        |(a) - [] -> (b);
-        |(b) - [] -> (c);
-        |(c) - [] -> (d);
-        |(a) - [] -> (d);
-        |(a) - [] -> (c);
-        |(b) - [] -> (d);
-        |(c) - [] -> (e);
-        |(d) - [] -> (e)
-        |""".stripMargin, List("a", "b", "c", "d", "e"), distinctFilter = true)
+    rel.findPattern(edgesToPatternString(HouseQuery().edges), List("a", "b", "c", "d", "e"), distinctFilter = true)
   }
 
   def kiteBinary(sp: SparkSession, rel: DataFrame): DataFrame = {
@@ -240,19 +390,12 @@ object Queries {
       .join(rel.alias("cd"), $"src" === $"c")
       .selectExpr("a", "b", "c", "dst AS d")
       .join(rel.alias("bd"), $"src" === $"b" && $"dst" === $"d", "left_semi")
-      .filter($"c" < $"b" && $"b" < $"d" && $"d" < $"a" )
+      .filter($"c" < $"b" && $"b" < $"d" && $"d" < $"a")
       .selectExpr("a", "b", "c", "d")
   }
 
   def kitePattern(rel: DataFrame): DataFrame = {
-    rel.findPattern(
-      """
-        |(a) - [] -> (b);
-        |(a) - [] -> (c);
-        |(b) - [] -> (c);
-        |(b) - [] -> (d);
-        |(c) - [] -> (d)
-        |""".stripMargin, List("c", "b", "d", "a"), smallerThanFilter = true)
+    rel.findPattern(edgesToPatternString(KiteQuery().edges), List("c", "b", "d", "a"), smallerThanFilter = true)
       .selectExpr("a", "b", "c", "d")
   }
 
@@ -294,6 +437,49 @@ object Queries {
     }
 
     rel.findPattern(pattern, variableOrdering, distinctFilter = true)
+  }
+
+  implicit def queryRead: scopt.Read[Query] = {
+    scopt.Read.reads(s => {
+      val queryTypes = Seq("cycle", "clique", "path", "diamond", "house", "kite")
+
+      queryTypes.find(t => s.startsWith(t)) match {
+        case Some(t) => {
+          val parameter = s.replace(t, "")
+          t match {
+            case "cycle" => {
+              val size = parameter.toInt
+              Cycle(size)
+            }
+            case "clique" => {
+              val size = parameter.toInt
+              Clique(size)
+            }
+            case "path" => {
+              val parts = parameter.split('|')
+              PathQuery(parts(0).toInt, parts(1).toDouble)
+            }
+            case "diamond" => {
+              DiamondQuery()
+            }
+            case "house" => {
+              HouseQuery()
+            }
+            case "kite" => {
+              KiteQuery()
+            }
+            case _ => {
+              println(s)
+              throw new IllegalArgumentException(s"Unknown query: $s")
+            }
+          }
+        }
+        case None => {
+          println(s)
+          throw new IllegalArgumentException(s"Unknown query: $s")
+        }
+      }
+    })
   }
 
 }
