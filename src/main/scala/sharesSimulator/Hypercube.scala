@@ -6,13 +6,13 @@ import org.apache.spark.sql.{DataFrame, Row}
 
 import scala.sys.process.Process
 
-class Hypercube(workers: Int, query: Query) extends Serializable {
+class Hypercube(workers: Int, query: Query, conf: Option[Seq[Int]] = None) extends Serializable {
   val BEST_CONFIGURATION_SCRIPT = "src/best-configuration.py"
 
   private val vertices: Seq[String] = query.vertices.toSeq.sorted
   private val dimensions = vertices.size
 
-  private val configuration = callBestConfigurationSkript
+  private val configuration = conf.getOrElse(callBestConfigurationScript)
 
   private val hashes = vertices.zipWithIndex.map {
     case (v, i) => (v, new Hash(i, configuration(i)))
@@ -40,25 +40,21 @@ class Hypercube(workers: Int, query: Query) extends Serializable {
       case (WILD_VALUE, i) => 0 until configuration(i)
       case (v, i) => Seq(v)
     }
-    cartesian(possibleValuesPerDimension.map(_.toList).toList)
+    Utils.cartesian(possibleValuesPerDimension.map(_.toList).toList)
   }
 
-  private def coordinate2Worker(c: Seq[Int]): Int = {
+  // Public for testing
+  def coordinate2Worker(c: Seq[Int]): Int = {
     var multiplicator = 1
     var worker = 0
-    for ((i, v)  <- c.zipWithIndex) {
+    for ((v, i)  <- c.zipWithIndex) {
       worker += v * multiplicator
       multiplicator = configuration(i) * multiplicator
     }
     worker
   }
 
-  private def cartesian(seq: List[List[Int]]): List[List[Int]] = seq match {
-    case Nil => Nil
-    case x :: xs => x.flatMap(v => cartesian(xs).map(ls => v :: ls))
-  }
-
-  private def callBestConfigurationSkript: Seq[Int] = {
+  private def callBestConfigurationScript: Seq[Int] = {
     val edges: Seq[String] = query.edges.map(e => s"${e._1} ${e._2}").mkString(" ").split(" ")
     val cmd: Seq[String] = Seq("python3", BEST_CONFIGURATION_SCRIPT, workers.toString) ++ edges
     val output = Process(cmd).lineStream
@@ -85,8 +81,9 @@ class Hypercube(workers: Int, query: Query) extends Serializable {
 
   def calculateWorkers(ds: DataFrame): RDD[(Int, (Long, Long))] = {
     // TODO would I need to copy the row?
+    val edges = query.edges.toArray
     ds.rdd.flatMap(t =>
-      query.edges.flatMap(cols => getWorkers(t, cols)).map(w => (w, (t.getLong(0), t.getLong(1))))
+      edges.flatMap(cols => getWorkers(t, cols)).map(w => (w, (t.getLong(0), t.getLong(1))))
       )
   }
 

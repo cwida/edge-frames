@@ -10,8 +10,6 @@ from sharesCalculator import best_configuration
 workers = int(sys.argv[1])
 edges = sys.argv[2:]
 
-print(edges, file=sys.stderr)
-
 edgeTuples = []
 vertices = set()
 

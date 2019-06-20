@@ -91,10 +91,11 @@ object Simulator extends App {
 
     import sp.implicits._
     val hypercube = new Hypercube(config.workers, query)
-    val mappedDataset = hypercube.calculateWorkers(ds).toDF().cache()
+    val mappedDataset = hypercube.calculateWorkers(ds).distinct().toDF().cache()
 
-    mappedDataset.show()
+    mappedDataset.show(100)
     println(mappedDataset.count())
 
+    mappedDataset.groupBy("_1").count().sort("_1").show(100)
   }
 }
