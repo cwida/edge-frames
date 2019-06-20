@@ -81,7 +81,7 @@ class Hypercube(workers: Int, query: Query, conf: Option[Seq[Int]] = None) exten
 
   def calculateWorkers(ds: DataFrame): RDD[(Int, (Long, Long))] = {
     // TODO would I need to copy the row?
-    val edges = query.edges.toArray
+    val edges = query.edges.sorted.toArray  // Sort to get deterministic results (the order influences the hash used per edge)
     ds.rdd.flatMap(t =>
       edges.flatMap(cols => getWorkers(t, cols)).map(w => (w, (t.getLong(0), t.getLong(1))))
       )
