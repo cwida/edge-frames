@@ -255,6 +255,7 @@
         <SOURCES />
       </library>
     </orderEntry>
+    <orderEntry type="library" name="sbt: MrPowers:spark-fast-tests:0.17.1-s_2.11:jar" level="project" />
     <orderEntry type="library" scope="TEST" name="sbt: org.scalatest:scalatest_2.11:3.0.5:jar" level="project" />
     <orderEntry type="library" scope="TEST" name="sbt: org.scalactic:scalactic_2.11:3.0.5:jar" level="project" />
     <orderEntry type="library" scope="TEST" name="sbt: org.scalacheck:scalacheck_2.11:1.14.0:jar" level="project" />

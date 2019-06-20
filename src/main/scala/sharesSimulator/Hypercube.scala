@@ -85,6 +85,8 @@ class Hypercube(workers: Int, query: Query, conf: Option[Seq[Int]] = None) exten
     ds.rdd.flatMap(t =>
       edges.flatMap(cols => getWorkers(t, cols)).map(w => (w, (t.getLong(0), t.getLong(1))))
       )
+      .distinct() // Optimization, each tuples needs to be sent only once to each worker even
+    // when assigned by multiple edge relationships.
   }
 
 }

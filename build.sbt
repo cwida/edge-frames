@@ -29,8 +29,12 @@ scalacOptions ++= Seq(
   "-Xdisable-assertions"
 )
 
+resolvers += "Spark Packages Repo" at "http://dl.bintray.com/spark-packages/maven"
+
 libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.5" % "test"
 libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.14.0" % "test"
+libraryDependencies += "MrPowers" % "spark-fast-tests" % "0.17.1-s_2.11"
+
 libraryDependencies += "com.github.scopt" %% "scopt" % "4.0.0-RC2"
 
 

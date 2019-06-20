@@ -45,6 +45,7 @@ case object GraphWCOJ extends Algorithm {
 case object BinaryJoins extends Algorithm {
 }
 
+// TODO migrate to Datasets
 sealed trait DatasetType {
   def loadDataset(filePath: String, sp: SparkSession): DataFrame
 }
