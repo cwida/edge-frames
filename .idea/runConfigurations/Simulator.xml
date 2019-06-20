@@ -1,0 +1,16 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Simulator" type="Application" factoryName="Application">
+    <option name="MAIN_CLASS_NAME" value="sharesSimulator.Simulator" />
+    <module name="SparkTest" />
+    <option name="PROGRAM_PARAMETERS" value="--dataset-type ama --dataset-path $PROJECT_DIR$/../master-thesis/datasets/amazon-0302 --out ./shares.csv --queries clique5 --workers 64" />
+    <extension name="coverage">
+      <pattern>
+        <option name="PATTERN" value="sharesSimulator.*" />
+        <option name="ENABLED" value="true" />
+      </pattern>
+    </extension>
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>
