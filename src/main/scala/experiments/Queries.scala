@@ -106,7 +106,7 @@ case class DiamondQuery() extends Query {
 
   override def applyPatternQuery(df: DataFrame): DataFrame = {
     // TODO variable ordering
-    df.findPattern(Queries.edgesToPatternString(edges), List("a", "b", "d", "c"), distinctFilter = true)
+    df.findPattern(Queries.edgesToPatternString(edges), List("a", "b", "c", "d"), distinctFilter = true)
       .selectExpr("a", "b", "c", "d")
   }
 
