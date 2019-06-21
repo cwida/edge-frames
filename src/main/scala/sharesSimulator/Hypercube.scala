@@ -15,7 +15,7 @@ class Hypercube(workers: Int, query: Query, conf: Option[Seq[Int]] = None) exten
   private val configuration = conf.getOrElse(callBestConfigurationScript)
 
   private val hashes = vertices.zipWithIndex.map {
-    case (v, i) => (v, new Hash(i, configuration(i)))
+    case (v, i) => (v, Hash(i, configuration(i)))
   }.toMap
 
   private val verticeToDimension = vertices.zipWithIndex.toMap

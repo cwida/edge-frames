@@ -1,7 +1,9 @@
 package sharesSimulator
 
-import java.io.File
+import java.io.{BufferedWriter, File, FileWriter}
 
+import au.com.bytecode.opencsv.CSVWriter
+import com.univocity.parsers.csv.CsvWriter
 import experiments.{AmazonCoPurchase, DatasetType, Datasets, Query}
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.{DataFrame, SparkSession}
@@ -23,10 +25,11 @@ object Simulator extends App {
   val sp = setupSpark()
 
 
-  val ds = loadDataset()
+  val ds = loadDataset().limit(10000)
 
   for (q <- config.queries) {
-    simulateQuery(q)
+    val workCount = simulateQuery(q)
+    logResult(q, workCount)
   }
 
   sp.stop()
@@ -87,7 +90,7 @@ object Simulator extends App {
     d
   }
 
-  private def simulateQuery(query: Query): Unit = {
+  private def simulateQuery(query: Query): DataFrame = {
 
     import sp.implicits._
     val hypercube = new Hypercube(config.workers, query)
@@ -96,6 +99,10 @@ object Simulator extends App {
     mappedDataset.show(100)
     println(mappedDataset.count())
 
-    mappedDataset.groupBy("_1").count().sort("_1").show(100)
+    mappedDataset.groupBy("_1").count().sort("_1")
+  }
+
+  private def logResult(q: Query, workCount: DataFrame): Unit = {
+    workCount.coalesce(1).write.csv(config.outputPath + s"/${q.name}")
   }
 }
