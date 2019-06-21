@@ -1,5 +1,6 @@
 package correctnessTesting
 
+import com.github.mrpowers.spark.fast.tests.DatasetComparer
 import experiments.Queries._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{DataFrame, Row}
@@ -8,11 +9,11 @@ import testing.{SparkTest, Utils}
 import sparkIntegration.implicits._
 
 object CorrectnessTest {
-  var FAST = true
+  var FAST = false
   val FAST_LIMIT = 10000
 }
 
-class CorrectnessTest extends FlatSpec with Matchers with SparkTest {
+class CorrectnessTest extends FlatSpec with Matchers with SparkTest with DatasetComparer {
   if (CorrectnessTest.FAST) {
     System.err.println("Running correctness test in fast mode")
   }
@@ -35,6 +36,14 @@ class CorrectnessTest extends FlatSpec with Matchers with SparkTest {
 
     aExtrasEmpty should be(true)
     eExtrasEmpty should be(true)
+  }
+
+  def assertDataSetEqual(a: DataFrame, e: DataFrame) = {
+    if (CorrectnessTest.FAST) {
+      assertRDDEqual(a.rdd, e.rdd)
+    } else {
+      assertSmallDatasetEquality(a, e, ignoreNullable = true, orderedComparison = false)
+    }
   }
 
   def assertRDDSetEqual(a: RDD[Row], e: RDD[Row], setSize: Int) = {
@@ -143,7 +152,7 @@ class CorrectnessTest extends FlatSpec with Matchers with SparkTest {
       val e = queryCache.getOrCompute(cacheKey.copy(queryName = "clique", size=3), cliqueBinaryJoins(3, sp, ds))
       val a = cliquePattern(3, ds)
 
-      assertRDDEqual(a.rdd, e.rdd)
+      assertDataSetEqual(a, e)
     }
 
     "The variable ordering" should "not matter" in {
@@ -159,7 +168,7 @@ class CorrectnessTest extends FlatSpec with Matchers with SparkTest {
 
       val otherReordered = otherVariableOrdering.select("a", "b", "c")
 
-      assertRDDEqual(otherReordered.rdd, normalVariableOrdering.rdd)
+      assertDataSetEqual(otherReordered, normalVariableOrdering)
     }
 
     "Circular triangles" should "be found correctly" in {
@@ -179,7 +188,7 @@ class CorrectnessTest extends FlatSpec with Matchers with SparkTest {
 
       val goldStandard = triangles.selectExpr("_2.dst AS a", "_1._1.dst AS b", "_2.src AS c")
 
-      assertRDDEqual(circular.rdd, goldStandard.rdd)
+      assertDataSetEqual(circular, goldStandard)
     }
   }
 
@@ -200,21 +209,21 @@ class CorrectnessTest extends FlatSpec with Matchers with SparkTest {
       val a = cliquePattern(4, ds)
       val e = queryCache.getOrCompute(cacheKey.copy(size= 4), cliqueBinaryJoins(4, sp, ds))
 
-      assertRDDEqual(a.rdd, e.rdd)
+      assertDataSetEqual(a, e)
     }
 
     "5-clique query" should "be the same" in {
       val a = cliquePattern(5, ds)
       val e = queryCache.getOrCompute(cacheKey.copy(size = 5), cliqueBinaryJoins(5, sp, ds))
 
-      assertRDDEqual(a.rdd, e.rdd)
+      assertDataSetEqual(a, e)
     }
 
     "6-clique query" should "be the same" in {
       val a = cliquePattern(6, ds)
       val e = queryCache.getOrCompute(cacheKey.copy(size = 6), cliqueBinaryJoins(6, sp, ds))
 
-      assertRDDEqual(a.rdd, e.rdd)
+      assertDataSetEqual(a, e)
     }
   }
 
@@ -272,6 +281,7 @@ class CorrectnessTest extends FlatSpec with Matchers with SparkTest {
       val a = housePattern(ds)
       val e = queryCache.getOrCompute(cacheKey.copy(queryName = "house"), houseBinaryJoins(sp, ds))
 
+
       assertRDDSetEqual(a.rdd, e.rdd, 5)
     }
 
@@ -279,7 +289,7 @@ class CorrectnessTest extends FlatSpec with Matchers with SparkTest {
       val a = queryCache.getOrCompute(cacheKey.copy(queryName = "kite"), kiteBinary(sp, ds))
       val e = kitePattern(ds)
 
-      assertRDDEqual(a.rdd, e.rdd)
+      assertDataSetEqual(a, e)
     }
   }
 }   
