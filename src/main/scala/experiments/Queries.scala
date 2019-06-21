@@ -91,23 +91,32 @@ case class PathQuery(size: Int, selectivity: Double) extends Query {
   }
 }
 
-// TODO redo diamond query with parameter and correctly
+/**
+  * Diamond query as described in “Real-time Twitter Recommendation: Online Motif Detection in Large Dynamic Graphs”
+  */
 case class DiamondQuery() extends Query {
 
   override def name: String = {
-    "diamond"
+    s"diamond"
   }
 
   override def edges: Seq[(String, String)] = {
-    ???
+    Seq(("a", "b"), ("a", "c"), ("b", "d"), ("c", "d"))
   }
 
   override def applyPatternQuery(df: DataFrame): DataFrame = {
-    Queries.diamondPattern(df)
+    // TODO variable ordering
+    df.findPattern(Queries.edgesToPatternString(edges), List("a", "b", "d", "c"), distinctFilter = true)
+      .selectExpr("a", "b", "c", "d")
   }
 
   override def applyBinaryQuery(df: DataFrame, sp: SparkSession): DataFrame = {
-    Queries.diamondBinaryJoins(df)
+    Queries.withDistinctColumns(df.selectExpr(s"src AS a", s"dst AS b")
+      .join(df.selectExpr(s"src AS b", s"dst AS d"), s"b")
+      .join(df.selectExpr("src AS a", "dst AS c"), "a")
+      .join(df.selectExpr("src AS c", "dst AS d"), Seq("c", "d"), "left_semi"),
+      this.vertices.toSeq.sorted)
+      .selectExpr("a", "b", "c", "d")
   }
 }
 
@@ -348,24 +357,6 @@ object Queries {
       .mkString(";")
     //    println(s"Perm: ${perm.mkString(",")} at position $permCounter")
     rel.findPattern(pattern, verticeNames, distinctFilter = useDistinctFilter, smallerThanFilter = !useDistinctFilter)
-  }
-
-  def diamondPattern(rel: DataFrame): DataFrame = {
-    withDistinctColumns(rel.findPattern(
-      """
-        |(a) - [] -> (b);
-        |(b) - [] -> (c);
-        |(b) - [] -> (c);
-        |(c) - [] -> (d);
-        |(d) - [] -> (a)
-        |""".stripMargin, List("a", "b", "c", "d")), List("a", "b", "c", "d"))
-  }
-
-  def diamondBinaryJoins(rel: DataFrame): DataFrame = {
-    withDistinctColumns(rel.selectExpr("src AS a", "dst AS b")
-      .join(rel.selectExpr("src AS b", "dst AS c"), "b")
-      .join(rel.selectExpr("src AS c", "dst AS d"), "c")
-      .join(rel.selectExpr("src AS d", "dst AS a"), Seq("a", "d"), "left_semi"), Seq("a", "b", "c", "d"))
   }
 
   def houseBinaryJoins(sp: SparkSession, rel: DataFrame): DataFrame = {

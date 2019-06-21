@@ -1,6 +1,7 @@
 package correctnessTesting
 
 import com.github.mrpowers.spark.fast.tests.DatasetComparer
+import experiments.DiamondQuery
 import experiments.Queries._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{DataFrame, Row}
@@ -9,7 +10,7 @@ import testing.{SparkTest, Utils}
 import sparkIntegration.implicits._
 
 object CorrectnessTest {
-  var FAST = true
+  var FAST = false
   val FAST_LIMIT = 10000
 }
 
@@ -20,7 +21,7 @@ class CorrectnessTest extends FlatSpec with Matchers with SparkTest with Dataset
 
   private val queryCache = new QueryCache(Utils.getQueryCachePath, sp)
 
-  def assertRDDEqual(a: RDD[Row], e: RDD[Row]) = {
+  def assertRDDEqual(a: RDD[Row], e: RDD[Row]): Unit = {
     val aExtras = a.subtract(e)
     val eExtras = e.subtract(a)
 
@@ -39,11 +40,7 @@ class CorrectnessTest extends FlatSpec with Matchers with SparkTest with Dataset
   }
 
   def assertDataSetEqual(a: DataFrame, e: DataFrame) = {
-    if (CorrectnessTest.FAST) {
-      assertRDDEqual(a.rdd, e.rdd)
-    } else {
-      assertSmallDatasetEquality(a, e, ignoreNullable = true, orderedComparison = false)
-    }
+    assertSmallDatasetEquality(a, e, ignoreNullable = true, orderedComparison = false)
   }
 
   def assertRDDSetEqual(a: RDD[Row], e: RDD[Row], setSize: Int) = {
@@ -272,12 +269,12 @@ class CorrectnessTest extends FlatSpec with Matchers with SparkTest with Dataset
       rawDataset
     }
 
-    //    "Diamond query" should "be the same" in {
-    //      val a = diamondPattern(ds)
-    //      val e = queryCache.getOrCompute(cacheKey.copy(queryName = "diamond"), diamondBinaryJoins(ds))
-    //
-    //      assertRDDSetEqual(a.rdd, e.rdd, 4)
-    //    }
+    "Diamond query" should "be the same" in {
+      val a = DiamondQuery().applyPatternQuery(ds)
+      val e = queryCache.getOrCompute(cacheKey.copy(queryName = "diamond"), DiamondQuery().applyBinaryQuery(ds, sp))
+
+      assertDataSetEqual(a, e)
+    }
 
     "House query" should "be the same" in {
       val a = housePattern(ds)
