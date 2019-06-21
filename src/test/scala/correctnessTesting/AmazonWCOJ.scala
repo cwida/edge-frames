@@ -18,5 +18,5 @@ class AmazonWCOJ extends CorrectnessTest with BeforeAndAfterAll {
   "WCOJ" should behave like sparkCliqueJoins(DATASET_PATH, ds)
   "WCOJ" should behave like sparkCycleJoins(DATASET_PATH, ds)
   "WCOJ" should behave like sparkOtherJoins(DATASET_PATH, ds)
-//  "WCOJ" should behave like sparkPathJoins(ds)
+  "WCOJ" should behave like sparkPathJoins(DATASET_PATH, ds)
 }

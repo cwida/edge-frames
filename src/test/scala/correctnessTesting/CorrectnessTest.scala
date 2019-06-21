@@ -9,7 +9,7 @@ import testing.{SparkTest, Utils}
 import sparkIntegration.implicits._
 
 object CorrectnessTest {
-  var FAST = false
+  var FAST = true
   val FAST_LIMIT = 10000
 }
 
@@ -50,8 +50,8 @@ class CorrectnessTest extends FlatSpec with Matchers with SparkTest with Dataset
     val aSet = a.map(r => r.toSeq.toSet)
     val eSet = e.map(r => r.toSeq.toSet)
 
-    aSet.filter(_.size != setSize).isEmpty() should be (true)
-    eSet.filter(_.size != setSize).isEmpty() should be (true)
+    aSet.filter(_.size != setSize).isEmpty() should be(true)
+    eSet.filter(_.size != setSize).isEmpty() should be(true)
 
 
     val aExtra = aSet.subtract(eSet)
@@ -67,8 +67,8 @@ class CorrectnessTest extends FlatSpec with Matchers with SparkTest with Dataset
       Utils.printSetRDD(50, eExtra)
     }
 
-    empty1 should be (true)
-    empty2 should be (true)
+    empty1 should be(true)
+    empty2 should be(true)
   }
 
   private def getPathQueryDataset(ds: DataFrame): DataFrame = {
@@ -106,7 +106,8 @@ class CorrectnessTest extends FlatSpec with Matchers with SparkTest with Dataset
       val e = pathBinaryJoins(2, pathQuerySet, nodeSet1, nodeSet2).cache()
       val a = pathPattern(2, pathQuerySet, nodeSet1, nodeSet2).cache()
 
-      assertRDDEqual(a.rdd, e.rdd)
+      assertDataSetEqual(a, e)
+
       a.isEmpty should be(false)
       e.isEmpty should be(false)
     }
@@ -117,7 +118,8 @@ class CorrectnessTest extends FlatSpec with Matchers with SparkTest with Dataset
       val e = pathBinaryJoins(3, pathQuerySet, nodeSet1, nodeSet2).cache()
       val a = pathPattern(3, pathQuerySet, nodeSet1, nodeSet2).cache()
 
-      assertRDDEqual(a.rdd, e.rdd)
+      assertDataSetEqual(a, e)
+
       a.isEmpty should be(false)
       e.isEmpty should be(false)
     }
@@ -128,7 +130,7 @@ class CorrectnessTest extends FlatSpec with Matchers with SparkTest with Dataset
       val e = pathBinaryJoins(4, pathQuerySet, nodeSet1, nodeSet2)
       val a = pathPattern(4, pathQuerySet, nodeSet1, nodeSet2)
 
-      assertRDDEqual(a.rdd, e.rdd)
+      assertDataSetEqual(a, e)
 
       a.isEmpty should be(false)
       e.isEmpty should be(false)
@@ -149,7 +151,7 @@ class CorrectnessTest extends FlatSpec with Matchers with SparkTest with Dataset
     }
 
     "triangles" should "be the same" in {
-      val e = queryCache.getOrCompute(cacheKey.copy(queryName = "clique", size=3), cliqueBinaryJoins(3, sp, ds))
+      val e = queryCache.getOrCompute(cacheKey.copy(queryName = "clique", size = 3), cliqueBinaryJoins(3, sp, ds))
       val a = cliquePattern(3, ds)
 
       assertDataSetEqual(a, e)
@@ -207,7 +209,7 @@ class CorrectnessTest extends FlatSpec with Matchers with SparkTest with Dataset
 
     "Four clique" should "be the same" in {
       val a = cliquePattern(4, ds)
-      val e = queryCache.getOrCompute(cacheKey.copy(size= 4), cliqueBinaryJoins(4, sp, ds))
+      val e = queryCache.getOrCompute(cacheKey.copy(size = 4), cliqueBinaryJoins(4, sp, ds))
 
       assertDataSetEqual(a, e)
     }
@@ -243,14 +245,14 @@ class CorrectnessTest extends FlatSpec with Matchers with SparkTest with Dataset
 
     "4-cylce" should "be the same" in {
       val a = cyclePattern(4, ds)
-      val e = queryCache.getOrCompute(cacheKey.copy(size=4), cycleBinaryJoins(4, ds))
+      val e = queryCache.getOrCompute(cacheKey.copy(size = 4), cycleBinaryJoins(4, ds))
 
-      assertRDDSetEqual(a.rdd, e.rdd, 4)
+      assertDataSetEqual(a, e)
     }
 
     "5-cylce" should "be the same" in {
       val a = cyclePattern(5, ds)
-      val e = queryCache.getOrCompute(cacheKey.copy(size=5), cycleBinaryJoins(5, ds))
+      val e = queryCache.getOrCompute(cacheKey.copy(size = 5), cycleBinaryJoins(5, ds))
 
       assertRDDSetEqual(a.rdd, e.rdd, 5)
     }
@@ -270,19 +272,18 @@ class CorrectnessTest extends FlatSpec with Matchers with SparkTest with Dataset
       rawDataset
     }
 
-//    "Diamond query" should "be the same" in {
-//      val a = diamondPattern(ds)
-//      val e = queryCache.getOrCompute(cacheKey.copy(queryName = "diamond"), diamondBinaryJoins(ds))
-//
-//      assertRDDSetEqual(a.rdd, e.rdd, 4)
-//    }
+    //    "Diamond query" should "be the same" in {
+    //      val a = diamondPattern(ds)
+    //      val e = queryCache.getOrCompute(cacheKey.copy(queryName = "diamond"), diamondBinaryJoins(ds))
+    //
+    //      assertRDDSetEqual(a.rdd, e.rdd, 4)
+    //    }
 
     "House query" should "be the same" in {
       val a = housePattern(ds)
       val e = queryCache.getOrCompute(cacheKey.copy(queryName = "house"), houseBinaryJoins(sp, ds))
 
-
-      assertRDDSetEqual(a.rdd, e.rdd, 5)
+      assertDataSetEqual(a, e)
     }
 
     "kite" should "be the same" in {

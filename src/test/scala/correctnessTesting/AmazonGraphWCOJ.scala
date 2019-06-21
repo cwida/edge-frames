@@ -20,9 +20,9 @@ class AmazonGraphWCOJ extends CorrectnessTest with BeforeAndAfterAll {
     WCOJFunctions.setJoinAlgorithm(experiments.WCOJ)
   }
 
-  "WCOJ" should behave like sparkTriangleJoins(DATASET_PATH, ds)
-  "WCOJ" should behave like sparkCliqueJoins(DATASET_PATH, ds)
+//  "WCOJ" should behave like sparkTriangleJoins(DATASET_PATH, ds)
+//  "WCOJ" should behave like sparkCliqueJoins(DATASET_PATH, ds)
   "WCOJ" should behave like sparkCycleJoins(DATASET_PATH, ds)
-  "WCOJ" should behave like sparkOtherJoins(DATASET_PATH, ds)
+//  "WCOJ" should behave like sparkOtherJoins(DATASET_PATH, ds)
 //  "WCOJ" should behave like sparkPathJoins(ds)  \\ TODO fix path joins
 }
