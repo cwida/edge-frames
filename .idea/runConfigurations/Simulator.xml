@@ -2,7 +2,7 @@
   <configuration default="false" name="Simulator" type="Application" factoryName="Application" editBeforeRun="true">
     <option name="MAIN_CLASS_NAME" value="sharesSimulator.Simulator" />
     <module name="SparkTest" />
-    <option name="PROGRAM_PARAMETERS" value="--dataset-type ama --dataset-path $PROJECT_DIR$/../master-thesis/datasets/amazon-0302 --out ./shares-simulation-no-deduplication/64/ --queries clique3,clique4,clique5,house,kite,cycle4,cycle5 --workers 64" />
+    <option name="PROGRAM_PARAMETERS" value="--dataset-type ama --dataset-path $PROJECT_DIR$/../master-thesis/datasets/amazon-0302 --out ./shares-simulation/64/ --queries clique6,cycle6 --workers 64" />
     <extension name="coverage">
       <pattern>
         <option name="PATTERN" value="sharesSimulator.*" />
