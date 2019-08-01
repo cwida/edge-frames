@@ -6,8 +6,8 @@ import java.net.InetAddress
 import leapfrogTriejoin.TrieIterator
 import org.apache.spark.SparkConf
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.{Row, SparkSession}
-import sparkIntegration.{ToTrieIterableRDD2ToTrieIterableRDDExec, WCOJ2WCOJExec}
+import org.apache.spark.sql.SparkSession
+import sparkIntegration.{ToTrieIterableRDD2ToTrieIterableRDDExec, WCOJ2WCOJExec, WCOJConfiguration}
 
 import scala.collection.mutable
 import scala.reflect.ClassTag
@@ -88,9 +88,12 @@ object TestSparkSession {
 
   val spark = SparkSession.builder().config(conf).getOrCreate()
 
+  WCOJConfiguration(spark)
+
   spark.experimental.extraStrategies = Seq(ToTrieIterableRDD2ToTrieIterableRDDExec, WCOJ2WCOJExec) ++ spark.experimental.extraStrategies
 }
 
 trait SparkTest {
   val sp = TestSparkSession.spark
 }
+

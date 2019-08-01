@@ -1,5 +1,6 @@
 package org.apache.spark.sql
 
+import experiments.Timers
 import leapfrogTriejoin.{ArrayTrieIterable, CSRTrieIterable, TrieIterable}
 import org.apache.spark.{SparkException, broadcast}
 import org.apache.spark.broadcast.Broadcast
@@ -18,7 +19,7 @@ import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService, Futu
 
 // TODO should be exchange?
 case class CSRTrieIterableBroadcast(graphID: Int, forwardEdges: SparkPlan, backwardEdges: SparkPlan) extends SparkPlan {
-  private val conf = WCOJConfiguration.get(sparkContext)
+  private val broadcastTimeout = WCOJConfiguration.get(sparkContext).broadcastTimeout
 
   override val children: Seq[SparkPlan] = Seq(forwardEdges, backwardEdges)
 
@@ -55,7 +56,7 @@ case class CSRTrieIterableBroadcast(graphID: Int, forwardEdges: SparkPlan, backw
 
   @transient
   private val timeout: Duration = {
-    val timeoutValue = conf.broadcastTimeout
+    val timeoutValue = broadcastTimeout
     if (timeoutValue < 0) {
       Duration.Inf
     } else {
@@ -92,6 +93,7 @@ case class CSRTrieIterableBroadcast(graphID: Int, forwardEdges: SparkPlan, backw
         longMetric(BROADCAST_TIME) += (System.nanoTime() - beforeBroadcast) / 1000000
 
         longMetric(MATERIALIZATION_TIME_METRIC) += (System.nanoTime() - beforeCollect) / 1000000
+        Timers.materializationTime = (System.nanoTime() - beforeCollect).toDouble / 1000000000.0
 
         SQLMetrics.postDriverMetricUpdates(sparkContext, executionId, metrics.values.toSeq)
         broadcasted

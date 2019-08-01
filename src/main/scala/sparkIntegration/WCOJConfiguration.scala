@@ -8,7 +8,7 @@ import scala.collection.mutable
 
 class WCOJConfiguration private (spark: SparkSession) {
   var broadcastTimeout : Int = spark.sqlContext.getConf(SQLConf.AUTO_BROADCASTJOIN_THRESHOLD.key).toInt
-  var parallelism: Int = spark.sparkContext.getConf.get("spark.default.parallelism").toInt
+  var parallelism: Int = spark.sparkContext.getConf.get("spark.default.parallelism", "1").toInt
   // TODO add materializing in here
   // TODO add algorithm choice in here
 
@@ -28,6 +28,9 @@ object WCOJConfiguration {
   }
 
   def get(sc:  SparkContext): WCOJConfiguration = {
-    configs.get(sc).head
+    if (!configs.isDefinedAt(sc)) {
+      throw new IllegalArgumentException(s"No WCOJ configuration initialized for $sc")
+    }
+    configs(sc)
   }
 }

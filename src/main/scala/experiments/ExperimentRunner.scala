@@ -10,7 +10,7 @@ import org.apache.spark.SparkConf
 import org.apache.spark.scheduler.{AccumulableInfo, SparkListener, SparkListenerStageCompleted}
 import org.apache.spark.sql.{DataFrame, SparkSession, WCOJFunctions}
 import scopt.OParser
-import sparkIntegration.WCOJ2WCOJExec
+import sparkIntegration.{WCOJ2WCOJExec, WCOJConfiguration}
 
 import scala.collection.mutable.ListBuffer
 
@@ -109,13 +109,11 @@ case class BinaryQueryResult(query: Query, count: Long, time: Double) extends Qu
   }
 }
 
-case class WCOJQueryResult(algorithm: Algorithm, query: Query, count: Long, time: Double, wcojTime: Double, copyTime: Double,
-                           materializationTime: Double) extends QueryResult {
+case class WCOJQueryResult(algorithm: Algorithm, query: Query, count: Long, time: Double, wcojTime: Double, copyTime: Double) extends QueryResult {
 }
 
 // TODO exclude count times for Spark joins (time after the join)
 object ExperimentRunner extends App {
-  // TODO record every run for error bars and variance.
   val f = new Formatter(Locale.US)
   val formatter = NumberFormat.getInstance(Locale.US).asInstanceOf[DecimalFormat]
   val symbols = formatter.getDecimalFormatSymbols
@@ -128,6 +126,8 @@ object ExperimentRunner extends App {
 
   println("Setting up Spark")
   val sp = setupSpark()
+
+  WCOJConfiguration(sp)
 
   val ds = loadDataset()
 
@@ -142,6 +142,8 @@ object ExperimentRunner extends App {
 
   require(!config.materializeLeapfrogs || !config.algorithms.contains(WCOJ), "Cannot use materializing Leapfrog joins with WCOJ, yet.")
   MaterializingLeapfrogJoin.setShouldMaterialize(config.materializeLeapfrogs)
+
+  cacheDatasets()
 
   runQueries()
 
@@ -261,7 +263,6 @@ object ExperimentRunner extends App {
 
         wcojTime = wcojResult.wcojTime
         copyTime = wcojResult.copyTime
-        materializationTime = wcojResult.materializationTime
       }
 
       csvWriter.writeNext(Array[String](query.toString,
@@ -269,21 +270,43 @@ object ExperimentRunner extends App {
         String.format(Locale.GERMAN, "%,013d", count.asInstanceOf[Object]),
         String.format(Locale.US, "%.2f", time.asInstanceOf[Object]),
         String.format(Locale.US, "%.2f", wcojTime.asInstanceOf[Object]),
-        String.format(Locale.US, "%.2f", copyTime.asInstanceOf[Object]),
-        String.format(Locale.US, "%.2f", materializationTime.asInstanceOf[Object])))
+        String.format(Locale.US, "%.2f", copyTime.asInstanceOf[Object])))
       csvWriter.flush()
     }
 
     println(s"Using $algorithm, $query took ${Utils.avg(results.map(_.time))} in average over ${config.reps} repetitions (result size $count).")
     if (Seq(GraphWCOJ, WCOJ).contains(algorithm)) {
       val wcojResults = results.map(_.asInstanceOf[WCOJQueryResult])
-      println(s"WCOJ took ${Utils.avg(wcojResults.map(_.wcojTime))}, copying took ${Utils.avg(wcojResults.map(_.copyTime))} took " +
-        s"${Utils.avg(wcojResults.map(_.materializationTime))}.")
+      println(s"WCOJ took ${Utils.avg(wcojResults.map(_.wcojTime))}, copying took ${Utils.avg(wcojResults.map(_.copyTime))} took.")
     }
     println("")
   }
 
-  private def runQueries() = {
+
+  private def cacheDatasets(): Unit = {
+    for (algoritm <- config.algorithms) {
+      algoritm match {
+        case BinaryJoins => {
+          // Do nothing
+        }
+        case WCOJ | GraphWCOJ => {
+          Timers.materializationTime = -1
+          System.gc()
+          WCOJFunctions.setJoinAlgorithm(algoritm)
+          Queries.cliquePattern(3, ds).count()  // Trigger caching
+          // TODO do I want a explicit caching only method?
+          println("materialization time", Timers.materializationTime)
+          reportMaterializationTime(Timers.materializationTime, algoritm)
+        }
+      }
+    }
+  }
+
+  private def reportMaterializationTime(time: Double, algorithm: Algorithm): Unit = {
+    csvWriter.writeNext(Array(s"# Materialization time:", String.format(Locale.US, "%.2f", time.asInstanceOf[Object], algorithm.toString)))
+  }
+
+  private def runQueries(): Unit = {
     for (q <- config.queries) {
       runQuery(config.algorithms, q)
     }
@@ -305,7 +328,6 @@ object ExperimentRunner extends App {
 
       for (i <- 1 to config.reps) {
         wcojTimes.clear() // TODO make single value
-        materializationTimes.clear()
         copyTimes.clear()
         System.gc()
         print(".")
@@ -316,7 +338,7 @@ object ExperimentRunner extends App {
 
         algoritm match {
           case WCOJ | GraphWCOJ => {
-            results += WCOJQueryResult(algoritm, query, count, time, wcojTimes.head, copyTimes.head, 0.0)  // TODO materialization time
+            results += WCOJQueryResult(algoritm, query, count, time, wcojTimes.head, copyTimes.head)
             // with new approach?
           }
           case BinaryJoins => {

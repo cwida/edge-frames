@@ -1,8 +1,9 @@
 package org.apache.spark.sql
 
 import experiments.{Algorithm, GraphWCOJ}
-import leapfrogTriejoin.MaterializingLeapfrogJoin
+import leapfrogTriejoin.{MaterializingLeapfrogJoin, TrieIterable}
 import org.apache.orc.impl.TreeReaderFactory.LongTreeReader
+import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.types.{IntegerType, LongType}
 import sparkIntegration.{JoinSpecification, Pattern, ToTrieIterableRDD, WCOJ, WCOJConfiguration}
@@ -65,8 +66,6 @@ class WCOJFunctions[T](ds: Dataset[T]) {
     Dataset.ofRows(ds.sparkSession,
       WCOJ(ds.rdd.id, outputVariables, joinSpecification, children.map(_.logicalPlan), partitionChild.logicalPlan))
   }
-
-
 
   /**
     * Currently, not used!
