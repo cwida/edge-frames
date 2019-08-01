@@ -85,6 +85,7 @@ case class ExperimentConfig(
                              datasetType: DatasetType = AmazonCoPurchase,
                              datasetFilePath: String = ".",
                              queries: Seq[Query] = Seq.empty,
+                             parallelismLevels: Seq[Int] = Seq(1),
                              outputPath: File = new File("."),
                              reps: Int = 1,
                              limitDataset: Int = -1,
@@ -127,7 +128,7 @@ object ExperimentRunner extends App {
   println("Setting up Spark")
   val sp = setupSpark()
 
-  WCOJConfiguration(sp)
+  val wcojConfig = WCOJConfiguration(sp)
 
   val ds = loadDataset()
 
@@ -180,6 +181,9 @@ object ExperimentRunner extends App {
           .valueName("<query1>,<query2>...")
           .required()
           .action((x, c) => c.copy(queries = x)),
+        opt[Seq[Int]]('p', "parallelism")
+          .valueName("<parallelism-level1>,<parallelism-level1>...")
+          .action((x, c) => c.copy(parallelismLevels = x)),
         opt[Int]('l', "limit")
           .optional
           .action((x, c) => c.copy(limitDataset = x)),
@@ -313,42 +317,45 @@ object ExperimentRunner extends App {
   }
 
   private def runQuery(algorithms: Seq[Algorithm], query: Query): Unit = {
-    for (algoritm <- algorithms) {
-      val queryDataFrame = algoritm match {
-        case BinaryJoins => {
-          query.applyBinaryQuery(ds, sp)
-        }
-        case WCOJ | GraphWCOJ => {
-          WCOJFunctions.setJoinAlgorithm(algoritm)
-          query.applyPatternQuery(ds)
-        }
-      }
-
-      val results = ListBuffer[QueryResult]()
-
-      for (i <- 1 to config.reps) {
-        wcojTimes.clear() // TODO make single value
-        copyTimes.clear()
-        System.gc()
-        print(".")
-        val start = System.nanoTime()
-        val count = queryDataFrame.count()
-        val end = System.nanoTime()
-        val time = (end - start).toDouble / 1000000000
-
-        algoritm match {
-          case WCOJ | GraphWCOJ => {
-            results += WCOJQueryResult(algoritm, query, count, time, wcojTimes.head, copyTimes.head)
-            // with new approach?
-          }
+    for (pl <- config.parallelismLevels) {
+      wcojConfig.parallelism = pl
+      for (algoritm <- algorithms) {
+        val queryDataFrame = algoritm match {
           case BinaryJoins => {
-            results += BinaryQueryResult(query, count, time)
+            query.applyBinaryQuery(ds, sp)
+          }
+          case WCOJ | GraphWCOJ => {
+            WCOJFunctions.setJoinAlgorithm(algoritm)
+            query.applyPatternQuery(ds)
           }
         }
-      }
-      println()
 
-      reportResults(results)
+        val results = ListBuffer[QueryResult]()
+
+        for (i <- 1 to config.reps) {
+          wcojTimes.clear() // TODO make single value
+          copyTimes.clear()
+          System.gc()
+          print(".")
+          val start = System.nanoTime()
+          val count = queryDataFrame.count()
+          val end = System.nanoTime()
+          val time = (end - start).toDouble / 1000000000
+
+          algoritm match {
+            case WCOJ | GraphWCOJ => {
+              results += WCOJQueryResult(algoritm, query, count, time, wcojTimes.head, copyTimes.head)
+              // with new approach?
+            }
+            case BinaryJoins => {
+              results += BinaryQueryResult(query, count, time)
+            }
+          }
+        }
+        println()
+
+        reportResults(results)
+      }
     }
   }
 
