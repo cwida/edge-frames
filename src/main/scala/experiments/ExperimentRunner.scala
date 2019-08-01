@@ -316,7 +316,8 @@ object ExperimentRunner extends App {
 
         algoritm match {
           case WCOJ | GraphWCOJ => {
-            results += WCOJQueryResult(algoritm, query, count, time, wcojTimes.head, copyTimes.head, materializationTimes.head)
+            results += WCOJQueryResult(algoritm, query, count, time, wcojTimes.head, copyTimes.head, 0.0)  // TODO materialization time
+            // with new approach?
           }
           case BinaryJoins => {
             results += BinaryQueryResult(query, count, time)

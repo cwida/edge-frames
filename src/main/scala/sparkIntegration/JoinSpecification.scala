@@ -2,6 +2,7 @@ package sparkIntegration
 
 import experiments.{Algorithm, GraphWCOJ}
 import leapfrogTriejoin.{EdgeRelationship, LeapfrogTriejoin, TrieIterable}
+import org.apache.spark.sql.ToCSRTrieIterableRDDExec
 import org.apache.spark.sql.execution.SparkPlan
 import org.slf4j.LoggerFactory
 
@@ -89,7 +90,7 @@ class JoinSpecification(joinPattern: Seq[Pattern], val variableOrdering: Seq[Str
     new LeapfrogTriejoin(trieIteratorMapping, variableOrdering, distinctFilter, smallerThanFilter)
   }
 
-  def buildTrieIterables(children: Seq[SparkPlan]): Seq[SparkPlan] = {
+  def buildTrieIterables(children: Seq[SparkPlan], graphID: Int): Seq[SparkPlan] = {
     joinAlgorithm match {
       case experiments.WCOJ => {
         children.zipWithIndex.map({ case (c, i) =>
@@ -102,7 +103,7 @@ class JoinSpecification(joinPattern: Seq[Pattern], val variableOrdering: Seq[Str
         ToArrayTrieIterableRDDExec(c, attributeOrdering)
       })}
       case GraphWCOJ => {
-        Seq(ToCSRTrieIterableRDDExec(children))
+        Seq(ToCSRTrieIterableRDDExec(children, graphID))
       }
     }
   }

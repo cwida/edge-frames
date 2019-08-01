@@ -8,6 +8,7 @@ import org.apache.spark.sql.types.{IntegerType, LongType}
 import sparkIntegration.{JoinSpecification, Pattern, ToTrieIterableRDD, WCOJ}
 import org.apache.spark.sql.catalyst.encoders._
 import org.apache.spark.sql.catalyst.expressions.AttributeReference
+import org.apache.spark.sql.execution.CoalesceExec.EmptyRDDWithPartitions
 import org.apache.spark.sql.execution.RowIterator
 
 import Predef._
@@ -59,7 +60,10 @@ class WCOJFunctions[T](ds: Dataset[T]) {
 
     val outputVariables = joinSpecification.variableOrdering.map(v => AttributeReference(v, LongType, nullable = false)())
 
-    Dataset.ofRows(ds.sparkSession, WCOJ(outputVariables, joinSpecification, children.map(_.logicalPlan)))
+    val partitionChild = children.head.sparkSession.emptyDataFrame.repartition(1)  // TODO parallism level
+
+    Dataset.ofRows(ds.sparkSession, WCOJ(outputVariables, joinSpecification, children.map(_.logicalPlan), partitionChild.logicalPlan,
+      ds.rdd.id))
   }
 
   /**

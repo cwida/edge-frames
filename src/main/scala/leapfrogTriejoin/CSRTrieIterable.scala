@@ -6,9 +6,10 @@ import org.apache.spark.sql.catalyst.expressions.GenericInternalRow
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
+// TODO serializing could be improved by sending common parts of the array only once
 class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
-                      private[this] val edgeIndices: Array[Int],
-                      private[this] val edges: Array[Long]) extends TrieIterable {
+                      val edgeIndices: Array[Int],
+                      private[this] val edges: Array[Long]) extends TrieIterable with Serializable {
 
   override def trieIterator: TrieIteratorImpl = {
     new TrieIteratorImpl()
@@ -37,7 +38,7 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
       if (depth == 0) {
         srcPosition = firstSourcePosition
         keyValue = srcPosition.toLong
-      } else if (depth == 1) {  // TODO predicatable
+      } else if (depth == 1) { // TODO predicatable
         dstPosition = edgeIndices(srcPosition)
         keyValue = edges(dstPosition)
       }
@@ -56,7 +57,7 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
     }
 
     override def key: Long = {
-     keyValue
+      keyValue
     }
 
     override def next(): Unit = {
@@ -67,7 +68,7 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
         keyValue = srcPosition.toLong
       } else {
         dstPosition += 1
-        isAtEnd = dstPosition == edgeIndices(srcPosition + 1)  // edgeIndices(srcPosition + 1) should not be factored out, it does not
+        isAtEnd = dstPosition == edgeIndices(srcPosition + 1) // edgeIndices(srcPosition + 1) should not be factored out, it does not
         // look like this improves performance (looks!)
         if (!isAtEnd) {
           keyValue = edges(dstPosition)
@@ -75,14 +76,16 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
       }
     }
 
-    override def atEnd: Boolean = isAtEnd
+    override def atEnd: Boolean = {
+      isAtEnd
+    }
 
     override def seek(key: Long): Boolean = {
       assert(!atEnd)
       if (depth == 0) {
         srcPosition = key.toInt
-        if (srcPosition < edgeIndices.length - 1 &&  // TODO srcPosition should never be bigger than edgeIndices.lenght -  1, investigate
-          edgeIndices(srcPosition) == edgeIndices(srcPosition + 1)) {  // TODO does srcPosition < edgeIndices.length - 1 ruin
+        if (srcPosition < edgeIndices.length - 1 && // TODO srcPosition should never be bigger than edgeIndices.lenght -  1, investigate
+          edgeIndices(srcPosition) == edgeIndices(srcPosition + 1)) { // TODO does srcPosition < edgeIndices.length - 1 ruin
           // predicatability?
           moveToNextSrcPosition()
         }
@@ -104,7 +107,7 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
 
       do {
         srcPosition += 1
-      } while (srcPosition < edgeIndices.length - 1 && edgeIndices(srcPosition + 1) == indexToSearch)  // TODO sentry element
+      } while (srcPosition < edgeIndices.length - 1 && edgeIndices(srcPosition + 1) == indexToSearch) // TODO sentry element
     }
 
     // For testing
@@ -195,7 +198,7 @@ object CSRTrieIterable {
       val alignedZippedIter = new AlignedZippedIterator(iterSrcDst, iterDstSrc).buffered
 
       val verticeIDsBuffer = new ArrayBuffer[Long](10000)
-      val edgeIndicesSrcBuffer = new ArrayBuffer[Int](10000)
+      val edgeIndicesSrcBuffer = new ArrayBuffer[Int](10000) // TODO those two are the same.
       val edgeIndicesDstBuffer = new ArrayBuffer[Int](10000)
       val edgesDstBuffer = new ArrayBuffer[Long](10000)
       val edgesSrcBuffer = new ArrayBuffer[Long](10000)
@@ -214,7 +217,6 @@ object CSRTrieIterable {
           edgeIndicesDstBuffer.append(edgesSrcBuffer.size)
 
           verticeIDToIndex.put(lastVertice, verticeIDsBuffer.size)
-//          println(lastVertice)
 
           verticeIDsBuffer.append(lastVertice)
 
