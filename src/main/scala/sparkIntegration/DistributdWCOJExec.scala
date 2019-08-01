@@ -57,8 +57,6 @@ case class DistributedWCOJExec(outputVariables: Seq[Attribute],
         val partitionRDD = partitionChild.execute()
         val csr = graphChild.executeBroadcast[(CSRTrieIterable, CSRTrieIterable)]().value
 
-        logger.error(partitionRDD.getNumPartitions.toString)
-        partitionRDD.foreachPartition(_ => logger.error("foreach"))
         partitionRDD.mapPartitions(_ => {
           val toUnsafeProjection = UnsafeProjection.create(output.zipWithIndex.map({
             case (a, i) => {
