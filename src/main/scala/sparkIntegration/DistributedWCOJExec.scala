@@ -1,7 +1,7 @@
 package sparkIntegration
 
 import experiments.GraphWCOJ
-import leapfrogTriejoin.CSRTrieIterable
+import leapfrogTriejoin.{CSRTrieIterable, TrieIterable}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.WCOJFunctions
 import org.apache.spark.sql.catalyst.InternalRow
@@ -38,7 +38,6 @@ case class DistributedWCOJExec(outputVariables: Seq[Attribute],
     AttributeSet(Seq(graphChild).flatMap(c => c.output.filter(a => List("src", "dst").contains(a.name))))
   }
 
-
   override protected def doExecute(): RDD[InternalRow] = {
     val joinTime = longMetric(JOIN_TIME_METRIC)
     val copyTime = longMetric(COPY_OUTPUT_TIME_METRIC)
@@ -55,7 +54,7 @@ case class DistributedWCOJExec(outputVariables: Seq[Attribute],
       }
       case GraphWCOJ => {
         val partitionRDD = partitionChild.execute()
-        val csr = graphChild.executeBroadcast[(CSRTrieIterable, CSRTrieIterable)]().value
+        val csr = graphChild.executeBroadcast[(TrieIterable, TrieIterable)]().value
 
         partitionRDD.mapPartitions(_ => {
           val toUnsafeProjection = UnsafeProjection.create(output.zipWithIndex.map({

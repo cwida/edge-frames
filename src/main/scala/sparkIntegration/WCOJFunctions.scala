@@ -5,7 +5,7 @@ import leapfrogTriejoin.MaterializingLeapfrogJoin
 import org.apache.orc.impl.TreeReaderFactory.LongTreeReader
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.types.{IntegerType, LongType}
-import sparkIntegration.{JoinSpecification, Pattern, ToTrieIterableRDD, WCOJ}
+import sparkIntegration.{JoinSpecification, Pattern, ToTrieIterableRDD, WCOJ, WCOJConfiguration}
 import org.apache.spark.sql.catalyst.encoders._
 import org.apache.spark.sql.catalyst.expressions.AttributeReference
 import org.apache.spark.sql.execution.CoalesceExec.EmptyRDDWithPartitions
@@ -38,6 +38,7 @@ class WCOJFunctions[T](ds: Dataset[T]) {
   }
 
   def findPattern(pattern: String, variableOrdering: Seq[String], distinctFilter: Boolean, smallerThanFilter: Boolean, children: Seq[DataFrame]): DataFrame = {
+    val conf = WCOJConfiguration.get(ds.sparkSession.sparkContext)
     // TODO does not support filtered relationships for GraphWCOJ
     require(ds.columns.contains("src"), "Edge table should have a column called `src`")
     require(ds.columns.contains("dst"), "Edge table should have a column called `dst`")
@@ -55,16 +56,17 @@ class WCOJFunctions[T](ds: Dataset[T]) {
       && children.size == 2), "WCOJ needs as many children as edges in the " +
       "pattern.")
 
-    val joinSpecification = new JoinSpecification(edges, variableOrdering, WCOJFunctions.joinAlgorithm,
-      distinctFilter, smallerThanFilter)
+    val joinSpecification = new JoinSpecification(edges, variableOrdering, WCOJFunctions.joinAlgorithm, distinctFilter, smallerThanFilter)
 
     val outputVariables = joinSpecification.variableOrdering.map(v => AttributeReference(v, LongType, nullable = false)())
 
-    val partitionChild = children.head.sparkSession.emptyDataFrame.repartition(1)  // TODO parallism level
+    val partitionChild = children.head.sparkSession.emptyDataFrame.repartition(conf.parallelism)
 
-    Dataset.ofRows(ds.sparkSession, WCOJ(outputVariables, joinSpecification, children.map(_.logicalPlan), partitionChild.logicalPlan,
-      ds.rdd.id))
+    Dataset.ofRows(ds.sparkSession,
+      WCOJ(ds.rdd.id, outputVariables, joinSpecification, children.map(_.logicalPlan), partitionChild.logicalPlan))
   }
+
+
 
   /**
     * Currently, not used!

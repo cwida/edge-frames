@@ -6,17 +6,14 @@ import org.apache.spark.sql.execution.SparkPlan
 
 object WCOJ2WCOJExec extends Strategy {
   override def apply(plan: LogicalPlan): Seq[SparkPlan] = plan match {
-    case WCOJ(outputVariables, joinSpecification, cs, partitionChild, graphID) => {
-      val trieIterable = CSRCache.get(graphID)
-       trieIterable match {
+    case WCOJ(graphID, outputVariables, joinSpecification, cs, partitionChild) => {
+      val children = CSRCache.get(graphID) match {
          case None =>
-           DistributedWCOJExec(outputVariables, joinSpecification,
-           joinSpecification.buildTrieIterables(cs.map(planLater), graphID).head, planLater(partitionChild)) :: Nil
+           joinSpecification.buildTrieIterables(cs.map(planLater), graphID)
          case Some(b) =>
-           println("Reusing")
-           DistributedWCOJExec(outputVariables, joinSpecification, ReusedCSRBroadcast(graphID), planLater(partitionChild)) :: Nil
+           Seq(ReusedCSRBroadcast(graphID))
        }
-
+      DistributedWCOJExec(outputVariables, joinSpecification, children.head, planLater(partitionChild)) :: Nil
     }
     case _ => Nil
   }
