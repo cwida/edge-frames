@@ -86,6 +86,7 @@ case class ExperimentConfig(
                              datasetFilePath: String = ".",
                              queries: Seq[Query] = Seq.empty,
                              parallelismLevels: Seq[Int] = Seq(1),
+                             workers: Int = 1,
                              outputPath: File = new File("."),
                              reps: Int = 1,
                              limitDataset: Int = -1,
@@ -184,6 +185,9 @@ object ExperimentRunner extends App {
         opt[Seq[Int]]('p', "parallelism")
           .valueName("<parallelism-level1>,<parallelism-level1>...")
           .action((x, c) => c.copy(parallelismLevels = x)),
+        opt[Int]('w', "workers")
+          .valueName("<workers:Int>")
+          .action((x, c) => c.copy(workers = x)),
         opt[Int]('l', "limit")
           .optional
           .action((x, c) => c.copy(limitDataset = x)),
@@ -203,7 +207,7 @@ object ExperimentRunner extends App {
 
   private def setupSpark(): SparkSession = {
     val conf = new SparkConf()
-      .setMaster("local[1]")
+      .setMaster(s"local[${config.workers}]")
       .setAppName("Spark test")
       .set("spark.executor.memory", "40g")
       .set("spark.driver.memory", "40g")
