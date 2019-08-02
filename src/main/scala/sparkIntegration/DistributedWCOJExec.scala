@@ -56,7 +56,8 @@ case class DistributedWCOJExec(outputVariables: Seq[Attribute],
         val partitionRDD = partitionChild.execute()
         val csrBroadcast = graphChild.executeBroadcast[(TrieIterable, TrieIterable)]()
 
-        partitionRDD.mapPartitions(_ => {
+        partitionRDD.mapPartitionsWithIndex((partition, _) => {
+          logger.error("paritiong index" + partition.toString)
           val toUnsafeProjection = UnsafeProjection.create(output.zipWithIndex.map({
             case (a, i) => {
               BoundReference(i, a.dataType, a.nullable)
@@ -64,7 +65,7 @@ case class DistributedWCOJExec(outputVariables: Seq[Attribute],
           }))
 
           val csr = csrBroadcast.value
-          val join = joinSpecification.build(Seq(csr._1, csr._2))
+          val join = joinSpecification.build(Seq(csr._1, csr._2), partition)
 
           val iter = new RowIterator {
             var row: Array[Long] = null

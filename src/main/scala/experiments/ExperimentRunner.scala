@@ -9,6 +9,7 @@ import leapfrogTriejoin.MaterializingLeapfrogJoin
 import org.apache.spark.SparkConf
 import org.apache.spark.scheduler.{AccumulableInfo, SparkListener, SparkListenerStageCompleted}
 import org.apache.spark.sql.{DataFrame, SparkSession, WCOJFunctions}
+import partitioning.{AllTuples, Partitioning}
 import scopt.OParser
 import sparkIntegration.{WCOJ2WCOJExec, WCOJConfiguration}
 
@@ -86,6 +87,7 @@ case class ExperimentConfig(
                              datasetFilePath: String = ".",
                              queries: Seq[Query] = Seq.empty,
                              parallelismLevels: Seq[Int] = Seq(1),
+                             partitionings: Seq[Partitioning] = Seq(AllTuples()),
                              workers: Int = 1,
                              outputPath: File = new File("."),
                              reps: Int = 1,
@@ -182,9 +184,12 @@ object ExperimentRunner extends App {
           .valueName("<query1>,<query2>...")
           .required()
           .action((x, c) => c.copy(queries = x)),
-        opt[Seq[Int]]('p', "parallelism")
+        opt[Seq[Int]]('e', "parallelism")
           .valueName("<parallelism-level1>,<parallelism-level1>...")
           .action((x, c) => c.copy(parallelismLevels = x)),
+        opt[Seq[Partitioning]]('p', "partitioning")
+          .valueName("<partitioning1>,<partitioning2>...")
+          .action((x, c) => c.copy(partitionings = x)),
         opt[Int]('w', "workers")
           .valueName("<workers:Int>")
           .action((x, c) => c.copy(workers = x)),
@@ -301,7 +306,7 @@ object ExperimentRunner extends App {
           Timers.materializationTime = -1
           System.gc()
           WCOJFunctions.setJoinAlgorithm(algoritm)
-          Queries.cliquePattern(3, ds).count()  // Trigger caching
+          Queries.cliquePattern(3, ds).count() // Trigger caching
           // TODO do I want a explicit caching only method?
           println("materialization time", Timers.materializationTime)
           reportMaterializationTime(Timers.materializationTime, algoritm)
@@ -323,42 +328,45 @@ object ExperimentRunner extends App {
   private def runQuery(algorithms: Seq[Algorithm], query: Query): Unit = {
     for (pl <- config.parallelismLevels) {
       wcojConfig.parallelism = pl
-      for (algoritm <- algorithms) {
-        val queryDataFrame = algoritm match {
-          case BinaryJoins => {
-            query.applyBinaryQuery(ds, sp)
-          }
-          case WCOJ | GraphWCOJ => {
-            WCOJFunctions.setJoinAlgorithm(algoritm)
-            query.applyPatternQuery(ds)
-          }
-        }
-
-        val results = ListBuffer[QueryResult]()
-
-        for (i <- 1 to config.reps) {
-          wcojTimes.clear() // TODO make single value
-          copyTimes.clear()
-          System.gc()
-          print(".")
-          val start = System.nanoTime()
-          val count = queryDataFrame.count()
-          val end = System.nanoTime()
-          val time = (end - start).toDouble / 1000000000
-
-          algoritm match {
-            case WCOJ | GraphWCOJ => {
-              results += WCOJQueryResult(algoritm, query, count, time, wcojTimes.head, copyTimes.head)
-              // with new approach?
-            }
+      for (p <- config.partitionings) {
+        WCOJFunctions.setPartitioning(p)
+        for (algoritm <- algorithms) {
+          val queryDataFrame = algoritm match {
             case BinaryJoins => {
-              results += BinaryQueryResult(query, count, time)
+              query.applyBinaryQuery(ds, sp)
+            }
+            case WCOJ | GraphWCOJ => {
+              WCOJFunctions.setJoinAlgorithm(algoritm)
+              query.applyPatternQuery(ds)
             }
           }
-        }
-        println()
 
-        reportResults(results)
+          val results = ListBuffer[QueryResult]()
+
+          for (i <- 1 to config.reps) {
+            wcojTimes.clear() // TODO make single value
+            copyTimes.clear()
+            System.gc()
+            print(".")
+            val start = System.nanoTime()
+            val count = queryDataFrame.count()
+            val end = System.nanoTime()
+            val time = (end - start).toDouble / 1000000000
+
+            algoritm match {
+              case WCOJ | GraphWCOJ => {
+                results += WCOJQueryResult(algoritm, query, count, time, wcojTimes.head, copyTimes.head)
+                // with new approach?
+              }
+              case BinaryJoins => {
+                results += BinaryQueryResult(query, count, time)
+              }
+            }
+          }
+          println()
+
+          reportResults(results)
+        }
       }
     }
   }

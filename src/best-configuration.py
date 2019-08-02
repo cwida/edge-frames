@@ -7,6 +7,8 @@
 import sys
 from sharesCalculator import best_configuration
 
+# TODO needs to be fixed for small level of parallism
+
 workers = int(sys.argv[1])
 edges = sys.argv[2:]
 

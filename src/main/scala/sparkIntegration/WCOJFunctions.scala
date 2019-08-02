@@ -1,16 +1,18 @@
 package org.apache.spark.sql
 
-import experiments.{Algorithm, GraphWCOJ}
+import experiments.{Algorithm, DescriptiveQuery, GraphWCOJ, Query}
 import leapfrogTriejoin.{MaterializingLeapfrogJoin, TrieIterable}
 import org.apache.orc.impl.TreeReaderFactory.LongTreeReader
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.types.{IntegerType, LongType}
-import sparkIntegration.{JoinSpecification, Pattern, ToTrieIterableRDD, WCOJ, WCOJConfiguration}
+import sparkIntegration.{AnonymousEdge, JoinSpecification, NamedVertex, Pattern, ToTrieIterableRDD, WCOJ, WCOJConfiguration}
 import org.apache.spark.sql.catalyst.encoders._
 import org.apache.spark.sql.catalyst.expressions.AttributeReference
 import org.apache.spark.sql.execution.CoalesceExec.EmptyRDDWithPartitions
 import org.apache.spark.sql.execution.RowIterator
+import partitioning.shares.Hypercube
+import partitioning.{AllTuples, Partitioning, Shares}
 
 import Predef._
 
@@ -57,7 +59,19 @@ class WCOJFunctions[T](ds: Dataset[T]) {
       && children.size == 2), "WCOJ needs as many children as edges in the " +
       "pattern.")
 
-    val joinSpecification = new JoinSpecification(edges, variableOrdering, WCOJFunctions.joinAlgorithm, distinctFilter, smallerThanFilter)
+    val partitioning = WCOJFunctions.getPartitioning match {
+      case Shares(_) => Shares(Hypercube.getBestConfigurationFor(conf.parallelism, getQuery(edges)))
+      case a @ AllTuples() => a
+    }
+
+    partitioning match {
+      case shares: Shares =>
+        println("WCOJ functions", shares.hypercube.dimensionSizes.mkString(", "))
+      case _ =>
+    }
+
+    val joinSpecification = new JoinSpecification(edges, variableOrdering, WCOJFunctions.joinAlgorithm, partitioning, distinctFilter,
+      smallerThanFilter)
 
     val outputVariables = joinSpecification.variableOrdering.map(v => AttributeReference(v, LongType, nullable = false)())
 
@@ -65,6 +79,18 @@ class WCOJFunctions[T](ds: Dataset[T]) {
 
     Dataset.ofRows(ds.sparkSession,
       WCOJ(ds.rdd.id, outputVariables, joinSpecification, children.map(_.logicalPlan), partitionChild.logicalPlan))
+  }
+
+  private def getQuery(ps: Seq[Pattern]): Query = {
+    val stringEdges = ps.map(p => p match {
+      case AnonymousEdge(src: NamedVertex, dst: NamedVertex) => {
+        (src.name, dst.name)
+      }
+      case _ => {
+        throw new IllegalArgumentException("Illegal query pattern")
+      }
+    })
+    DescriptiveQuery("nameless", stringEdges)
   }
 
   /**
@@ -161,6 +187,7 @@ class WCOJFunctions[T](ds: Dataset[T]) {
 
 object WCOJFunctions {
   private var joinAlgorithm: Algorithm = experiments.WCOJ
+  private var partitioning: Partitioning = AllTuples()
 
   def setJoinAlgorithm(a: Algorithm): Unit = {
     if (a == experiments.WCOJ) {
@@ -170,5 +197,16 @@ object WCOJFunctions {
     println(s"Setting join algorithm to $a")
   }
 
-  def getJoinAlgorithm: Algorithm = joinAlgorithm
+  def getJoinAlgorithm: Algorithm = {
+    joinAlgorithm
+  }
+
+  def setPartitioning(p: Partitioning): Unit = {
+    partitioning = p
+    println(s"Setting partitioning to $p")
+  }
+
+  def getPartitioning: Partitioning = {
+    partitioning
+  }
 }

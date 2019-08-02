@@ -58,7 +58,7 @@ case class WCOJExec(outputVariables: Seq[Attribute], joinSpecification: JoinSpec
       val zippedIters: Iterator[List[TrieIterable]] = generalZip(is)
 
       zippedIters.flatMap( a => {
-        val join = joinSpecification.build(a)
+        val join = joinSpecification.build(a, -1)
 
         val iter = new RowIterator {
           var row: Array[Long] = null

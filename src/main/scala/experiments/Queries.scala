@@ -21,6 +21,17 @@ sealed trait Query {
   def applyBinaryQuery(df: DataFrame, sp: SparkSession): DataFrame
 }
 
+/**
+  * A query that cannot be executed. Used to decribe a query.
+  * @param name
+  * @param edges
+  */
+case class DescriptiveQuery(name: String, edges: Seq[(String, String)]) extends Query {
+  override def applyPatternQuery(df: DataFrame): DataFrame = ???
+
+  override def applyBinaryQuery(df: DataFrame, sp: SparkSession): DataFrame = ???
+}
+
 case class Clique(size: Int) extends Query {
   override def name: String = {
     s"$size-clique"

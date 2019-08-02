@@ -1,15 +1,18 @@
 package sparkIntegration
 
-import experiments.{Algorithm, GraphWCOJ}
+import experiments.{Algorithm, DescriptiveQuery, GraphWCOJ, Query}
 import leapfrogTriejoin.{EdgeRelationship, LeapfrogTriejoin, TrieIterable}
 import org.apache.spark.sql.CSRTrieIterableBroadcast
 import org.apache.spark.sql.execution.SparkPlan
 import org.slf4j.LoggerFactory
+import partitioning.shares.SharesFilteredTrieIterator
+import partitioning.{AllTuples, Partitioning, Shares}
 
 import scala.collection.mutable
 
 class JoinSpecification(joinPattern: Seq[Pattern], val variableOrdering: Seq[String],
                         joinAlgorithm: Algorithm,
+                        partitioning: Partitioning,
                         val distinctFilter: Boolean,
                         smallerThanFilter: Boolean) extends Serializable {
   private val logger = LoggerFactory.getLogger(classOf[JoinSpecification])
@@ -57,7 +60,7 @@ class JoinSpecification(joinPattern: Seq[Pattern], val variableOrdering: Seq[Str
     }
   }
 
-  def build(trieIterables: Seq[TrieIterable]): LeapfrogTriejoin = {
+  def build(trieIterables: Seq[TrieIterable], partition: Int): LeapfrogTriejoin = {
     val trieIterators = joinAlgorithm match {
       case experiments.WCOJ => {
         trieIterables.map(_.trieIterator)
@@ -74,6 +77,7 @@ class JoinSpecification(joinPattern: Seq[Pattern], val variableOrdering: Seq[Str
         })
       }
     }
+
     val trieIteratorMapping = joinPattern.zipWithIndex.map({
       case (AnonymousEdge(src: NamedVertex, dst: NamedVertex), i) => {
         if (dstAccessibleRelationship(i)) {
@@ -87,7 +91,22 @@ class JoinSpecification(joinPattern: Seq[Pattern], val variableOrdering: Seq[Str
         throw new InvalidParseException("Use only anonymous edges with named vertices.")
       }
     }).toMap
-    new LeapfrogTriejoin(trieIteratorMapping, variableOrdering, distinctFilter, smallerThanFilter)
+
+
+    val partitionedTrieIterators = partitioning match {
+      case Shares(hypercube) => {
+        val variableToDimesion = allVariables.sorted.zipWithIndex.toMap
+        trieIteratorMapping.map( {case (er, ti) => {
+          val dimensions = er.variables.map(variableToDimesion(_)).toArray
+          (er, new SharesFilteredTrieIterator(ti, partition, dimensions, hypercube))
+        }})
+      }
+      case AllTuples() => {
+        trieIteratorMapping
+      }
+    }
+
+    new LeapfrogTriejoin(partitionedTrieIterators, variableOrdering, distinctFilter, smallerThanFilter)
   }
 
   def buildTrieIterables(children: Seq[SparkPlan], graphID: Int): Seq[SparkPlan] = {
