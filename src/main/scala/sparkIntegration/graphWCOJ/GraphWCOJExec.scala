@@ -1,6 +1,7 @@
 package sparkIntegration.graphWCOJ
 
 import experiments.GraphWCOJ
+import experiments.metrics.Metrics
 import leapfrogTriejoin.TrieIterable
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.InternalRow
@@ -19,12 +20,11 @@ case class GraphWCOJExec(outputVariables: Seq[Attribute],
 
   val JOIN_TIME_METRIC = "wcoj_join_time"
   val COPY_OUTPUT_TIME_METRIC = "copy_time"
-  val BEFORE_AFTER_TIME_METRIC = "before_after_time"
 
   override lazy val metrics = Map(
     JOIN_TIME_METRIC -> SQLMetrics.createTimingMetric(sparkContext, "wcoj time"),
-    COPY_OUTPUT_TIME_METRIC -> SQLMetrics.createTimingMetric(sparkContext, "copy"),
-    BEFORE_AFTER_TIME_METRIC -> SQLMetrics.createTimingMetric(sparkContext, "before after time"))
+    COPY_OUTPUT_TIME_METRIC -> SQLMetrics.createTimingMetric(sparkContext, "copy")
+  )
 
 
   override def children: Seq[SparkPlan] = {
@@ -44,7 +44,9 @@ case class GraphWCOJExec(outputVariables: Seq[Attribute],
 
     val joinTime = longMetric(JOIN_TIME_METRIC)
     val copyTime = longMetric(COPY_OUTPUT_TIME_METRIC)
-    val beforeAfter = longMetric(BEFORE_AFTER_TIME_METRIC)
+
+    val joinTimer = Metrics.getTimer(sparkContext, JOIN_TIME_METRIC)
+    val copyTimer = Metrics.getTimer(sparkContext, COPY_OUTPUT_TIME_METRIC)
 
     var copyTimeAcc: Long = 0L
     var joinTimeAcc: Long = 0L
@@ -76,11 +78,11 @@ case class GraphWCOJExec(outputVariables: Seq[Attribute],
 
             override def advanceNext(): Boolean = {
               if (join.atEnd) {
-
-                beforeAfter += (System.nanoTime() - beforeTime) / 1000000
                 joinTime.set(joinTimeAcc / 1000000)
                 copyTime.set(copyTimeAcc / 1000000)
 
+                joinTimer.add(partition, joinTimeAcc)
+                copyTimer.add(partition, copyTimeAcc)
                 false
               } else {
                 val start = System.nanoTime()
@@ -95,6 +97,7 @@ case class GraphWCOJExec(outputVariables: Seq[Attribute],
               internalRowBuffer.row = row
               val ur = toUnsafeProjection(internalRowBuffer)
               copyTimeAcc += (System.nanoTime() - start)
+
               ur
             }
           }

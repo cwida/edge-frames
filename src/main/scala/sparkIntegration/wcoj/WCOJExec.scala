@@ -1,5 +1,6 @@
 package sparkIntegration.wcoj
 
+import experiments.metrics.Metrics
 import experiments.{BinaryJoins, GraphWCOJ}
 import leapfrogTriejoin.TrieIterable
 import org.apache.spark.rdd.RDD
@@ -18,12 +19,10 @@ case class WCOJExec(outputVariables: Seq[Attribute], joinSpecification: JoinSpec
 
   val JOIN_TIME_METRIC = "wcoj_join_time"
   val COPY_OUTPUT_TIME_METRIC = "copy_time"
-  val BEFORE_AFTER_TIME_METRIC = "before_after_time"
 
   override lazy val metrics = Map(
     JOIN_TIME_METRIC -> SQLMetrics.createTimingMetric(sparkContext, "wcoj time"),
-    COPY_OUTPUT_TIME_METRIC -> SQLMetrics.createTimingMetric(sparkContext, "copy"),
-    BEFORE_AFTER_TIME_METRIC -> SQLMetrics.createTimingMetric(sparkContext, "before after time"))
+    COPY_OUTPUT_TIME_METRIC -> SQLMetrics.createTimingMetric(sparkContext, "copy"))
 
 
   override def output: Seq[Attribute] = {
@@ -37,7 +36,9 @@ case class WCOJExec(outputVariables: Seq[Attribute], joinSpecification: JoinSpec
 
     val joinTime = longMetric(JOIN_TIME_METRIC)
     val copyTime = longMetric(COPY_OUTPUT_TIME_METRIC)
-    val beforeAfter = longMetric(BEFORE_AFTER_TIME_METRIC)
+
+    val joinTimer = Metrics.getTimer(sparkContext, JOIN_TIME_METRIC)
+    val copyTimer = Metrics.getTimer(sparkContext, COPY_OUTPUT_TIME_METRIC)
 
     var copyTimeAcc: Long = 0L
     var joinTimeAcc: Long = 0L
@@ -66,10 +67,11 @@ case class WCOJExec(outputVariables: Seq[Attribute], joinSpecification: JoinSpec
 
           override def advanceNext(): Boolean = {
             if (join.atEnd) {
-
-              beforeAfter += (System.nanoTime() - beforeTime) / 1000000
               joinTime.set(joinTimeAcc / 1000000)
               copyTime.set(copyTimeAcc / 1000000)
+
+              joinTimer.add(0, joinTimeAcc)
+              copyTimer.add(0, copyTimeAcc)
 
               false
             } else {

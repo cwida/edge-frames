@@ -1,5 +1,6 @@
 package sparkIntegration.wcoj
 
+import experiments.metrics.Metrics
 import leapfrogTriejoin.ArrayTrieIterable
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.InternalRow
@@ -28,6 +29,8 @@ case class ToArrayTrieIterableRDDExec(child: SparkPlan, attributeOrdering: Seq[S
     val matTime = longMetric(MATERIALIZATION_TIME_METRIC)
     val memoryUsage = longMetric(MEMORY_USAGE_METRIC)
 
+    val materializationTimer = Metrics.getTimer(sparkContext, MATERIALIZATION_TIME_METRIC)
+
     new TrieIterableRDD[ArrayTrieIterable](child.execute()
       .mapPartitions(iter => {
         val start = System.nanoTime()
@@ -41,7 +44,10 @@ case class ToArrayTrieIterableRDDExec(child: SparkPlan, attributeOrdering: Seq[S
           }
         ))
 
-        matTime += (System.nanoTime() - start) / 1000000
+        val end = System.nanoTime()
+
+        matTime += (end - start) / 1000000
+        materializationTimer.add((0, end - start))
         memoryUsage += trieIterable.memoryUsage
 
         Iterator(trieIterable)

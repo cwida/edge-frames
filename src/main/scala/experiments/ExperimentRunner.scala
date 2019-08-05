@@ -5,6 +5,7 @@ import java.text.{DecimalFormat, NumberFormat}
 import java.util.{Formatter, Locale}
 
 import au.com.bytecode.opencsv.CSVWriter
+import experiments.metrics.Metrics
 import leapfrogTriejoin.MaterializingLeapfrogJoin
 import org.apache.spark.SparkConf
 import org.apache.spark.scheduler.{AccumulableInfo, SparkListener, SparkListenerStageCompleted}
@@ -117,7 +118,8 @@ case class BinaryQueryResult(query: Query, count: Long, time: Double) extends Qu
   }
 }
 
-case class WCOJQueryResult(algorithm: Algorithm, query: Query, count: Long, time: Double, wcojTime: Double, copyTime: Double) extends QueryResult {
+case class WCOJQueryResult(algorithm: Algorithm, query: Query, count: Long, time: Double, wcojTime: Double, copyTime: Double,
+                           materializationTime: Option[Double]) extends QueryResult {
 }
 
 // TODO exclude count times for Spark joins (time after the join)
@@ -134,15 +136,9 @@ object ExperimentRunner extends App {
 
   println("Setting up Spark")
   val sp = setupSpark()
-
   val wcojConfig = WCOJConfiguration(sp)
 
   val ds = loadDataset()
-
-  val wcojTimes = ListBuffer[Double]()
-  val copyTimes = ListBuffer[Double]()
-  val materializationTimes = ListBuffer[Double]()
-  setupMetricListener(wcojTimes, materializationTimes, copyTimes)
 
   var csvWriter: CSVWriter = null
 
@@ -151,7 +147,7 @@ object ExperimentRunner extends App {
   require(!config.materializeLeapfrogs || !config.algorithms.contains(WCOJ), "Cannot use materializing Leapfrog joins with WCOJ, yet.")
   wcojConfig.setShouldMaterialize(config.materializeLeapfrogs)
 
-  cacheDatasets()
+  cacheGraphBroadcast()
 
   runQueries()
 
@@ -220,7 +216,7 @@ object ExperimentRunner extends App {
       .setAppName("Spark test")
       .set("spark.executor.memory", "40g")
       .set("spark.driver.memory", "40g")
-      .set("spark.cores.max", "1")
+//      .set("spark.cores.max", "1")
       .set("spark.sql.autoBroadcastJoinThreshold", "104857600") // High threshold
     //          .set("spark.sql.autoBroadcastJoinThreshold", "-1")  // No broadcast
     //          .set("spark.sql.codegen.wholeStage", "false")
@@ -280,6 +276,10 @@ object ExperimentRunner extends App {
 
         wcojTime = wcojResult.wcojTime
         copyTime = wcojResult.copyTime
+        materializationTime = wcojResult.materializationTime match {
+          case Some(t) => t
+          case None => 0
+        }
       }
 
       csvWriter.writeNext(Array[String](query.toString,
@@ -287,7 +287,8 @@ object ExperimentRunner extends App {
         String.format(Locale.GERMAN, "%,013d", count.asInstanceOf[Object]),
         String.format(Locale.US, "%.2f", time.asInstanceOf[Object]),
         String.format(Locale.US, "%.2f", wcojTime.asInstanceOf[Object]),
-        String.format(Locale.US, "%.2f", copyTime.asInstanceOf[Object])))
+        String.format(Locale.US, "%.2f", copyTime.asInstanceOf[Object]),
+        String.format(Locale.US, "%.2f", materializationTime.asInstanceOf[Object])))
       csvWriter.flush()
     }
 
@@ -300,27 +301,28 @@ object ExperimentRunner extends App {
   }
 
 
-  private def cacheDatasets(): Unit = {
+  private def cacheGraphBroadcast(): Unit = {
     for (algoritm <- config.algorithms) {
       algoritm match {
-        case BinaryJoins => {
+        case BinaryJoins | WCOJ => {
           // Do nothing
         }
-        case WCOJ | GraphWCOJ => {
-          Timers.materializationTime = -1
+        case GraphWCOJ => {
+          Metrics.masterTimers.clear()
           System.gc()
           wcojConfig.setJoinAlgorithm(algoritm.asInstanceOf[WCOJAlgorithm])
           Queries.cliquePattern(3, ds).count() // Trigger caching
-          // TODO do I want a explicit caching only method?
-          println("materialization time", Timers.materializationTime)
-          reportMaterializationTime(Timers.materializationTime, algoritm)
+
+          println("GraphWCOJ broadcast materialization took: ", Metrics.masterTimers("materializationTime").toDouble / 1e9)
+          reportMaterializationTime(Metrics.masterTimers("materializationTime").toDouble / 1e9, algoritm)
         }
       }
     }
   }
 
   private def reportMaterializationTime(time: Double, algorithm: Algorithm): Unit = {
-    csvWriter.writeNext(Array(s"# Materialization time:", String.format(Locale.US, "%.2f", time.asInstanceOf[Object], algorithm.toString)))
+    csvWriter.writeNext(Array(s"# Materialization time (GraphWCOJ):", String.format(Locale.US, "%.2f", time.asInstanceOf[Object], algorithm
+      .toString)))
   }
 
   private def runQueries(): Unit = {
@@ -348,19 +350,23 @@ object ExperimentRunner extends App {
           val results = ListBuffer[QueryResult]()
 
           for (i <- 1 to config.reps) {
-            wcojTimes.clear() // TODO make single value
-            copyTimes.clear()
             System.gc()
             print(".")
             val start = System.nanoTime()
             val count = queryDataFrame.count()
             val end = System.nanoTime()
-            val time = (end - start).toDouble / 1000000000
+            val time = (end - start).toDouble / 1e9
 
             algoritm match {
               case WCOJ | GraphWCOJ => {
-                results += WCOJQueryResult(algoritm, query, count, time, wcojTimes.head, copyTimes.head)
-                // with new approach?
+                val joinTimes = Metrics.getTimes("wcoj_join_time")
+                println(joinTimes.mkString(", "))
+                val copyTimes = Metrics.getTimes("copy_time")
+                val materializationTimes = Metrics.getTimes("materializationTime")
+
+                results += WCOJQueryResult(algoritm, query, count, time,
+                  joinTimes.head._2.toDouble / 1e9, copyTimes.head._2.toDouble / 1e9,
+                  None)  // TODO materialization times
               }
               case BinaryJoins => {
                 results += BinaryQueryResult(query, count, time)
@@ -374,31 +380,4 @@ object ExperimentRunner extends App {
       }
     }
   }
-
-
-  private def setupMetricListener(wcojTimes: ListBuffer[Double], materializationTimes: ListBuffer[Double], copyTimes: ListBuffer[Double]): Unit = {
-    sp.sparkContext.addSparkListener(new SparkListener {
-      override def onStageCompleted(stageCompleted: SparkListenerStageCompleted): Unit = {
-        var materializationTimeTotal = 0L
-
-        stageCompleted.stageInfo.accumulables.foreach({
-          case (_, AccumulableInfo(_, Some(name), _, Some(value), _, _, _)) => {
-            if (name.startsWith("wcoj time")) {
-              wcojTimes += value.asInstanceOf[Long].toDouble / 1000
-            } else if (name.startsWith("materialization time")) {
-              materializationTimeTotal += value.asInstanceOf[Long]
-            } else if (name.startsWith("copy")) {
-              copyTimes += value.asInstanceOf[Long].toDouble / 1000
-            }
-          }
-        })
-
-        if (materializationTimeTotal != 0) {
-          materializationTimes += materializationTimeTotal.toDouble / 1000
-        }
-      }
-    })
-
-  }
-
 }

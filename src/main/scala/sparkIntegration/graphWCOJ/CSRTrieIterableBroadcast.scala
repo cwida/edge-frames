@@ -1,6 +1,7 @@
 package org.apache.spark.sql
 
 import experiments.Timers
+import experiments.metrics.Metrics
 import leapfrogTriejoin.{CSRTrieIterable, TrieIterable}
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.RDD
@@ -90,10 +91,11 @@ case class CSRTrieIterableBroadcast(graphID: Int, forwardEdges: SparkPlan, backw
         longMetric(BUILD_TIME) += (beforeBroadcast - beforeBuild) / 1000000
 
         val broadcasted = sparkContext.broadcast((csrForward, csrBackward))
-        longMetric(BROADCAST_TIME) += (System.nanoTime() - beforeBroadcast) / 1000000
+        val end = System.nanoTime()
+        longMetric(BROADCAST_TIME) += (end - beforeBroadcast) / 1000000
 
-        longMetric(MATERIALIZATION_TIME_METRIC) += (System.nanoTime() - beforeCollect) / 1000000
-        Timers.materializationTime = (System.nanoTime() - beforeCollect).toDouble / 1000000000.0
+        longMetric(MATERIALIZATION_TIME_METRIC) += (end - beforeCollect) / 1000000
+        Metrics.masterTimers.put(MATERIALIZATION_TIME_METRIC, end - beforeCollect)
 
         SQLMetrics.postDriverMetricUpdates(sparkContext, executionId, metrics.values.toSeq)
         broadcasted
