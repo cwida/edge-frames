@@ -4,6 +4,7 @@ import java.lang.management.ManagementFactory
 
 import leapfrogTriejoin.{ArrayTrieIterable, EdgeRelationship, LeapfrogTriejoin, TrieIterator}
 import leapfrogTriejoin.implicits._
+import partitioning.AllTuples
 
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
@@ -37,7 +38,7 @@ object ProfilingWCOJ extends App {
 //  for (rep <- 0 until REPS) {
     val rels: List[TrieIterator] = edges.toList
       .map(e => new ArrayTrieIterable(ds).trieIterator)
-    val join = new LeapfrogTriejoin(edges.zip(rels).toMap, Seq("a", "b", "c", "d", "e"))
+    val join = new LeapfrogTriejoin(edges.zip(rels).toMap, Seq("a", "b", "c", "d", "e"), partition = 0, partitioning = AllTuples())
     scala.io.StdIn.readLine("Ready. Continue?")
     doJoin(join)
 //  }

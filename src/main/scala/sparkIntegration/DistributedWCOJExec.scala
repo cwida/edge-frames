@@ -57,7 +57,6 @@ case class DistributedWCOJExec(outputVariables: Seq[Attribute],
         val csrBroadcast = graphChild.executeBroadcast[(TrieIterable, TrieIterable)]()
 
         partitionRDD.mapPartitionsWithIndex((partition, _) => {
-          logger.error("paritiong index" + partition.toString)
           val toUnsafeProjection = UnsafeProjection.create(output.zipWithIndex.map({
             case (a, i) => {
               BoundReference(i, a.dataType, a.nullable)

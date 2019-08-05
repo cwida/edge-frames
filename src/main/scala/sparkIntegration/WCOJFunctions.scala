@@ -60,14 +60,8 @@ class WCOJFunctions[T](ds: Dataset[T]) {
       "pattern.")
 
     val partitioning = WCOJFunctions.getPartitioning match {
-      case Shares(_) => Shares(Hypercube.getBestConfigurationFor(conf.parallelism, getQuery(edges)))
+      case Shares(_) => Shares(Hypercube.getBestConfigurationFor(conf.parallelism, getQuery(edges), variableOrdering))
       case a @ AllTuples() => a
-    }
-
-    partitioning match {
-      case shares: Shares =>
-        println("WCOJ functions", shares.hypercube.dimensionSizes.mkString(", "))
-      case _ =>
     }
 
     val joinSpecification = new JoinSpecification(edges, variableOrdering, WCOJFunctions.joinAlgorithm, partitioning, distinctFilter,

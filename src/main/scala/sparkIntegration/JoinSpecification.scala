@@ -1,11 +1,10 @@
 package sparkIntegration
 
-import experiments.{Algorithm, DescriptiveQuery, GraphWCOJ, Query}
+import experiments.{Algorithm, GraphWCOJ}
 import leapfrogTriejoin.{EdgeRelationship, LeapfrogTriejoin, TrieIterable}
 import org.apache.spark.sql.CSRTrieIterableBroadcast
 import org.apache.spark.sql.execution.SparkPlan
 import org.slf4j.LoggerFactory
-import partitioning.shares.SharesFilteredTrieIterator
 import partitioning.{AllTuples, Partitioning, Shares}
 
 import scala.collection.mutable
@@ -92,21 +91,7 @@ class JoinSpecification(joinPattern: Seq[Pattern], val variableOrdering: Seq[Str
       }
     }).toMap
 
-
-    val partitionedTrieIterators = partitioning match {
-      case Shares(hypercube) => {
-        val variableToDimesion = allVariables.sorted.zipWithIndex.toMap
-        trieIteratorMapping.map( {case (er, ti) => {
-          val dimensions = er.variables.map(variableToDimesion(_)).toArray
-          (er, new SharesFilteredTrieIterator(ti, partition, dimensions, hypercube))
-        }})
-      }
-      case AllTuples() => {
-        trieIteratorMapping
-      }
-    }
-
-    new LeapfrogTriejoin(partitionedTrieIterators, variableOrdering, distinctFilter, smallerThanFilter)
+    new LeapfrogTriejoin(trieIteratorMapping, variableOrdering, distinctFilter, smallerThanFilter, partition, partitioning)
   }
 
   def buildTrieIterables(children: Seq[SparkPlan], graphID: Int): Seq[SparkPlan] = {

@@ -1,11 +1,20 @@
 package leapfrogTriejoin
 
+import partitioning.shares.Hash
+import partitioning.{AllTuples, Partitioning, Shares}
+
 import Predef.assert
 import util.control.Breaks._
 import Predef._
 
 
-class LeapfrogTriejoin(trieIterators: Map[EdgeRelationship, TrieIterator], variableOrdering: Seq[String], distinctVariables: Boolean = false, smallerThanFilter: Boolean = false) {
+class LeapfrogTriejoin(trieIterators: Map[EdgeRelationship, TrieIterator],
+                       variableOrdering: Seq[String],
+                       distinctVariables: Boolean = false,
+                       smallerThanFilter: Boolean = false,
+                       partition: Int = 0,
+                       partitioning: Partitioning = AllTuples()
+                      ) {
 
   private[this] val DONE: Int = 0
   private[this] val DOWN_ACTION: Int = 1
@@ -29,14 +38,19 @@ class LeapfrogTriejoin(trieIterators: Map[EdgeRelationship, TrieIterator], varia
     "Variable ordering differs for some relationships."
   )
 
-  private[this] val leapfrogJoins: Array[LeapfrogJoinInterface] = variableOrdering
-    .map(v =>
-      new MaterializingLeapfrogJoin(trieIterators
-        .filter({ case (r, _) => {
-          r.variables.contains(v)
-        }
-        }).values.toArray))
-    .toArray
+
+  private[this] val leapfrogJoins: Array[LeapfrogJoinInterface] = variableOrdering.zipWithIndex.map({ case (v, i) => {
+    new MaterializingLeapfrogJoin(
+      trieIterators.filter({ case (r, _) => {
+        r.variables.contains(v)
+      }
+      }).values.toArray,
+      i,
+      partition,
+      partitioning
+    )
+  }
+  }).toArray
 
   private[this] val variable2TrieIterators: Array[Array[TrieIterator]] = variableOrdering
     .map(v =>
@@ -63,11 +77,10 @@ class LeapfrogTriejoin(trieIterators: Map[EdgeRelationship, TrieIterator], varia
     if (atEnd) {
       throw new IllegalStateException("Cannot call next of LeapfrogTriejoin when already at end.")
     }
-    val tuple = new Array[Long](maxDepth + 1)
+    val tuple = new Array[Long](maxDepth + 1) // TODO if I don't use a new array each time this will be faster
     bindings.copyToArray(tuple)
     translator.translate(tuple)
     moveToNextTuple()
-
     tuple
   }
 

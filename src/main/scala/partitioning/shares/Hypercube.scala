@@ -9,28 +9,32 @@ import scala.sys.process.Process
 case class Hypercube(dimensionSizes: Array[Int]) {
 
   def getCoordinate(partition: Int): Array[Int] = {
-    val coordinate = Array.fill(dimensionSizes.size)(0)
-    var multiplicator = dimensionSizes.init.product
+    val coordinate = Array.fill(dimensionSizes.size)(-1)
+    var multiplicator = dimensionSizes.product
     var rest = partition
 
-    val range = (1 until dimensionSizes.size).reverse
-    for (i <- range) {
-      coordinate(i) = (rest / multiplicator)
+    for (i <- dimensionSizes.indices.reverse) {
+      multiplicator /= dimensionSizes(i)
+      coordinate(i) = rest / multiplicator
       rest -= coordinate(i) * multiplicator
-      multiplicator /= dimensionSizes(i - 1)
     }
-    coordinate(0) = rest
+    require(rest == 0)
     coordinate
+  }
+
+  def getHash(dimension: Int): Hash = {
+    new Hash(dimension, dimensionSizes(dimension))
   }
 }
 
 object Hypercube {
   val BEST_CONFIGURATION_SCRIPT = "src/best-configuration.py"
 
-  def getBestConfigurationFor(partitions: Int, query: Query): Hypercube = {
+  def getBestConfigurationFor(partitions: Int, query: Query, variableOrdering: Seq[String]): Hypercube = {
+    require(query.vertices == variableOrdering.toSet, "Variable ordering should contain all vertices.")
+
     val configuration = callBestConfigurationScript(partitions, query)
-    val dimensionsSorted = configuration.keys.toSeq.sorted
-    val dimensionSizes = dimensionsSorted.map(d => configuration(d)).toArray
+    val dimensionSizes = variableOrdering.map(d => configuration(d)).toArray
     Hypercube(dimensionSizes)
   }
 

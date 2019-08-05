@@ -80,6 +80,6 @@ class TreeTrieIterator(val values: Array[(Long, Long)]) extends TrieIterator {
   }
 
   override def getDepth: Int = {
-    ???
+    depth
   }
 }

@@ -1,6 +1,10 @@
 package leapfrogTriejoin
 
+import partitioning.{AllTuples, Partitioning, Shares}
+import partitioning.shares.Hash
+
 import scala.collection.mutable
+import scala.collection.mutable.ArrayBuffer
 
 /**
   * Optimized Leapfrog join for small iterators and intersections.
@@ -17,44 +21,78 @@ import scala.collection.mutable
   * We start this process with the smallest interator to limit the intesection as much as possible from the
   * beginning.
   *
-  * @param iterators
+  * @param iterators    the TrieIterators to operate on. Leapfrogjoin works only on the linear component
+  * @param variable     the variable the join acts upon as index in the global variable ordering
+  * @param partition    the partition to work upon
+  * @param partitioning the paritioning used for parallelization
   */
-class MaterializingLeapfrogJoin(var iterators: Array[TrieIterator]) extends LeapfrogJoinInterface {
+class MaterializingLeapfrogJoin(var iterators: Array[TrieIterator],
+                                val variable: Int,
+                                val partition: Int,
+                                val partitioning: Partitioning) extends LeapfrogJoinInterface {
+
+  def this(iterators: Array[TrieIterator]) = {
+    this(iterators, 0, 0, AllTuples())
+  }
+
   private[this] val DELETED_VALUE = -2
 
-  if (iterators.isEmpty) {
-    throw new IllegalArgumentException("iterators cannot be empty")
-  }
+  require(iterators.nonEmpty, "iterators cannot be empty")
 
   private[this] var isAtEnd: Boolean = false
   private[this] var keyValue = 0L
 
+  /**
+    * true when this join has been initialized once before.
+    */
   private[this] var initialized = false
 
-  private[this] var firstLevelIterators: Array[TrieIterator] = null
-  private[this] var secondLevelIterators: Array[TrieIterator] = null
+  private[this] var firstLevelIterators: Array[TrieIterator] = _
+  private[this] var secondLevelIterators: Array[TrieIterator] = _
 
+  /**
+    * Position in the materializedValues array used to iterator over it.
+    */
+  private[this] var position = 0
   private[this] var materializedValues: Array[Long] = new Array[Long](200)
 
-  private[this] var position = 0
+  /**
+    * fallback to a normal/none-materialized LeapfrogJoin in case all iterators are at the first level or materializing should not be
+    * used by configuration.
+    */
+  private[this] var fallback: LeapfrogJoin = _
 
-  private[this] var fallback: LeapfrogJoin = null
+  /* Shares paritioning */
+
+  /**
+   * Coordinate component along the dimension of @field{variable}, -1 for all other partitionings.
+   * Used to split the code path for Shares partitioning.
+   */
+  private[this] var coordinate: Int = -1
+  private[this] var hash: Hash = _
+
+  partitioning match {
+    case Shares(hypercube) => {
+      coordinate = hypercube.getCoordinate(partition)(variable)
+      hash = hypercube.getHash(variable)
+    }
+    case _ => { /* NOP */}
+  }
 
   def init(): Unit = {
     if (!initialized) {
-      firstLevelIterators = iterators.filter(_.getDepth == 0)
-      secondLevelIterators = iterators.filter(_.getDepth == 1)
-      initialized = true
-
-      if (secondLevelIterators.length == 0 || !MaterializingLeapfrogJoin.shouldMaterialize) {
-        fallback = new LeapfrogJoin(iterators.map(_.asInstanceOf[LinearIterator]))
-      }
+      firstInitialization()
     }
 
-    if (secondLevelIterators.length == 0 || !MaterializingLeapfrogJoin.shouldMaterialize) {
+    if (fallback != null) {
       fallback.init()
+
+      while (coordinate != -1 && !fallback.atEnd && hash.hash(fallback.key.toInt) != coordinate) {
+        fallback.leapfrogNext()
+      }
+
       isAtEnd = fallback.atEnd
-      if (!isAtEnd) {
+      if (!isAtEnd) {  // TODO unnessesary if?
         keyValue = fallback.key
       }
     } else {
@@ -70,6 +108,17 @@ class MaterializingLeapfrogJoin(var iterators: Array[TrieIterator]) extends Leap
         }
       }
     }
+  }
+
+  private def firstInitialization(): Unit = {
+    firstLevelIterators = iterators.filter(_.getDepth == 0)
+    secondLevelIterators = iterators.filter(_.getDepth == 1)
+    initialized = true
+
+    if (secondLevelIterators.length == 0 || !MaterializingLeapfrogJoin.shouldMaterialize) {
+      fallback = new LeapfrogJoin(iterators.map(_.asInstanceOf[LinearIterator]))
+    }
+
   }
 
   private def materialize(): Unit = {
@@ -145,16 +194,16 @@ class MaterializingLeapfrogJoin(var iterators: Array[TrieIterator]) extends Leap
 
   private def intersect(iter: LinearIterator): Unit = { // TODO optimizable?
 
-//    val buffer = mutable.Buffer[Long]()
-//    val clone = iter.clone()
-//    while (!clone.atEnd) {
-//      buffer.append(clone.key)
-//      clone.next()
-//    }
-//    val expected = materializedValues.intersect(buffer)
+    //    val buffer = mutable.Buffer[Long]()
+    //    val clone = iter.clone()
+    //    while (!clone.atEnd) {
+    //      buffer.append(clone.key)
+    //      clone.next()
+    //    }
+    //    val expected = materializedValues.intersect(buffer)
 
-//    val before = new Array[Long](materializedValues.length)
-//    materializedValues.copyToArray(before)
+    //    val before = new Array[Long](materializedValues.length)
+    //    materializedValues.copyToArray(before)
 
     var i = 0
     var value = materializedValues(i)
@@ -175,11 +224,11 @@ class MaterializingLeapfrogJoin(var iterators: Array[TrieIterator]) extends Leap
     }
 
 
-//    if (!(materializedValues.filter(_ != DELETED_VALUE).takeWhile(_ != -1) sameElements expected)) {
-//      println("is", materializedValues.mkString(", "), "but should be", expected.mkString(", ") )
-//      println("before", before.mkString(", "))
-//      println("buffer", buffer.mkString(", "))
-//    }
+    //    if (!(materializedValues.filter(_ != DELETED_VALUE).takeWhile(_ != -1) sameElements expected)) {
+    //      println("is", materializedValues.mkString(", "), "but should be", expected.mkString(", ") )
+    //      println("before", before.mkString(", "))
+    //      println("buffer", buffer.mkString(", "))
+    //    }
 
   }
 
@@ -196,25 +245,27 @@ class MaterializingLeapfrogJoin(var iterators: Array[TrieIterator]) extends Leap
   }
 
   def leapfrogNext(): Unit = {
-    if (fallback == null) {
-      var found = false
+    do {
+      if (fallback == null) {
+        var found = false
 
-      do {
-        position += 1
-        keyValue = materializedValues(position)
-        if (keyValue >= 0) {
-          found |= filterAgainstFirstLevelIterators(keyValue)
-        } else if (keyValue == -1) {
-          isAtEnd = true
+        do {
+          position += 1
+          keyValue = materializedValues(position)
+          if (keyValue >= 0) {
+            found |= filterAgainstFirstLevelIterators(keyValue)
+          } else if (keyValue == -1) {
+            isAtEnd = true
+          }
+        } while (!found && !isAtEnd)
+      } else {
+        fallback.leapfrogNext()
+        isAtEnd = fallback.atEnd
+        if (!isAtEnd) {  // TODO unnessesary if?
+          keyValue = fallback.key
         }
-      } while (!found && !isAtEnd)
-    } else {
-      fallback.leapfrogNext()
-      isAtEnd = fallback.atEnd
-      if (!isAtEnd) {
-        keyValue = fallback.key
       }
-    }
+    } while (coordinate != -1 && !isAtEnd && hash.hash(keyValue.toInt) != coordinate) // TODO optimizable by combining loops?
   }
 
   @inline
@@ -222,7 +273,7 @@ class MaterializingLeapfrogJoin(var iterators: Array[TrieIterator]) extends Leap
     var i = 0
     var in = true
     while (!isAtEnd && i < firstLevelIterators.length) {
-      if (!firstLevelIterators(i).seek(value)) {  // TODO can i optimize that for the case that it is nearly always true?
+      if (!firstLevelIterators(i).seek(value)) { // TODO can i optimize that for the case that it is nearly always true?
         in &= firstLevelIterators(i).key == value
       } else {
         isAtEnd = true
@@ -232,15 +283,19 @@ class MaterializingLeapfrogJoin(var iterators: Array[TrieIterator]) extends Leap
     in
   }
 
-  override def key: Long = keyValue
+  override def key: Long = {
+    keyValue
+  }
 
-  override def atEnd: Boolean = isAtEnd
+  override def atEnd: Boolean = {
+    isAtEnd
+  }
 }
 
 object MaterializingLeapfrogJoin {
   private var shouldMaterialize = true
 
-  def setShouldMaterialize(value: Boolean): Unit ={
+  def setShouldMaterialize(value: Boolean): Unit = {
     if (value) {
       println("Leapfrogjoins ARE materialized")
     } else {
