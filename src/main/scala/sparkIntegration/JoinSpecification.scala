@@ -1,6 +1,6 @@
 package sparkIntegration
 
-import experiments.{Algorithm, GraphWCOJ}
+import experiments.{Algorithm, GraphWCOJ, WCOJAlgorithm}
 import leapfrogTriejoin.{EdgeRelationship, LeapfrogTriejoin, TrieIterable}
 import org.apache.spark.sql.CSRTrieIterableBroadcast
 import org.apache.spark.sql.execution.SparkPlan
@@ -11,7 +11,7 @@ import sparkIntegration.wcoj.ToArrayTrieIterableRDDExec
 import scala.collection.mutable
 
 class JoinSpecification(joinPattern: Seq[Pattern], val variableOrdering: Seq[String],
-                        val joinAlgorithm: Algorithm,
+                        val joinAlgorithm: WCOJAlgorithm,
                         partitioning: Partitioning,
                         val distinctFilter: Boolean,
                         smallerThanFilter: Boolean) extends Serializable {
@@ -31,12 +31,17 @@ class JoinSpecification(joinPattern: Seq[Pattern], val variableOrdering: Seq[Str
           variable2RelationshipIndex.update(dst.name, (i.toInt, 1))
         }
       }
+      case _ => throw new IllegalArgumentException("Illegal join pattern used.")
     }
   }
 
   private val dstAccessibleRelationships = joinPattern.zipWithIndex
     .filter({ case (AnonymousEdge(src: NamedVertex, dst: NamedVertex), _) => {
       variableOrdering.indexOf(dst.name) < variableOrdering.indexOf(src.name)
+
+    }
+    case _ => {
+      throw new IllegalArgumentException("Illegal join pattern used.")
     }
     })
     .map(_._2)
@@ -57,6 +62,7 @@ class JoinSpecification(joinPattern: Seq[Pattern], val variableOrdering: Seq[Str
     joinPattern.exists { case AnonymousEdge(src: NamedVertex, dst: NamedVertex) => {
       src.name == variable
     }
+    case _ => throw new IllegalArgumentException("Illegal join pattern used.")
     }
   }
 
@@ -98,14 +104,16 @@ class JoinSpecification(joinPattern: Seq[Pattern], val variableOrdering: Seq[Str
   def buildTrieIterables(children: Seq[SparkPlan], graphID: Int): Seq[SparkPlan] = {
     joinAlgorithm match {
       case experiments.WCOJ => {
-        children.zipWithIndex.map({ case (c, i) =>
-        val attributeOrdering = if (!dstAccessibleRelationship(i)) {
-          Seq("src", "dst")
-        } else {
-          Seq("dst", "src")
+        children.zipWithIndex.map({ case (c, i) => {
+          val attributeOrdering = if (!dstAccessibleRelationship(i)) {
+            Seq("src", "dst")
+          } else {
+            Seq("dst", "src")
+          }
+          ToArrayTrieIterableRDDExec(c, attributeOrdering)
         }
-        ToArrayTrieIterableRDDExec(c, attributeOrdering)
-      })}
+        })
+      }
       case GraphWCOJ => {
         require(children.size == 2, "GraphWCOJ requires exactly two children.")
         Seq(CSRTrieIterableBroadcast(graphID, children.head, children(1)))

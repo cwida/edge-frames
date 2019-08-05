@@ -1,6 +1,6 @@
 package sparkIntegration
 
-import experiments.Algorithm
+import experiments.{Algorithm, WCOJAlgorithm}
 import leapfrogTriejoin.MaterializingLeapfrogJoin
 import org.apache.spark.SparkContext
 import org.apache.spark.sql.SparkSession
@@ -13,7 +13,7 @@ import scala.collection.mutable
 class WCOJConfiguration private (spark: SparkSession) {
   var broadcastTimeout : Int = spark.sqlContext.getConf(SQLConf.AUTO_BROADCASTJOIN_THRESHOLD.key).toInt
   private var parallelism: Int = spark.sparkContext.getConf.get("spark.default.parallelism", "1").toInt
-  private var joinAlgorithm: Algorithm = experiments.WCOJ
+  private var joinAlgorithm: WCOJAlgorithm = experiments.WCOJ
   private var partitioning: Partitioning = AllTuples()
 
   def getParallelism: Int = {
@@ -25,7 +25,7 @@ class WCOJConfiguration private (spark: SparkSession) {
     println(s"Setting parallelism to $p")
   }
 
-  def setJoinAlgorithm(a: Algorithm): Unit = {
+  def setJoinAlgorithm(a: WCOJAlgorithm): Unit = {
     if (a == experiments.WCOJ) {
       MaterializingLeapfrogJoin.setShouldMaterialize(false)
     }
@@ -33,7 +33,7 @@ class WCOJConfiguration private (spark: SparkSession) {
     println(s"Setting join algorithm to $a")
   }
 
-  def getJoinAlgorithm: Algorithm = {
+  def getJoinAlgorithm: WCOJAlgorithm = {
     joinAlgorithm
   }
 

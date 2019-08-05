@@ -1,6 +1,6 @@
 package sparkIntegration.wcoj
 
-import experiments.GraphWCOJ
+import experiments.{BinaryJoins, GraphWCOJ}
 import leapfrogTriejoin.TrieIterable
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.InternalRow
@@ -27,7 +27,7 @@ case class WCOJExec(outputVariables: Seq[Attribute], joinSpecification: JoinSpec
 
 
   override def output: Seq[Attribute] = {
-    outputVariables
+    outputVariables ++ Seq()
   }
 
   override def references: AttributeSet = AttributeSet(children.flatMap(c => c.output.filter(a => List("src", "dst").contains(a.name))))

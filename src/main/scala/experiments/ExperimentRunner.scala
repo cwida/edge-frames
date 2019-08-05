@@ -37,10 +37,14 @@ object Readers {
 sealed trait Algorithm {
 }
 
-case object WCOJ extends Algorithm {
+sealed trait WCOJAlgorithm extends Algorithm {
+
 }
 
-case object GraphWCOJ extends Algorithm {
+case object WCOJ extends WCOJAlgorithm {
+}
+
+case object GraphWCOJ extends WCOJAlgorithm {
 }
 
 case object BinaryJoins extends Algorithm {
@@ -305,7 +309,7 @@ object ExperimentRunner extends App {
         case WCOJ | GraphWCOJ => {
           Timers.materializationTime = -1
           System.gc()
-          wcojConfig.setJoinAlgorithm(algoritm)
+          wcojConfig.setJoinAlgorithm(algoritm.asInstanceOf[WCOJAlgorithm])
           Queries.cliquePattern(3, ds).count() // Trigger caching
           // TODO do I want a explicit caching only method?
           println("materialization time", Timers.materializationTime)
@@ -336,7 +340,7 @@ object ExperimentRunner extends App {
               query.applyBinaryQuery(ds, sp)
             }
             case WCOJ | GraphWCOJ => {
-              wcojConfig.setJoinAlgorithm(algoritm)
+              wcojConfig.setJoinAlgorithm(algoritm.asInstanceOf[WCOJAlgorithm])
               query.applyPatternQuery(ds)
             }
           }
