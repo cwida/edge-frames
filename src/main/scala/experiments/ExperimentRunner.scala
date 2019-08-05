@@ -110,15 +110,24 @@ sealed trait QueryResult {
   def count: Long
 
   def time: Double
+
+  def parallelism: Int
 }
 
-case class BinaryQueryResult(query: Query, count: Long, time: Double) extends QueryResult {
+case class BinaryQueryResult(query: Query, parallelism: Int, count: Long, time: Double) extends QueryResult {
   override def algorithm: Algorithm = {
     BinaryJoins
   }
 }
 
-case class WCOJQueryResult(algorithm: Algorithm, query: Query, count: Long, time: Double, wcojTime: Double, copyTime: Double,
+case class WCOJQueryResult(algorithm: Algorithm,
+                           query: Query,
+                           partitioning: Partitioning,
+                           parallelism: Int,
+                           count: Long,
+                           time: Double,
+                           wcojTime: Double,
+                           copyTime: Double,
                            materializationTime: Option[Double]) extends QueryResult {
 }
 
@@ -249,8 +258,9 @@ object ExperimentRunner extends App {
     csvWriter.writeNext(Array(s"# Dataset: ${config.datasetType} ${ds.count()} ${config.datasetFilePath}"))
     csvWriter.writeNext(Array(s"# Repetitions: ${config.reps}"))
     csvWriter.writeNext(Array(s"# Git commit: ${BuildInfo.gitCommit}"))
+    csvWriter.writeNext(Array(s"# Materializing Leapfrogjoins: ${if (config.materializeLeapfrogs) "Enabled" else "Disabled"}"))
     csvWriter.writeNext(Array(s"# Comment: ${config.comment}"))
-    csvWriter.writeNext(Array("Query", "Algorithm", "Count", "Time", "WCOJTime", "copy", "mat"))
+    csvWriter.writeNext(Array("Query", "Algorithm", "Partitioning", "Parallelism", "Count", "Time", "WCOJTime", "copy", "mat"))
   }
 
   private def reportResults(results: Seq[QueryResult]): Unit = {
@@ -259,10 +269,12 @@ object ExperimentRunner extends App {
     require(results.map(_.count).toSet.size == 1)
     require(results.map(_.algorithm).toSet.size == 1)
     require(results.map(_.query).toSet.size == 1)
+    require(results.map(_.parallelism).toSet.size == 1)
 
     val algorithm = results.head.algorithm
     val query = results.head.query
     val count = results.head.count
+    val parallelism = results.head.parallelism
 
     for (result <- results) {
       val time = result.time
@@ -270,6 +282,8 @@ object ExperimentRunner extends App {
       var wcojTime = 0.0
       var copyTime = 0.0
       var materializationTime = 0.0
+
+      var partitioning = "Spark"
 
       if (Seq(GraphWCOJ, WCOJ).contains(algorithm)) {
         val wcojResult = result.asInstanceOf[WCOJQueryResult]
@@ -280,10 +294,15 @@ object ExperimentRunner extends App {
           case Some(t) => t
           case None => 0
         }
+
+        partitioning = wcojResult.partitioning.toString
       }
 
-      csvWriter.writeNext(Array[String](query.toString,
+      csvWriter.writeNext(Array[String](
+        query.toString,
         algorithm.toString,
+        partitioning,
+        parallelism.toString,
         String.format(Locale.GERMAN, "%,013d", count.asInstanceOf[Object]),
         String.format(Locale.US, "%.2f", time.asInstanceOf[Object]),
         String.format(Locale.US, "%.2f", wcojTime.asInstanceOf[Object]),
@@ -313,7 +332,7 @@ object ExperimentRunner extends App {
           wcojConfig.setJoinAlgorithm(algoritm.asInstanceOf[WCOJAlgorithm])
           Queries.cliquePattern(3, ds).count() // Trigger caching
 
-          println("GraphWCOJ broadcast materialization took: ", Metrics.masterTimers("materializationTime").toDouble / 1e9)
+          println(s"GraphWCOJ broadcast materialization took: ${Metrics.masterTimers("materializationTime").toDouble / 1e9} seconds")
           reportMaterializationTime(Metrics.masterTimers("materializationTime").toDouble / 1e9, algoritm)
         }
       }
@@ -321,7 +340,7 @@ object ExperimentRunner extends App {
   }
 
   private def reportMaterializationTime(time: Double, algorithm: Algorithm): Unit = {
-    csvWriter.writeNext(Array(s"# Materialization time (GraphWCOJ):", String.format(Locale.US, "%.2f", time.asInstanceOf[Object], algorithm
+    csvWriter.writeNext(Array(s"# Materialization time (GraphWCOJ):" + String.format(Locale.US, "%.2f", time.asInstanceOf[Object], algorithm
       .toString)))
   }
 
@@ -364,12 +383,12 @@ object ExperimentRunner extends App {
                 val copyTimes = Metrics.getTimes("copy_time")
                 val materializationTimes = Metrics.getTimes("materializationTime")
 
-                results += WCOJQueryResult(algoritm, query, count, time,
+                results += WCOJQueryResult(algoritm, query, p, pl, count, time,
                   joinTimes.head._2.toDouble / 1e9, copyTimes.head._2.toDouble / 1e9,
                   None)  // TODO materialization times
               }
               case BinaryJoins => {
-                results += BinaryQueryResult(query, count, time)
+                results += BinaryQueryResult(query, pl, count, time)
               }
             }
           }
