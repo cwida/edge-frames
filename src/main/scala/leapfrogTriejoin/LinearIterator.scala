@@ -1,6 +1,6 @@
 package leapfrogTriejoin
 
-trait LinearIterator {
+trait LinearIterator extends Cloneable {
 
   def key: Long // O (1)
 
@@ -18,5 +18,7 @@ trait LinearIterator {
     * @return A size estimate which can be too big but never too small.
     */
   def estimateSize: Int = Integer.MAX_VALUE
+
+  override def clone(): AnyRef = ???
 
 }

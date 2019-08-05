@@ -136,7 +136,7 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
       depth
     }
 
-    override def clone(): LinearIterator = {
+    override def clone(): AnyRef = {
       val c = new TrieIteratorImpl()
       c.copy(isAtEnd, depth, srcPosition, dstPosition, keyValue)
       c
