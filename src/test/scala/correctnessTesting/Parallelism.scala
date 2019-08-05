@@ -86,12 +86,12 @@ class Parallelism extends FlatSpec with Matchers with SparkTest with DatasetComp
   }
 
   "triangles" should "be the same" in {
-    val config = WCOJConfiguration.get(sp.sparkContext)
-    config.parallelism = 8
+    wcojConfig.setParallelism(8)
+    wcojConfig.setJoinAlgorithm(GraphWCOJ)
+    wcojConfig.setPartitioning(Shares(Hypercube(Array[Int]())))
+    wcojConfig.setShouldMaterialize(true)
+
     val e = queryCache.getOrCompute(cacheKey.copy(queryName = "clique", size = 3), cliqueBinaryJoins(3, sp, ds))
-    WCOJFunctions.setPartitioning(Shares(Hypercube(Array[Int]())))
-    WCOJFunctions.setJoinAlgorithm(GraphWCOJ)
-    MaterializingLeapfrogJoin.setShouldMaterialize(true)
 
     val a = cliquePattern(3, ds)
 //    a.sort("a", "b", "c").show(100)

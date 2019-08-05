@@ -13,11 +13,11 @@ class AmazonGraphWCOJ extends CorrectnessTest with BeforeAndAfterAll {
   val ds = loadAmazonDataset(DATASET_PATH, sp).cache()
 
   override def beforeAll(): Unit = {
-    WCOJFunctions.setJoinAlgorithm(GraphWCOJ)
+    wcojConfig.setJoinAlgorithm(GraphWCOJ)
   }
 
   override def afterAll(): Unit = {
-    WCOJFunctions.setJoinAlgorithm(experiments.WCOJ)
+    wcojConfig.setJoinAlgorithm(experiments.WCOJ)
   }
 
   "WCOJ" should behave like sparkTriangleJoins(DATASET_PATH, ds)

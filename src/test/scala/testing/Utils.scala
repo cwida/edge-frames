@@ -88,12 +88,13 @@ object TestSparkSession {
 
   val spark = SparkSession.builder().config(conf).getOrCreate()
 
-  WCOJConfiguration(spark)
+  val wcojConfig = WCOJConfiguration(spark)
 
   spark.experimental.extraStrategies = Seq(ToTrieIterableRDD2ToTrieIterableRDDExec, WCOJ2WCOJExec) ++ spark.experimental.extraStrategies
 }
 
 trait SparkTest {
   val sp = TestSparkSession.spark
+  val wcojConfig = TestSparkSession.wcojConfig
 }
 

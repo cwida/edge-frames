@@ -36,6 +36,8 @@ case class WCOJExec(outputVariables: Seq[Attribute], joinSpecification: JoinSpec
   override def references: AttributeSet = AttributeSet(children.flatMap(c => c.output.filter(a => List("src", "dst").contains(a.name))))
 
   override protected def doExecute(): RDD[InternalRow] = {
+    val config = WCOJConfiguration.get(sparkContext)
+
     val joinTime = longMetric(JOIN_TIME_METRIC)
     val copyTime = longMetric(COPY_OUTPUT_TIME_METRIC)
     val beforeAfter = longMetric(BEFORE_AFTER_TIME_METRIC)
@@ -93,7 +95,7 @@ case class WCOJExec(outputVariables: Seq[Attribute], joinSpecification: JoinSpec
       }
       )
     }
-    WCOJFunctions.getJoinAlgorithm match {
+    config.getJoinAlgorithm match {
       case experiments.WCOJ => {
         val trieIterableRDDs = childRDDs.map(_.asInstanceOf[TrieIterableRDD[TrieIterable]].trieIterables)
         trieIterableRDDs match {

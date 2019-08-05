@@ -18,9 +18,10 @@ import Predef._
 
 class WCOJFunctions[T](ds: Dataset[T]) {
   def findPattern(pattern: String, variableOrdering: Seq[String], distinctFilter: Boolean = false, smallerThanFilter: Boolean = false): DataFrame = {
+    val conf = WCOJConfiguration.get(ds.sparkSession.sparkContext)
     val edges = Pattern.parse(pattern)
 
-    val children = WCOJFunctions.joinAlgorithm match {
+    val children = conf.getJoinAlgorithm match {
       case experiments.WCOJ => {
         edges.zipWithIndex.map {
           case (_, i) => {
@@ -53,23 +54,23 @@ class WCOJFunctions[T](ds: Dataset[T]) {
 
     val edges = Pattern.parse(pattern)
 
-    require((WCOJFunctions.joinAlgorithm == experiments.WCOJ
+    require((conf.getJoinAlgorithm == experiments.WCOJ
       && edges.size == children.size)
-      || (WCOJFunctions.joinAlgorithm == GraphWCOJ
+      || (conf.getJoinAlgorithm == GraphWCOJ
       && children.size == 2), "WCOJ needs as many children as edges in the " +
       "pattern.")
 
-    val partitioning = WCOJFunctions.getPartitioning match {
-      case Shares(_) => Shares(Hypercube.getBestConfigurationFor(conf.parallelism, getQuery(edges), variableOrdering))
+    val partitioning = conf.getPartitioning match {
+      case Shares(_) => Shares(Hypercube.getBestConfigurationFor(conf.getParallelism, getQuery(edges), variableOrdering))
       case a @ AllTuples() => a
     }
 
-    val joinSpecification = new JoinSpecification(edges, variableOrdering, WCOJFunctions.joinAlgorithm, partitioning, distinctFilter,
+    val joinSpecification = new JoinSpecification(edges, variableOrdering, conf.getJoinAlgorithm, partitioning, distinctFilter,
       smallerThanFilter)
 
     val outputVariables = joinSpecification.variableOrdering.map(v => AttributeReference(v, LongType, nullable = false)())
 
-    val partitionChild = children.head.sparkSession.emptyDataFrame.repartition(conf.parallelism)
+    val partitionChild = children.head.sparkSession.emptyDataFrame.repartition(conf.getParallelism)
 
     Dataset.ofRows(ds.sparkSession,
       WCOJ(ds.rdd.id, outputVariables, joinSpecification, children.map(_.logicalPlan), partitionChild.logicalPlan))
@@ -179,28 +180,3 @@ class WCOJFunctions[T](ds: Dataset[T]) {
   }
 }
 
-object WCOJFunctions {
-  private var joinAlgorithm: Algorithm = experiments.WCOJ
-  private var partitioning: Partitioning = AllTuples()
-
-  def setJoinAlgorithm(a: Algorithm): Unit = {
-    if (a == experiments.WCOJ) {
-      MaterializingLeapfrogJoin.setShouldMaterialize(false)
-    }
-    joinAlgorithm = a
-    println(s"Setting join algorithm to $a")
-  }
-
-  def getJoinAlgorithm: Algorithm = {
-    joinAlgorithm
-  }
-
-  def setPartitioning(p: Partitioning): Unit = {
-    partitioning = p
-    println(s"Setting partitioning to $p")
-  }
-
-  def getPartitioning: Partitioning = {
-    partitioning
-  }
-}

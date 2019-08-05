@@ -11,11 +11,11 @@ class GoogleWebWCOJ extends CorrectnessTest with BeforeAndAfterAll {
   val ds = loadGoogleWebGraph(DATASET_PATH, sp).cache()
 
   override def beforeAll(): Unit = {
-    WCOJFunctions.setJoinAlgorithm(WCOJ)
+    wcojConfig.setJoinAlgorithm(WCOJ)
   }
 
   override def afterAll(): Unit = {
-    WCOJFunctions.setJoinAlgorithm(experiments.WCOJ)
+    wcojConfig.setJoinAlgorithm(experiments.WCOJ)
   }
 
   "WCOJ" should behave like sparkTriangleJoins(DATASET_PATH, ds)

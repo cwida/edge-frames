@@ -1,17 +1,54 @@
 package sparkIntegration
 
+import experiments.Algorithm
+import leapfrogTriejoin.MaterializingLeapfrogJoin
 import org.apache.spark.SparkContext
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.internal.SQLConf
+import partitioning.{AllTuples, Partitioning}
 
 import scala.collection.mutable
 
+// TODO correct overwriting of getters and setters in Scala?
 class WCOJConfiguration private (spark: SparkSession) {
   var broadcastTimeout : Int = spark.sqlContext.getConf(SQLConf.AUTO_BROADCASTJOIN_THRESHOLD.key).toInt
-  var parallelism: Int = spark.sparkContext.getConf.get("spark.default.parallelism", "1").toInt
-  // TODO add materializing in here
-  // TODO add algorithm choice in here
+  private var parallelism: Int = spark.sparkContext.getConf.get("spark.default.parallelism", "1").toInt
+  private var joinAlgorithm: Algorithm = experiments.WCOJ
+  private var partitioning: Partitioning = AllTuples()
 
+  def getParallelism: Int = {
+    parallelism
+  }
+
+  def setParallelism(p: Int): Unit = {
+    parallelism = p
+    println(s"Setting parallelism to $p")
+  }
+
+  def setJoinAlgorithm(a: Algorithm): Unit = {
+    if (a == experiments.WCOJ) {
+      MaterializingLeapfrogJoin.setShouldMaterialize(false)
+    }
+    joinAlgorithm = a
+    println(s"Setting join algorithm to $a")
+  }
+
+  def getJoinAlgorithm: Algorithm = {
+    joinAlgorithm
+  }
+
+  def setPartitioning(p: Partitioning): Unit = {
+    partitioning = p
+    println(s"Setting partitioning to $p")
+  }
+
+  def getPartitioning: Partitioning = {
+    partitioning
+  }
+
+  def setShouldMaterialize(value: Boolean): Unit = {
+    MaterializingLeapfrogJoin.setShouldMaterialize(value)
+  }
 }
 
 object WCOJConfiguration {

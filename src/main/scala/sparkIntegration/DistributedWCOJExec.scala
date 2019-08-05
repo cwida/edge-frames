@@ -39,6 +39,8 @@ case class DistributedWCOJExec(outputVariables: Seq[Attribute],
   }
 
   override protected def doExecute(): RDD[InternalRow] = {
+    val config = WCOJConfiguration.get(sparkContext)
+
     val joinTime = longMetric(JOIN_TIME_METRIC)
     val copyTime = longMetric(COPY_OUTPUT_TIME_METRIC)
     val beforeAfter = longMetric(BEFORE_AFTER_TIME_METRIC)
@@ -48,7 +50,7 @@ case class DistributedWCOJExec(outputVariables: Seq[Attribute],
 
     val beforeTime = System.nanoTime()
 
-    WCOJFunctions.getJoinAlgorithm match {
+    config.getJoinAlgorithm match {
       case experiments.WCOJ => {
         throw new UnsupportedOperationException("WCOJ distributed mode not supported yet")
       }

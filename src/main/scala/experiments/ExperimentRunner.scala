@@ -145,7 +145,7 @@ object ExperimentRunner extends App {
   setupResultReporting()
 
   require(!config.materializeLeapfrogs || !config.algorithms.contains(WCOJ), "Cannot use materializing Leapfrog joins with WCOJ, yet.")
-  MaterializingLeapfrogJoin.setShouldMaterialize(config.materializeLeapfrogs)
+  wcojConfig.setShouldMaterialize(config.materializeLeapfrogs)
 
   cacheDatasets()
 
@@ -305,7 +305,7 @@ object ExperimentRunner extends App {
         case WCOJ | GraphWCOJ => {
           Timers.materializationTime = -1
           System.gc()
-          WCOJFunctions.setJoinAlgorithm(algoritm)
+          wcojConfig.setJoinAlgorithm(algoritm)
           Queries.cliquePattern(3, ds).count() // Trigger caching
           // TODO do I want a explicit caching only method?
           println("materialization time", Timers.materializationTime)
@@ -327,16 +327,16 @@ object ExperimentRunner extends App {
 
   private def runQuery(algorithms: Seq[Algorithm], query: Query): Unit = {
     for (pl <- config.parallelismLevels) {
-      wcojConfig.parallelism = pl
+      wcojConfig.setParallelism(pl)
       for (p <- config.partitionings) {
-        WCOJFunctions.setPartitioning(p)
+        wcojConfig.setPartitioning(p)
         for (algoritm <- algorithms) {
           val queryDataFrame = algoritm match {
             case BinaryJoins => {
               query.applyBinaryQuery(ds, sp)
             }
             case WCOJ | GraphWCOJ => {
-              WCOJFunctions.setJoinAlgorithm(algoritm)
+              wcojConfig.setJoinAlgorithm(algoritm)
               query.applyPatternQuery(ds)
             }
           }
