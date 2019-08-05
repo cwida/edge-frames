@@ -3,6 +3,7 @@ package partitioning
 import leapfrogTriejoin.TrieIterator
 
 class TrieIteratorDecorator(val trieIter: TrieIterator) extends TrieIterator {
+  def co() = ???
   override def open(): Unit = trieIter.open()
 
   override def up(): Unit = trieIter.up()

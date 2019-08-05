@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory
 import partitioning.TrieIteratorDecorator
 
 class SharesFilteredTrieIterator(trieIter: TrieIterator, partition: Int, dimensions: Array[Int], hypercube: Hypercube) extends TrieIteratorDecorator(trieIter) {
+  override def co() = ???
   private val logger = LoggerFactory.getLogger(classOf[SharesFilteredTrieIterator])
 
   private[this] val coordinate: Array[Int] = hypercube.getCoordinate(partition)
@@ -52,10 +53,10 @@ class SharesFilteredTrieIterator(trieIter: TrieIterator, partition: Int, dimensi
 
   private def isFiltered(value: Int): Boolean = {
     //    println("value", value)
-//        val hash: Int = hashes(trieIter.getDepth).hash(value)
+        val hash: Int = hashes(trieIter.getDepth).hash(value)
     ////    println("hash", hash)
     ////    println("coordinate", coordinate(trieIter.getDepth))
-//        val v = hash != coordinate(trieIter.getDepth)
+        val v = hash != coordinate(trieIter.getDepth)
 //      println("Filtered", v)
 //        v
     false
