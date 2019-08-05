@@ -25,6 +25,10 @@ case class Hypercube(dimensionSizes: Array[Int]) {
   def getHash(dimension: Int): Hash = {
     new Hash(dimension, dimensionSizes(dimension))
   }
+
+  override def toString: String = {
+    s"Hypercube(Dimensions(${dimensionSizes.mkString(", ")}))"
+  }
 }
 
 object Hypercube {

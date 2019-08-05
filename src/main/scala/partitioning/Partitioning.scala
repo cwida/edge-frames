@@ -6,7 +6,15 @@ sealed trait Partitioning {
 
 }
 
-case class Shares(hypercube: Hypercube) extends Partitioning {}
+case class Shares(hypercube: Hypercube = Hypercube(Array[Int]())) extends Partitioning {
+  override def toString: String = {
+    if (hypercube.dimensionSizes.isEmpty) {
+      "Shares(Uninitialized)"
+    } else {
+      super.toString
+    }
+  }
+}
 
 case class AllTuples() extends Partitioning
 
