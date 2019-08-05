@@ -1,11 +1,14 @@
 package correctnessTesting
 
+import java.lang.Exception
+
 import com.github.mrpowers.spark.fast.tests.DatasetComparer
 import experiments.DiamondQuery
 import experiments.Queries._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{DataFrame, Row}
 import org.scalatest.{FlatSpec, Matchers}
+import sparkIntegration.WCOJConfiguration
 import testing.{SparkTest, Utils}
 import sparkIntegration.implicits._
 
@@ -14,7 +17,8 @@ object CorrectnessTest {
   val FAST_LIMIT = 10000
 }
 
-class CorrectnessTest extends FlatSpec with Matchers with SparkTest with DatasetComparer {
+trait CorrectnessTest extends Matchers with SparkTest with DatasetComparer {
+  this: FlatSpec =>
   if (CorrectnessTest.FAST) {
     System.err.println("Running correctness test in fast mode")
   }
@@ -134,6 +138,38 @@ class CorrectnessTest extends FlatSpec with Matchers with SparkTest with Dataset
     }
   }
 
+  def sparkTriangleJoinsSimple(parallelism: Int, shouldMaterialize: Boolean, dataSetPath: String, rawDataset: DataFrame): Unit = {
+    val cacheKey = if (CorrectnessTest.FAST) {
+      CacheKey(dataSetPath, "", CorrectnessTest.FAST_LIMIT, -1)
+    } else {
+      CacheKey(dataSetPath, "", -1, -1)
+    }
+
+    val ds = if (CorrectnessTest.FAST) {
+      rawDataset.limit(CorrectnessTest.FAST_LIMIT)
+    } else {
+      rawDataset
+    }
+
+    it should "compute the same triangles" in {
+      val tempParallelism = wcojConfig.getParallelism
+      val tempShouldMaterialize = wcojConfig.getShouldMaterialize
+      wcojConfig.setShouldMaterialize(shouldMaterialize).setParallelism(parallelism)
+
+      val e = queryCache.getOrCompute(cacheKey.copy(queryName = "clique", size = 3), cliqueBinaryJoins(3, sp, ds))
+      val a = cliquePattern(3, ds)
+
+      try {
+        assertDataSetEqual(a, e)
+      } catch {
+        case ex : Exception => throw ex
+      } finally {
+        wcojConfig.setShouldMaterialize(tempShouldMaterialize).setParallelism(tempParallelism)
+      }
+    }
+
+  }
+
   def sparkTriangleJoins(dataSetPath: String, rawDataset: DataFrame): Unit = {
     val cacheKey = if (CorrectnessTest.FAST) {
       CacheKey(dataSetPath, "", CorrectnessTest.FAST_LIMIT, -1)
@@ -147,14 +183,15 @@ class CorrectnessTest extends FlatSpec with Matchers with SparkTest with Dataset
       rawDataset
     }
 
-    "triangles" should "be the same" in {
+    it should "compute the same triangles" in {
       val e = queryCache.getOrCompute(cacheKey.copy(queryName = "clique", size = 3), cliqueBinaryJoins(3, sp, ds))
       val a = cliquePattern(3, ds)
 
       assertDataSetEqual(a, e)
     }
 
-    "The variable ordering" should "not matter" in {
+
+    it should "compute the same triangles independ of the variable ordering" in {
       // Cannot use Queries.findPattern(3, ds, false) here because I do not support smallerThanFilter for any variable ordering
       // but the global one and a, b, c and c, a, b have different results under this condition.
       val normalVariableOrdering = cliquePattern(3, ds, useDistinctFilter = true).cache()
@@ -170,7 +207,7 @@ class CorrectnessTest extends FlatSpec with Matchers with SparkTest with Dataset
       assertDataSetEqual(otherReordered, normalVariableOrdering)
     }
 
-    "Circular triangles" should "be found correctly" in {
+    it should "comput the same triangles as spark for circular triangles" in {
       import sp.implicits._
 
       val circular = ds.findPattern(

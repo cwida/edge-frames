@@ -3,10 +3,10 @@ package correctnessTesting
 import experiments.Datasets.loadAmazonDataset
 import experiments.WCOJ
 import org.apache.spark.sql.WCOJFunctions
-import org.scalatest.BeforeAndAfterAll
+import org.scalatest.{BeforeAndAfterAll, FlatSpec}
 import testing.Utils
 
-class AmazonWCOJ extends CorrectnessTest with BeforeAndAfterAll {
+class AmazonWCOJ extends FlatSpec with CorrectnessTest with BeforeAndAfterAll {
   val DATASET_PATH = Utils.getDatasetPath("amazon-0302")
   val ds = loadAmazonDataset(DATASET_PATH, sp).cache()
 
