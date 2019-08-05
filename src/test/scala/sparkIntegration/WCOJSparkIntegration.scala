@@ -4,7 +4,7 @@ import org.apache.spark.SparkConf
 import org.apache.spark.rdd.OrderedRDDFunctions
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 import sparkIntegration.implicits._
-import sparkIntegration.{ToArrayTrieIterableRDDExec, WCOJ2WCOJExec, WCOJExec}
+import sparkIntegration.WCOJ2WCOJExec
 import testing.SparkTest
 
 class WCOJSparkIntegration extends FlatSpec with Matchers with BeforeAndAfterAll with SparkTest {

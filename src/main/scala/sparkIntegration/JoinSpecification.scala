@@ -6,11 +6,12 @@ import org.apache.spark.sql.CSRTrieIterableBroadcast
 import org.apache.spark.sql.execution.SparkPlan
 import org.slf4j.LoggerFactory
 import partitioning.{AllTuples, Partitioning, Shares}
+import sparkIntegration.wcoj.ToArrayTrieIterableRDDExec
 
 import scala.collection.mutable
 
 class JoinSpecification(joinPattern: Seq[Pattern], val variableOrdering: Seq[String],
-                        joinAlgorithm: Algorithm,
+                        val joinAlgorithm: Algorithm,
                         partitioning: Partitioning,
                         val distinctFilter: Boolean,
                         smallerThanFilter: Boolean) extends Serializable {
@@ -103,11 +104,11 @@ class JoinSpecification(joinPattern: Seq[Pattern], val variableOrdering: Seq[Str
         } else {
           Seq("dst", "src")
         }
-
         ToArrayTrieIterableRDDExec(c, attributeOrdering)
       })}
       case GraphWCOJ => {
-        Seq(CSRTrieIterableBroadcast(graphID, children(0), children(1)))
+        require(children.size == 2, "GraphWCOJ requires exactly two children.")
+        Seq(CSRTrieIterableBroadcast(graphID, children.head, children(1)))
       }
     }
   }

@@ -1,7 +1,7 @@
-package org.apache.spark.rdd
+package org.apache.spark.sql
 
 import org.apache.spark.SparkContext
-
+import org.apache.spark.rdd.RDD
 
 import scala.reflect.ClassTag
 

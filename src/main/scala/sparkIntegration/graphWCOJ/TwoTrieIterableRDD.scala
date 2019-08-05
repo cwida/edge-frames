@@ -1,12 +1,16 @@
-package sparkIntegration
+package sparkIntegration.graphWCOJ
 
-import leapfrogTriejoin.{TrieIterable, TrieIterator}
+import leapfrogTriejoin.TrieIterable
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.catalyst.expressions.GenericInternalRow
 import org.apache.spark.sql.types.LongType
 import org.apache.spark.{OneToOneDependency, Partition, TaskContext}
 
+/**
+  * Currently unused, might be used to parallize CSR building.
+  * @param trieIterableRDD
+  * @tparam S
+  */
 class TwoTrieIterableRDD[S <: TrieIterable](val trieIterableRDD: RDD[(S, S)])
   extends RDD[InternalRow](trieIterableRDD.context, List(new OneToOneDependency(trieIterableRDD))) {
 

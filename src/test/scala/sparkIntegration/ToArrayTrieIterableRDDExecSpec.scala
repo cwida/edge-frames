@@ -3,6 +3,7 @@ package sparkIntegration
 import leapfrogTriejoin.TrieIterable
 import org.scalatest.{FlatSpec, Matchers}
 import sparkIntegration.implicits._
+import sparkIntegration.wcoj.{ToArrayTrieIterableRDDExec, TrieIterableRDD}
 import testing.SparkTest
 import testing.Utils._
 

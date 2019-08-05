@@ -1,11 +1,11 @@
-package sparkIntegration
+package sparkIntegration.wcoj
 
 import leapfrogTriejoin.ArrayTrieIterable
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.{Ascending, Attribute, GenericInternalRow, SortOrder}
-import org.apache.spark.sql.execution.{SparkPlan, UnaryExecNode}
 import org.apache.spark.sql.execution.metric.SQLMetrics
+import org.apache.spark.sql.execution.{SparkPlan, UnaryExecNode}
 
 case class ToArrayTrieIterableRDDExec(child: SparkPlan, attributeOrdering: Seq[String])
   extends UnaryExecNode {

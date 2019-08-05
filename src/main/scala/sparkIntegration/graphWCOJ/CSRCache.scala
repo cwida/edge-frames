@@ -1,6 +1,6 @@
-package sparkIntegration
+package sparkIntegration.graphWCOJ
 
-import leapfrogTriejoin.{CSRTrieIterable, TrieIterable}
+import leapfrogTriejoin.TrieIterable
 import org.apache.spark.broadcast.Broadcast
 
 import scala.collection.mutable

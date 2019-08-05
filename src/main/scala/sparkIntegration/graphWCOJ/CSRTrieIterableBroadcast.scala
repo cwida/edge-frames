@@ -1,17 +1,17 @@
 package org.apache.spark.sql
 
 import experiments.Timers
-import leapfrogTriejoin.{ArrayTrieIterable, CSRTrieIterable, TrieIterable}
-import org.apache.spark.{SparkException, broadcast}
+import leapfrogTriejoin.{CSRTrieIterable, TrieIterable}
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.catalyst.expressions.{Ascending, Attribute, GenericInternalRow, SortOrder}
+import org.apache.spark.sql.catalyst.expressions.{Ascending, Attribute, SortOrder}
 import org.apache.spark.sql.execution.metric.{SQLMetric, SQLMetrics}
-import org.apache.spark.sql.execution.{SQLExecution, SparkPlan, UnaryExecNode}
-import org.apache.spark.sql.internal.SQLConf
+import org.apache.spark.sql.execution.{SQLExecution, SparkPlan}
 import org.apache.spark.util.ThreadUtils
-import sparkIntegration.{CSRCache, TwoTrieIterableRDD, WCOJConfiguration}
+import org.apache.spark.{SparkException, broadcast}
+import sparkIntegration.WCOJConfiguration
+import sparkIntegration.graphWCOJ.CSRCache
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService, Future, TimeoutException}

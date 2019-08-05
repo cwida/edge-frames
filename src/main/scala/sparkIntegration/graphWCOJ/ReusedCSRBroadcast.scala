@@ -5,7 +5,7 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.Attribute
 import org.apache.spark.sql.execution.LeafExecNode
-import sparkIntegration.CSRCache
+import sparkIntegration.graphWCOJ.CSRCache
 
 case class ReusedCSRBroadcast(rddId: Long) extends LeafExecNode {
   override protected def doExecute(): RDD[InternalRow] = {

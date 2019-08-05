@@ -1,17 +1,14 @@
-package sparkIntegration
+package sparkIntegration.wcoj
 
 import experiments.GraphWCOJ
 import leapfrogTriejoin.TrieIterable
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.WCOJFunctions
 import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.catalyst.expressions.{Attribute, AttributeSet, BaseGenericInternalRow, BoundReference, GenericInternalRow, UnsafeProjection}
-import org.apache.spark.sql.catalyst.util.{ArrayData, MapData}
+import org.apache.spark.sql.catalyst.expressions.{Attribute, AttributeSet, BoundReference, UnsafeProjection}
 import org.apache.spark.sql.execution.metric.SQLMetrics
 import org.apache.spark.sql.execution.{RowIterator, SparkPlan}
-import org.apache.spark.sql.types.{DataType, Decimal}
-import org.apache.spark.unsafe.types.{CalendarInterval, UTF8String}
 import org.slf4j.LoggerFactory
+import sparkIntegration.{JoinSpecification, WCOJConfiguration, WCOJInternalRow}
 import sparkIntegration.implicits._
 
 import scala.reflect.ClassTag
@@ -60,7 +57,7 @@ case class WCOJExec(outputVariables: Seq[Attribute], joinSpecification: JoinSpec
       val zippedIters: Iterator[List[TrieIterable]] = generalZip(is)
 
       zippedIters.flatMap( a => {
-        val join = joinSpecification.build(a, -1)
+        val join = joinSpecification.build(a, 0)
 
         val iter = new RowIterator {
           var row: Array[Long] = null
@@ -105,16 +102,7 @@ case class WCOJExec(outputVariables: Seq[Attribute], joinSpecification: JoinSpec
         }
       }
       case GraphWCOJ => {
-        require(childRDDs.size == 1, "GraphWCOJ supports only a single child RDD")
-        require(childRDDs.head.getNumPartitions == 1, "The child should have only one partition")
-        require(childRDDs.forall(_.isInstanceOf[TwoTrieIterableRDD[TrieIterable]]), "GraphWCOJ requires children to be of type " +
-          "TwoTrieIterable[TrieIterable]")
-        val trieIterablePair: RDD[(TrieIterable, TrieIterable)] = childRDDs.map(_.asInstanceOf[TwoTrieIterableRDD[TrieIterable]]
-          .trieIterables).head
-        trieIterablePair.mapPartitions(i => {
-          val singlePartition = i.next()
-          zipPartitions(List(Iterator(singlePartition._1), Iterator(singlePartition._2)))
-        })
+        throw new UnsupportedOperationException("Use GraphWCOJExec to execute a GraphWCOJ join.")
       }
     }
   }

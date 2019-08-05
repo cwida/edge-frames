@@ -1,7 +1,7 @@
 package sparkIntegration
 
-import org.apache.spark.rdd.{RDD, RDDFunctions}
-import org.apache.spark.sql.{Dataset, WCOJFunctions}
+import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.{Dataset, RDDFunctions, WCOJFunctions}
 
 import scala.reflect.ClassTag
 

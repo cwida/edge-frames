@@ -1,5 +1,6 @@
-package org.apache.spark.rdd
+package org.apache.spark.sql
 
+import org.apache.spark.rdd.{RDD, ZippedPartitionsBaseRDD, ZippedPartitionsPartition}
 import org.apache.spark.{Partition, SparkContext, TaskContext}
 
 import scala.reflect.ClassTag

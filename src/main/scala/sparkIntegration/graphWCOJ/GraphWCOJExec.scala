@@ -1,19 +1,20 @@
-package sparkIntegration
+package sparkIntegration.graphWCOJ
 
 import experiments.GraphWCOJ
-import leapfrogTriejoin.{CSRTrieIterable, TrieIterable}
+import leapfrogTriejoin.TrieIterable
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.WCOJFunctions
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.{Attribute, AttributeSet, BoundReference, UnsafeProjection}
 import org.apache.spark.sql.execution.metric.SQLMetrics
 import org.apache.spark.sql.execution.{RowIterator, SparkPlan}
 import org.slf4j.LoggerFactory
+import sparkIntegration.wcoj.WCOJExec
+import sparkIntegration.{JoinSpecification, WCOJConfiguration, WCOJInternalRow}
 
-case class DistributedWCOJExec(outputVariables: Seq[Attribute],
-                               joinSpecification: JoinSpecification,
-                               graphChild: SparkPlan,
-                               partitionChild: SparkPlan) extends SparkPlan {
+case class GraphWCOJExec(outputVariables: Seq[Attribute],
+                         joinSpecification: JoinSpecification,
+                         graphChild: SparkPlan,
+                         partitionChild: SparkPlan) extends SparkPlan {
   private val logger = LoggerFactory.getLogger(classOf[WCOJExec])
 
   val JOIN_TIME_METRIC = "wcoj_join_time"

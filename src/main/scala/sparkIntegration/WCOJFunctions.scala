@@ -6,13 +6,14 @@ import org.apache.orc.impl.TreeReaderFactory.LongTreeReader
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.types.{IntegerType, LongType}
-import sparkIntegration.{AnonymousEdge, JoinSpecification, NamedVertex, Pattern, ToTrieIterableRDD, WCOJ, WCOJConfiguration}
+import sparkIntegration.{AnonymousEdge, JoinSpecification, NamedVertex, Pattern, WCOJ, WCOJConfiguration}
 import org.apache.spark.sql.catalyst.encoders._
 import org.apache.spark.sql.catalyst.expressions.AttributeReference
 import org.apache.spark.sql.execution.CoalesceExec.EmptyRDDWithPartitions
 import org.apache.spark.sql.execution.RowIterator
 import partitioning.shares.Hypercube
 import partitioning.{AllTuples, Partitioning, Shares}
+import sparkIntegration.wcoj.ToTrieIterableRDD
 
 import Predef._
 
