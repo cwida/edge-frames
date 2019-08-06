@@ -329,8 +329,9 @@ object ExperimentRunner extends App {
     val count = results.head.count
     val parallelism = results.head.parallelism
 
-    println(s"Using $algorithm, $query took ${Utils.avg(results.map(_.time))} in average over ${config.reps} repetitions (result size " +
-      s"$count) using ${partitioning.getWorkersUsed(parallelism)} out of $parallelism workers.")
+    println(s"Using $algorithm, $query with partitioning ${partitioning.toString} took ${Utils.avg(results.map(_.time))} in average over ${config
+      .reps} " +
+      s"repetitions (result size $count) using ${partitioning.getWorkersUsed(parallelism)} out of $parallelism workers.")
 
     if (Seq(GraphWCOJ, WCOJ).contains(algorithm)) {
       val wcojResults = results.map(_.asInstanceOf[WCOJQueryResult])
