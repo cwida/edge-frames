@@ -62,6 +62,7 @@ case class GraphWCOJExec(outputVariables: Seq[Attribute],
         val csrBroadcast = graphChild.executeBroadcast[(TrieIterable, TrieIterable)]()
 
         partitionRDD.mapPartitionsWithIndex((partition, _) => {
+          // TODO empty partitions?
           val toUnsafeProjection = UnsafeProjection.create(output.zipWithIndex.map({
             case (a, i) => {
               BoundReference(i, a.dataType, a.nullable)

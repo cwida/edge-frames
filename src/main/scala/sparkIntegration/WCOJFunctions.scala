@@ -73,7 +73,7 @@ class WCOJFunctions[T](ds: Dataset[T]) {
 
     val outputVariables = joinSpecification.variableOrdering.map(v => AttributeReference(v, LongType, nullable = false)())
 
-    val partitionChild = children.head.sparkSession.emptyDataFrame.repartition(conf.getParallelism)
+    val partitionChild = children.head.sparkSession.emptyDataFrame.repartition(partitioning.getWorkersUsed(conf.getParallelism))
 
     Dataset.ofRows(ds.sparkSession,
       WCOJ(ds.rdd.id, outputVariables, joinSpecification, children.map(_.logicalPlan), partitionChild.logicalPlan))
