@@ -32,14 +32,17 @@ case class Hypercube(dimensionSizes: Array[Int]) {
 }
 
 object Hypercube {
-  val BEST_CONFIGURATION_SCRIPT = "src/best-configuration.py"
+  val BEST_CONFIGURATION_SCRIPT = "src/best-computional-configuration.py"
 
   def getBestConfigurationFor(partitions: Int, query: Query, variableOrdering: Seq[String]): Hypercube = {
     require(query.vertices == variableOrdering.toSet, "Variable ordering should contain all vertices.")
 
     val configuration = callBestConfigurationScript(partitions, query)
     val dimensionSizes = variableOrdering.map(d => configuration(d)).toArray
-    Hypercube(dimensionSizes)
+    val dimensionSizesSorted = dimensionSizes.sorted.reverse  // All permuations have the same predicted value of work, by intuition I'd say
+    // assigning the biggest dimension to the first attribute is best.
+
+    Hypercube(dimensionSizesSorted)
   }
 
   private def callBestConfigurationScript(partitions: Int, query: Query): Map[String, Int] = {
