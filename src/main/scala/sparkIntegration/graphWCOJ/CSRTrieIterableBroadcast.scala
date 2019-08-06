@@ -1,6 +1,5 @@
 package org.apache.spark.sql
 
-import experiments.Timers
 import experiments.metrics.Metrics
 import leapfrogTriejoin.{CSRTrieIterable, TrieIterable}
 import org.apache.spark.broadcast.Broadcast

@@ -32,7 +32,7 @@ case class Hypercube(dimensionSizes: Array[Int]) {
 }
 
 object Hypercube {
-  val BEST_CONFIGURATION_SCRIPT = "src/best-computional-configuration.py"
+  val BEST_CONFIGURATION_SCRIPT = "src/best-computational-configuration.py"
 
   def getBestConfigurationFor(partitions: Int, query: Query, variableOrdering: Seq[String]): Hypercube = {
     require(query.vertices == variableOrdering.toSet, "Variable ordering should contain all vertices.")
