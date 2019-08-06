@@ -3,7 +3,7 @@ package partitioning
 import partitioning.shares.{Hypercube}
 
 sealed trait Partitioning {
-
+  def getWorkersUsed(workersTotal:Int) : Int
 }
 
 case class Shares(hypercube: Hypercube = Hypercube(Array[Int]())) extends Partitioning {
@@ -14,9 +14,17 @@ case class Shares(hypercube: Hypercube = Hypercube(Array[Int]())) extends Partit
       super.toString
     }
   }
+
+  override def getWorkersUsed(workersTotal: Int): Int = {
+    hypercube.dimensionSizes.product
+  }
 }
 
-case class AllTuples() extends Partitioning
+case class AllTuples() extends Partitioning {
+  override def getWorkersUsed(workersTotal: Int): Int = {
+    workersTotal
+  }
+}
 
 object Partitioning {
 

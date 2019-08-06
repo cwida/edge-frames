@@ -33,17 +33,21 @@ class WCOJConfiguration private(
   }
 
   def setParallelism(p: Int): WCOJConfiguration = {
-    parallelism = p
-    println(s"Setting parallelism to $p")
+    if (parallelism != p) {
+      parallelism = p
+      println(s"Setting parallelism to $p")
+    }
     this
   }
 
   def setJoinAlgorithm(a: WCOJAlgorithm): WCOJConfiguration = {
-    if (a == experiments.WCOJ) {
-      MaterializingLeapfrogJoin.setShouldMaterialize(false)
+    if (joinAlgorithm != a) {
+      if (a == experiments.WCOJ) {
+        setShouldMaterialize(false)
+      }
+      joinAlgorithm = a
+      println(s"Setting join algorithm to $a")
     }
-    joinAlgorithm = a
-    println(s"Setting join algorithm to $a")
     this
   }
 
@@ -52,8 +56,11 @@ class WCOJConfiguration private(
   }
 
   def setPartitioning(p: Partitioning): WCOJConfiguration = {
-    partitioning = p
-    println(s"Setting partitioning to $p")
+    if (p != partitioning) {
+      partitioning = p
+      println(s"Setting partitioning to $p")
+    }
+
     this
   }
 
@@ -62,8 +69,10 @@ class WCOJConfiguration private(
   }
 
   def setShouldMaterialize(value: Boolean): WCOJConfiguration = {
-    shouldMaterialize = value
-    MaterializingLeapfrogJoin.setShouldMaterialize(value)
+    if (shouldMaterialize != value) {
+      shouldMaterialize = value
+      MaterializingLeapfrogJoin.setShouldMaterialize(value)
+    }
     this
   }
 

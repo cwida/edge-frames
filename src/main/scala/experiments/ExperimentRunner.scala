@@ -6,11 +6,9 @@ import java.util.{Formatter, Locale}
 
 import au.com.bytecode.opencsv.CSVWriter
 import experiments.metrics.Metrics
-import leapfrogTriejoin.MaterializingLeapfrogJoin
 import org.apache.spark.SparkConf
-import org.apache.spark.scheduler.{AccumulableInfo, SparkListener, SparkListenerStageCompleted}
-import org.apache.spark.sql.{DataFrame, SparkSession, WCOJFunctions}
-import partitioning.{AllTuples, Partitioning}
+import org.apache.spark.sql.{DataFrame, SparkSession}
+import partitioning.{AllTuples, Partitioning, Shares}
 import scopt.OParser
 import sparkIntegration.{WCOJ2WCOJExec, WCOJConfiguration}
 
@@ -142,19 +140,18 @@ object ExperimentRunner extends App {
   formatter.setDecimalFormatSymbols(symbols)
 
   val config: ExperimentConfig = parseArgs().orElse(throw new IllegalArgumentException("Couldn't parse args")).get
+  validateConfig(config)
 
   println("Setting up Spark")
   val sp = setupSpark()
   val wcojConfig = WCOJConfiguration(sp)
+  wcojConfig.setShouldMaterialize(config.materializeLeapfrogs)
 
   val ds = loadDataset()
 
   var csvWriter: CSVWriter = null
 
   setupResultReporting()
-
-  require(!config.materializeLeapfrogs || !config.algorithms.contains(WCOJ), "Cannot use materializing Leapfrog joins with WCOJ, yet.")
-  wcojConfig.setShouldMaterialize(config.materializeLeapfrogs)
 
   cacheGraphBroadcast()
 
@@ -166,8 +163,8 @@ object ExperimentRunner extends App {
   sp.stop()
 
   private def parseArgs(): Option[ExperimentConfig] = {
-    import Queries.queryRead
     import Datasets.datasetTypeRead
+    import Queries.queryRead
     import Readers._
 
     val builder = OParser.builder[ExperimentConfig]
@@ -220,6 +217,16 @@ object ExperimentRunner extends App {
     OParser.parse(parser1, args, ExperimentConfig())
   }
 
+  def validateConfig(config: ExperimentConfig): Unit = {
+    if (config.parallelismLevels.contains(1)) {
+      require(config.partitionings.contains(AllTuples()), "Parallelism level of 1 requires AllTuples() partitioning.")
+    }
+
+    if (config.algorithms.contains(WCOJ)) {
+      require(config.parallelismLevels.contains(1), "WCOJ can only be run in serial.")
+    }
+  }
+
   private def setupSpark(): SparkSession = {
     val conf = new SparkConf()
       .setMaster(s"local[${config.workers}]")
@@ -261,7 +268,7 @@ object ExperimentRunner extends App {
     csvWriter.writeNext(Array(s"# Git commit: ${BuildInfo.gitCommit}"))
     csvWriter.writeNext(Array(s"# Materializing Leapfrogjoins: ${
       if (config.materializeLeapfrogs) {
-        "Enabled"
+        "Enabled (for GraphWCOJ only, WCOJ run without materializing)"
       } else {
         "Disabled"
       }
@@ -304,13 +311,12 @@ object ExperimentRunner extends App {
       String.format(Locale.US, "%.2f", result.time.asInstanceOf[Object]),
       String.format(Locale.US, "%.2f", copyTimeTotal.asInstanceOf[Object]),
       String.format(Locale.US, "%.2f", materializationTime.asInstanceOf[Object]))
-    ++ wcojTimes.map(t => String.format(Locale.US, "%.2f", t.asInstanceOf[Object])))
+      ++ wcojTimes.map(t => String.format(Locale.US, "%.2f", t.asInstanceOf[Object])))
 
     csvWriter.flush()
   }
 
-  // TODO update summary
-  private def printSummary(results: Seq[QueryResult]): Unit = {
+  private def printSummary(results: Seq[QueryResult], partitioning: Partitioning): Unit = {
     require(results.size == config.reps)
 
     require(results.map(_.count).toSet.size == 1)
@@ -324,7 +330,8 @@ object ExperimentRunner extends App {
     val parallelism = results.head.parallelism
 
     println(s"Using $algorithm, $query took ${Utils.avg(results.map(_.time))} in average over ${config.reps} repetitions (result size " +
-      s"$count) using $parallelism workers.")
+      s"$count) using ${partitioning.getWorkersUsed(parallelism)} out of $parallelism workers.")
+
     if (Seq(GraphWCOJ, WCOJ).contains(algorithm)) {
       val wcojResults = results.map(_.asInstanceOf[WCOJQueryResult])
 
@@ -337,6 +344,7 @@ object ExperimentRunner extends App {
       println(
         s"WCOJ took $wcojTimesAverage in average(max: $wcojTimesMax, min: $wcojTimesMin), copying took in average $copyTimesAverage took.")
     }
+
     println("")
   }
 
@@ -376,52 +384,76 @@ object ExperimentRunner extends App {
       wcojConfig.setParallelism(pl)
       for (p <- config.partitionings) {
         wcojConfig.setPartitioning(p)
-        for (algoritm <- algorithms) {
-          val queryDataFrame = algoritm match {
-            case BinaryJoins => {
-              query.applyBinaryQuery(ds, sp)
-            }
-            case WCOJ | GraphWCOJ => {
-              wcojConfig.setJoinAlgorithm(algoritm.asInstanceOf[WCOJAlgorithm])
-              query.applyPatternQuery(ds)
-            }
-          }
-
-          val results = ListBuffer[QueryResult]()
-
-          for (i <- 1 to config.reps) {
-            System.gc()
-            print(".")
-            val start = System.nanoTime()
-            val count = queryDataFrame.count()
-            val end = System.nanoTime()
-            val time = (end - start).toDouble / 1e9
-
-            val result = algoritm match {
-              case WCOJ | GraphWCOJ => {
-                val joinTimes = Metrics.getTimes("wcoj_join_time")
-                val copyTimes = Metrics.getTimes("copy_time")
-                val materializationTimes = Metrics.getTimes("materializationTime")
-
-                WCOJQueryResult(algoritm,
-                  query,
-                  p, pl, count, time,
-                  joinTimes.sortBy(_._1).map(_._2.toDouble / 1e9),
-                  copyTimes.sortBy(_._1).map(_._2.toDouble / 1e9),
-                  materializationTimes.map(_._2.toDouble / 1e9).headOption)
-              }
+        if ((p == AllTuples() && pl == 1) || (pl != 1 && p != AllTuples())) {
+          for (algoritm <- algorithms) {
+            val queryDataFrame = algoritm match {
               case BinaryJoins => {
-                BinaryQueryResult(query, pl, count, time)
+                query.applyBinaryQuery(ds, sp)
+              }
+              case WCOJ | GraphWCOJ => {
+                wcojConfig.setJoinAlgorithm(algoritm.asInstanceOf[WCOJAlgorithm])
+                query.applyPatternQuery(ds)
               }
             }
-            reportResult(result)
-            results += result
-          }
-          println()
 
-          printSummary(results)
+            algoritm match {
+              case BinaryJoins => {
+                if (pl == 1) { // TODO enable running spark in parallel
+                  runAndReportPlan(queryDataFrame, query, algoritm, p, pl)
+                }
+              }
+              case WCOJ => {
+                wcojConfig.setShouldMaterialize(false)
+                if (pl == 1) {
+                  runAndReportPlan(queryDataFrame, query, algoritm, p, pl)
+                }
+              }
+              case GraphWCOJ => {
+                wcojConfig.setShouldMaterialize(config.materializeLeapfrogs)
+                runAndReportPlan(queryDataFrame, query, algoritm, p, pl)
+              }
+            }
+          }
         }
       }
     }
+  }
+
+  private def runAndReportPlan(plan: DataFrame, query: Query, algorithm: Algorithm, partitioning: Partitioning, parallelism: Int): Unit = {
+    val results = ListBuffer[QueryResult]()
+
+    for (i <- 1 to config.reps) {
+      System.gc()
+      print(".")
+      val start = System.nanoTime()
+      val count = plan.count()
+      val end = System.nanoTime()
+      val time = (end - start).toDouble / 1e9
+
+
+
+      val result = algorithm match {
+        case WCOJ | GraphWCOJ => {
+          val joinTimes = Metrics.getTimes("wcoj_join_time")
+          val copyTimes = Metrics.getTimes("copy_time")
+          val materializationTimes = Metrics.getTimes("materializationTime")
+
+          WCOJQueryResult(algorithm,
+            query,
+            Metrics.lastUsedInitializedPartitioning.get, parallelism, count, time,
+            joinTimes.sortBy(_._1).map(_._2.toDouble / 1e9),
+            copyTimes.sortBy(_._1).map(_._2.toDouble / 1e9),
+            materializationTimes.map(_._2.toDouble / 1e9).headOption)
+        }
+        case BinaryJoins => {
+          BinaryQueryResult(query, parallelism, count, time)
+        }
+      }
+      reportResult(result)
+      results += result
+    }
+    println()
+
+    printSummary(results, Metrics.lastUsedInitializedPartitioning.getOrElse(AllTuples()))
   }
 }

@@ -1,5 +1,6 @@
 package org.apache.spark.sql
 
+import experiments.metrics.Metrics
 import experiments.{Algorithm, DescriptiveQuery, GraphWCOJ, Query}
 import leapfrogTriejoin.{MaterializingLeapfrogJoin, TrieIterable}
 import org.apache.orc.impl.TreeReaderFactory.LongTreeReader
@@ -65,6 +66,7 @@ class WCOJFunctions[T](ds: Dataset[T]) {
       case Shares(_) => Shares(Hypercube.getBestConfigurationFor(conf.getParallelism, getQuery(edges), variableOrdering))
       case a @ AllTuples() => a
     }
+    Metrics.lastUsedInitializedPartitioning = Some(partitioning)
 
     val joinSpecification = new JoinSpecification(edges, variableOrdering, conf.getJoinAlgorithm, partitioning, distinctFilter,
       smallerThanFilter)

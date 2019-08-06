@@ -4,11 +4,15 @@ import java.util
 
 import org.apache.spark.util.CollectionAccumulator
 import org.apache.spark.{Accumulator, SparkContext}
+import partitioning.Partitioning
+
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 
 object Metrics {
   val masterTimers: mutable.Map[String, Long] = new mutable.HashMap[String, Long]()
+
+  var lastUsedInitializedPartitioning: Option[Partitioning] = None
 
   private val timers: mutable.Map[String, CollectionAccumulator[(Int, Long)]] =
     new mutable.HashMap[String, CollectionAccumulator[(Int, Long)]]()
