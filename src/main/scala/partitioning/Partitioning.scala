@@ -48,7 +48,6 @@ case class SingleVariablePartitioning(variable: Int) extends Partitioning {
 }
 
 
-
 case class AllTuples() extends Partitioning {
   override def getWorkersUsed(workersTotal: Int): Int = {
     workersTotal
@@ -58,6 +57,7 @@ case class AllTuples() extends Partitioning {
 object Partitioning {
 
     implicit def partitioningRead: scopt.Read[Partitioning] = {
+      val singleVariablePartitioningPattern = raw"single\((\d+)\)".r
       scopt.Read.reads({
         case "allTuples" => {
           AllTuples()
@@ -68,6 +68,7 @@ object Partitioning {
         case "sharesRange" => {
           SharesRange()
         }
+        case singleVariablePartitioningPattern(v) => SingleVariablePartitioning(v.toInt)
         case _ => {
           throw new IllegalArgumentException("Partitionings can be only `allTuples` or `shares`")
         }
