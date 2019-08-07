@@ -1,11 +1,11 @@
 package sparkIntegration
 
 import experiments.{Algorithm, GraphWCOJ, WCOJAlgorithm}
-import leapfrogTriejoin.{EdgeRelationship, LeapfrogTriejoin, TrieIterable}
+import leapfrogTriejoin.{CSRTrieIterable, EdgeRelationship, LeapfrogTriejoin, TrieIterable}
 import org.apache.spark.sql.CSRTrieIterableBroadcast
 import org.apache.spark.sql.execution.SparkPlan
 import org.slf4j.LoggerFactory
-import partitioning.{AllTuples, Partitioning, Shares}
+import partitioning.{AllTuples, Partitioning, Shares, SharesRange}
 import sparkIntegration.wcoj.ToArrayTrieIterableRDDExec
 
 import scala.collection.mutable
@@ -73,13 +73,35 @@ class JoinSpecification(joinPattern: Seq[Pattern], val variableOrdering: Seq[Str
       }
       case GraphWCOJ => {
         joinPattern.zipWithIndex.map({
-          case (_, i) => {
-            if (dstAccessibleRelationship(i)) {
-              trieIterables(1).trieIterator
-            } else {
-              trieIterables(0).trieIterator
+          case (AnonymousEdge(src: NamedVertex, dst: NamedVertex), i) => {
+            partitioning match {
+              case SharesRange(_) => {
+                if (dstAccessibleRelationship(i)) {
+                  trieIterables(1).asInstanceOf[CSRTrieIterable].trieIterator(
+                    partition,
+                    partitioning,
+                    variableOrdering.indexOf(dst.name),
+                    variableOrdering.indexOf(src.name)
+                  )
+                } else {
+                  trieIterables(0).asInstanceOf[CSRTrieIterable].trieIterator(
+                    partition,
+                    partitioning,
+                    variableOrdering.indexOf(src.name),
+                    variableOrdering.indexOf(dst.name)
+                  )
+                }
+              }
+              case _ => {
+                if (dstAccessibleRelationship(i)) {
+                  trieIterables(1).trieIterator
+                } else {
+                  trieIterables(0).trieIterator
+                }
+              }
             }
           }
+          case (_, _) => throw new IllegalArgumentException("Illegal join pattern.")
         })
       }
     }

@@ -13,7 +13,7 @@ import org.apache.spark.sql.catalyst.expressions.AttributeReference
 import org.apache.spark.sql.execution.CoalesceExec.EmptyRDDWithPartitions
 import org.apache.spark.sql.execution.RowIterator
 import partitioning.shares.Hypercube
-import partitioning.{AllTuples, Partitioning, Shares}
+import partitioning.{AllTuples, Partitioning, Shares, SharesRange}
 import sparkIntegration.wcoj.ToTrieIterableRDD
 
 import Predef._
@@ -64,6 +64,7 @@ class WCOJFunctions[T](ds: Dataset[T]) {
 
     val partitioning = conf.getPartitioning match {
       case Shares(_) => Shares(Hypercube.getBestConfigurationFor(conf.getParallelism, getQuery(edges), variableOrdering))
+      case SharesRange(_) => SharesRange(Hypercube.getBestConfigurationFor(conf.getParallelism, getQuery(edges), variableOrdering))
       case a @ AllTuples() => a
     }
     Metrics.lastUsedInitializedPartitioning = Some(partitioning)

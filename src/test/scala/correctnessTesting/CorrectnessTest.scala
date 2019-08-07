@@ -207,7 +207,7 @@ trait CorrectnessTest extends Matchers with SparkTest with DatasetComparer {
       assertDataSetEqual(otherReordered, normalVariableOrdering)
     }
 
-    it should "comput the same triangles as spark for circular triangles" in {
+    it should "compute the same triangles as spark for circular triangles" in {
       import sp.implicits._
 
       val circular = ds.findPattern(
@@ -215,12 +215,12 @@ trait CorrectnessTest extends Matchers with SparkTest with DatasetComparer {
           |(a) - [] -> (b);
           |(b) - [] -> (c);
           |(c) - [] -> (a)
-          |""".stripMargin, List("a", "b", "c"))
+          |""".stripMargin, List("a", "b", "c")).cache()
 
       val duos = ds.as("R")
         .joinWith(ds.as("S"), $"R.dst" === $"S.src")
       val triangles = duos.joinWith(ds.as("T"),
-        condition = $"_2.dst" === $"T.src" && $"_1.src" === $"T.dst")
+        condition = $"_2.dst" === $"T.src" && $"_1.src" === $"T.dst").cache()
 
       val goldStandard = triangles.selectExpr("_2.dst AS a", "_1._1.dst AS b", "_2.src AS c")
 

@@ -2,6 +2,7 @@ package leapfrogTriejoin
 
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.GenericInternalRow
+import partitioning.{Partitioning, SharesRange}
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -12,24 +13,81 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
                       private[this] val edges: Array[Long]) extends TrieIterable with Serializable {
 
   override def trieIterator: TrieIteratorImpl = {
-    new TrieIteratorImpl()
+    trieIterator(None, None, None, None)
   }
 
-  class TrieIteratorImpl() extends TrieIterator {
+  def trieIterator(partition: Int,
+                   partitioning: Partitioning,
+                   dimensionFirstLevel: Int,
+                   dimensionSecondLevel: Int): TrieIteratorImpl = {
+    new TrieIteratorImpl(Option(partition), Option(partitioning), Option(dimensionFirstLevel), Option(dimensionSecondLevel))
+  }
+
+
+  def trieIterator(partition: Option[Int],
+                   partitioning: Option[Partitioning],
+                   dimensionFirstLevel: Option[Int],
+                   dimensionSecondLevel: Option[Int]): TrieIteratorImpl = {
+    new TrieIteratorImpl(partition, partitioning, dimensionFirstLevel, dimensionSecondLevel)
+  }
+
+  class TrieIteratorImpl(
+                          val partition: Option[Int],
+                          val partitioning: Option[Partitioning],
+                          val dimensionFirstLevel: Option[Int],
+                          val dimensionSecondLevel: Option[Int]
+                        ) extends TrieIterator {
+
+    /*
+     Partitioning
+     Allows to bind both levels of the iterator to a range of values. The lower bound is included the upper bound is excluded.
+     For no range partitionings, we choose 0 and the last node index + 1 as range, which has no effect because this is the original
+     lower and upper bound.
+     */
+    private[this] val (firstLevelLowerBound, firstLevelUpperBound, secondLevelLowerBound, secondLevelUpperBound) = partitioning
+    match {
+      case Some(SharesRange(hypercube)) => {
+        val upper = edgeIndices.length - 1
+        val coordinate = hypercube.getCoordinate(partition.get)
+        val (fl, fu) =
+          getPartitionBoundsInRange(0, upper, coordinate(dimensionFirstLevel.get), hypercube.dimensionSizes(dimensionFirstLevel.get))
+        val (sl, su) =
+          getPartitionBoundsInRange(0, upper, coordinate(dimensionSecondLevel.get), hypercube.dimensionSizes(dimensionSecondLevel.get))
+        (fl, fu, sl, su)
+      }
+      case _ => {
+        (0, edgeIndices.length - 1, 0, edgeIndices.length - 1)
+      }
+    }
+
 
     private[this] var isAtEnd = verticeIDs.length == 0
 
     private[this] var depth = -1
 
-    private[this] var srcPosition = 0
+    private[this] var srcPosition: Int = firstLevelLowerBound
     if (!isAtEnd && edgeIndices(srcPosition) == edgeIndices(srcPosition + 1)) {
       moveToNextSrcPosition()
     }
+    isAtEnd = firstLevelUpperBound <= srcPosition
+
     private[this] val firstSourcePosition = srcPosition
 
     private[this] var dstPosition = 0
 
     private[this] var keyValue = 0L
+
+    private def getPartitionBoundsInRange(lower: Int, upper: Int, partition: Int, numPartitions: Int): (Int, Int) = {
+      val totalSize = upper - lower
+      val partitionSize = totalSize / numPartitions
+      val lowerBound = lower + partition * partitionSize
+      val upperBound = if (partition == numPartitions - 1) {
+        upper
+      } else {
+        lower + (partition + 1) * partitionSize
+      }
+      (lowerBound, upperBound)
+    }
 
     override def open(): Unit = {
       assert(!isAtEnd, "open cannot be called when atEnd")
@@ -40,7 +98,12 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
         keyValue = srcPosition.toLong
       } else if (depth == 1) { // TODO predicatable
         dstPosition = edgeIndices(srcPosition)
-        keyValue = edges(dstPosition)
+        isAtEnd = secondLevelUpperBound <= edges(dstPosition)
+        if (!isAtEnd && secondLevelLowerBound != 0) {
+          seek(secondLevelLowerBound)
+        } else {
+          keyValue = edges(dstPosition)
+        }
       }
 
       assert(!isAtEnd, "open cannot be called when atEnd")
@@ -64,12 +127,12 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
       assert(!atEnd)
       if (depth == 0) {
         moveToNextSrcPosition()
-        isAtEnd = srcPosition == edgeIndices.length - 1
+        isAtEnd = firstLevelUpperBound <= srcPosition
         keyValue = srcPosition.toLong
       } else {
         dstPosition += 1
-        isAtEnd = dstPosition == edgeIndices(srcPosition + 1) // edgeIndices(srcPosition + 1) should not be factored out, it does not
-        // look like this improves performance (looks!)
+        isAtEnd = dstPosition == edgeIndices(srcPosition + 1) || secondLevelUpperBound <= edges(dstPosition)
+        // edgeIndices(srcPosition + 1) should not be factored out, it does not look like this improves performance (looks!)
         if (!isAtEnd) {
           keyValue = edges(dstPosition)
         }
@@ -89,14 +152,14 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
           // predicatability?
           moveToNextSrcPosition()
         }
-        isAtEnd = srcPosition >= edgeIndices.length - 1
-        this.keyValue = srcPosition.toLong
+        isAtEnd = firstLevelUpperBound <= srcPosition
+        keyValue = srcPosition.toLong
         isAtEnd
       } else {
         dstPosition = ArraySearch.find(edges, key, dstPosition, edgeIndices(srcPosition + 1))
-        isAtEnd = dstPosition == edgeIndices(srcPosition + 1)
+        isAtEnd = dstPosition == edgeIndices(srcPosition + 1) || secondLevelUpperBound <= edges(dstPosition)
         if (!isAtEnd) {
-          this.keyValue = edges(dstPosition)
+          keyValue = edges(dstPosition)
         }
         isAtEnd
       }
@@ -137,7 +200,7 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
     }
 
     override def clone(): AnyRef = {
-      val c = new TrieIteratorImpl()
+      val c = new TrieIteratorImpl(partition, partitioning, dimensionFirstLevel, dimensionSecondLevel)
       c.copy(isAtEnd, depth, srcPosition, dstPosition, keyValue)
       c
     }
