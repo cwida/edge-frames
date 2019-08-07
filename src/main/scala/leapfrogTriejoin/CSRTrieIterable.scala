@@ -49,10 +49,20 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
       case Some(SharesRange(hypercube)) => {
         val upper = edgeIndices.length - 1
         val coordinate = hypercube.getCoordinate(partition.get)
-        val (fl, fu) =
-          getPartitionBoundsInRange(0, upper, coordinate(dimensionFirstLevel.get), hypercube.dimensionSizes(dimensionFirstLevel.get))
-        val (sl, su) =
-          getPartitionBoundsInRange(0, upper, coordinate(dimensionSecondLevel.get), hypercube.dimensionSizes(dimensionSecondLevel.get))
+        val (fl, fu) = if (dimensionFirstLevel.get == 1) {
+          getPartitionBoundsInRange(0, upper, coordinate(dimensionFirstLevel.get), hypercube.dimensionSizes(dimensionFirstLevel.get),
+            true)
+        } else {
+          getPartitionBoundsInRange(0, upper, coordinate(dimensionFirstLevel.get), hypercube.dimensionSizes(dimensionFirstLevel.get),
+            false)
+        }
+        val (sl, su) = if (dimensionSecondLevel.get == 1) {
+          getPartitionBoundsInRange(0, upper, coordinate(dimensionSecondLevel.get), hypercube.dimensionSizes(dimensionSecondLevel.get),
+            true)
+        } else {
+          getPartitionBoundsInRange(0, upper, coordinate(dimensionSecondLevel.get), hypercube.dimensionSizes(dimensionSecondLevel.get),
+            false)
+        }
         (fl, fu, sl, su)
       }
       case _ => {
@@ -77,14 +87,28 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
 
     private[this] var keyValue = 0L
 
-    private def getPartitionBoundsInRange(lower: Int, upper: Int, partition: Int, numPartitions: Int): (Int, Int) = {
+    private def getPartitionBoundsInRange(lower: Int, upper: Int, partition: Int, numPartitions: Int, fromBelow: Boolean): (Int, Int) = {
       val totalSize = upper - lower
       val partitionSize = totalSize / numPartitions
-      val lowerBound = lower + partition * partitionSize
-      val upperBound = if (partition == numPartitions - 1) {
-        upper
+      val lowerBound = if (fromBelow) {
+        lower + partition * partitionSize
       } else {
-        lower + (partition + 1) * partitionSize
+        if (partition == numPartitions - 1) {
+           lower
+        } else {
+          upper - (partition + 1) * partitionSize
+        }
+      }
+
+
+      val upperBound = if (fromBelow) {
+        if (partition == numPartitions - 1) {
+          upper
+        } else {
+          lower + (partition + 1) * partitionSize
+        }
+      } else {
+        upper - partition * partitionSize
       }
       (lowerBound, upperBound)
     }

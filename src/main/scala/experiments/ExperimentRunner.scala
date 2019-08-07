@@ -311,7 +311,9 @@ object ExperimentRunner extends App {
       String.format(Locale.US, "%.2f", result.time.asInstanceOf[Object]),
       String.format(Locale.US, "%.2f", copyTimeTotal.asInstanceOf[Object]),
       String.format(Locale.US, "%.2f", materializationTime.asInstanceOf[Object]))
-      ++ wcojTimes.map(t => String.format(Locale.US, "%.2f", t.asInstanceOf[Object])))
+      // TODO rais precission on a per partition basis, a lot of 0.00
+      ++ wcojTimes.map(t => String.format(Locale.US, "%.2f", t.asInstanceOf[Object])))  // TODO needs to be filled till max parallelism
+    // level
 
     csvWriter.flush()
   }

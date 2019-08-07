@@ -34,6 +34,21 @@ case class SharesRange(hypercube: Hypercube = Hypercube(Array[Int]())) extends P
   }
 }
 
+case class SingleVariablePartitioning(variable: Int) extends Partitioning {
+
+  def getEquivalentSharesRangePartitioning(parallelism: Int, numVariables: Int): SharesRange = {
+    val dimensions = Array.fill(numVariables)(1)
+    dimensions(variable) = parallelism
+    SharesRange(Hypercube(dimensions))
+  }
+
+  override def getWorkersUsed(workersTotal: Int): Int = {
+    workersTotal
+  }
+}
+
+
+
 case class AllTuples() extends Partitioning {
   override def getWorkersUsed(workersTotal: Int): Int = {
     workersTotal
@@ -48,7 +63,10 @@ object Partitioning {
           AllTuples()
         }
         case "shares" => {
-          Shares(Hypercube(Array[Int]()))
+          Shares()
+        }
+        case "sharesRange" => {
+          SharesRange()
         }
         case _ => {
           throw new IllegalArgumentException("Partitionings can be only `allTuples` or `shares`")
