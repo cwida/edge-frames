@@ -156,8 +156,9 @@ trait CorrectnessTest extends Matchers with SparkTest with DatasetComparer {
       val tempShouldMaterialize = wcojConfig.getShouldMaterialize
       wcojConfig.setShouldMaterialize(shouldMaterialize).setParallelism(parallelism)
 
-      val e = queryCache.getOrCompute(cacheKey.copy(queryName = "clique", size = 3), cliqueBinaryJoins(3, sp, ds))
-      val a = cliquePattern(3, ds)
+      val e = queryCache.getOrCompute(cacheKey.copy(queryName = "clique", size = 3), cliqueBinaryJoins(3, sp, ds)).cache()
+      val a = cliquePattern(3, ds).cache()
+
 
       try {
         assertDataSetEqual(a, e)

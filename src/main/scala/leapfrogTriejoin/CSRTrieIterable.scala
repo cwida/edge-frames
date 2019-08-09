@@ -31,6 +31,7 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
     new TrieIteratorImpl(partition, partitioning, dimensionFirstLevel, dimensionSecondLevel)
   }
 
+  // TODO sort out range filtering functionality, either in here or in MultiRangePartitionTrieIterator
   class TrieIteratorImpl(
                           val partition: Option[Int],
                           val partitioning: Option[Partitioning],
@@ -169,6 +170,7 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
 
     override def seek(key: Long): Boolean = {
       assert(!atEnd)
+      assert(keyValue < key)
       if (depth == 0) {
         srcPosition = key.toInt
         if (srcPosition < edgeIndices.length - 1 && // TODO srcPosition should never be bigger than edgeIndices.lenght -  1, investigate
@@ -275,6 +277,14 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
   // For testing
   def getEdgeIndices: Array[Int] = {
     edgeIndices
+  }
+
+  def minValue: Int = {
+    0
+  }
+
+  def maxValue: Int = {
+    edgeIndices.length - 1
   }
 }
 

@@ -5,7 +5,7 @@ import leapfrogTriejoin.{CSRTrieIterable, EdgeRelationship, LeapfrogTriejoin, Tr
 import org.apache.spark.sql.CSRTrieIterableBroadcast
 import org.apache.spark.sql.execution.SparkPlan
 import org.slf4j.LoggerFactory
-import partitioning.{AllTuples, Partitioning, Shares, SharesRange}
+import partitioning.{AllTuples, RangeFilteredTrieIterator, Partitioning, Shares, SharesRange}
 import sparkIntegration.wcoj.ToArrayTrieIterableRDDExec
 
 import scala.collection.mutable
@@ -75,21 +75,38 @@ class JoinSpecification(joinPattern: Seq[Pattern], val variableOrdering: Seq[Str
         joinPattern.zipWithIndex.map({
           case (AnonymousEdge(src: NamedVertex, dst: NamedVertex), i) => {
             partitioning match {
-              case SharesRange(_) => {
+              case part @ SharesRange(_) => {
                 if (dstAccessibleRelationship(i)) {
-                  trieIterables(1).asInstanceOf[CSRTrieIterable].trieIterator(
-                    partition,
-                    partitioning,
-                    variableOrdering.indexOf(dst.name),
-                    variableOrdering.indexOf(src.name)
-                  )
+                  val trieIterable = trieIterables(1).asInstanceOf[CSRTrieIterable]
+                  val ti = trieIterable.trieIterator
+                  val firstDimensionRanges = part.getRanges(
+                    partition, variableOrdering.indexOf(dst.name), trieIterable.minValue, trieIterable.maxValue)
+                  val secondDimensionRanges = part.getRanges(
+                    partition, variableOrdering.indexOf(src.name), trieIterable.minValue, trieIterable.maxValue)
+
+                  new RangeFilteredTrieIterator(partition, firstDimensionRanges, secondDimensionRanges, ti)
+//                  trieIterables(1).asInstanceOf[CSRTrieIterable].trieIterator(
+//                    partition,
+//                    partitioning,
+//                    variableOrdering.indexOf(dst.name),
+//                    variableOrdering.indexOf(src.name)
+//                  )
                 } else {
-                  trieIterables(0).asInstanceOf[CSRTrieIterable].trieIterator(
-                    partition,
-                    partitioning,
-                    variableOrdering.indexOf(src.name),
-                    variableOrdering.indexOf(dst.name)
-                  )
+                  val trieIterable = trieIterables.head.asInstanceOf[CSRTrieIterable]
+                  val ti = trieIterable.trieIterator
+                  val firstDimensionRanges = part.getRanges(
+                    partition, variableOrdering.indexOf(src.name), trieIterable.minValue, trieIterable.maxValue)
+                  val secondDimensionRanges = part.getRanges(
+                    partition, variableOrdering.indexOf(dst.name), trieIterable.minValue, trieIterable.maxValue)
+
+                  new RangeFilteredTrieIterator(partition, firstDimensionRanges, secondDimensionRanges, ti)
+//                  new MultiRangePartitionTrieIterator(Array(trieIterable.minValue, trieIterable.maxValue), Array(trieIterable.minValue, trieIterable.maxValue), ti)
+//                  trieIterables(0).asInstanceOf[CSRTrieIterable].trieIterator(
+//                    partition,
+//                    partitioning,
+//                    variableOrdering.indexOf(src.name),
+//                    variableOrdering.indexOf(dst.name)
+//                  )
                 }
               }
               case _ => {
