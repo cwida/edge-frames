@@ -20,23 +20,27 @@ case class Shares(hypercube: Hypercube = Hypercube(Array[Int]())) extends Partit
   }
 }
 
-case class SharesRange(hypercube: Hypercube = Hypercube(Array[Int]())) extends Partitioning {
+case class SharesRange(hypercube: Option[Hypercube] = None, prefix: Option[Int] = None) extends Partitioning {
+
   override def toString: String = {
-    if (hypercube.dimensionSizes.isEmpty) {
-      "SharesRange(Uninitialized)"
-    } else {
-      s"SharesRange(${hypercube.dimensionSizes.mkString(", ")})" // TODO no commas in name because that ruins CSVs
+    hypercube match {
+      case Some(Hypercube(dimensionSizes)) => {
+        s"SharesRange(${dimensionSizes.mkString(", ")})" // TODO no commas in name because that ruins CSVs
+      }
+      case None => {
+        s"SharesRange(Uninitialized, prefix=$prefix)"
+      }
     }
   }
 
   override def getWorkersUsed(workersTotal: Int): Int = {
-    hypercube.dimensionSizes.product
+    hypercube.get.dimensionSizes.product
   }
 
   def getRanges(partition: Int, dimension: Int, lower: Int, upper: Int): Array[Int] = {
-    val coordinate = hypercube.getCoordinate(partition)
+    val coordinate = hypercube.get.getCoordinate(partition)
 
-    val (l, u) = getPartitionBoundsInRange(lower, upper, coordinate(dimension), hypercube.dimensionSizes(dimension), true)
+    val (l, u) = getPartitionBoundsInRange(lower, upper, coordinate(dimension), hypercube.get.dimensionSizes(dimension), true)
     Array(l, u)
   }
 
@@ -71,7 +75,7 @@ case class SingleVariablePartitioning(variable: Int) extends Partitioning {
   def getEquivalentSharesRangePartitioning(parallelism: Int, numVariables: Int): SharesRange = {
     val dimensions = Array.fill(numVariables)(1)
     dimensions(variable) = parallelism
-    SharesRange(Hypercube(dimensions))
+    SharesRange(Some(Hypercube(dimensions)))
   }
 
   // TODO should I print this as name?
@@ -90,7 +94,8 @@ case class AllTuples() extends Partitioning {
 object Partitioning {
 
   implicit def partitioningRead: scopt.Read[Partitioning] = {
-    val singleVariablePartitioningPattern = raw"single\((\d+)\)".r
+    val singleVariablePartitioningPattern = raw"single\[(\d+)\]".r
+    val sharesRangePartitioningPattern = raw"sharesRange\[(\d+)\]".r
     scopt.Read.reads({
       case "allTuples" => {
         AllTuples()
@@ -98,8 +103,9 @@ object Partitioning {
       case "shares" => {
         Shares()
       }
-      case "sharesRange" => {
-        SharesRange()
+      case sharesRangePartitioningPattern(prefix) => {
+        val intPrefix = prefix.toInt
+        SharesRange(None, if (intPrefix == 0) None else Some(intPrefix))
       }
       case singleVariablePartitioningPattern(v) => {
         SingleVariablePartitioning(v.toInt)

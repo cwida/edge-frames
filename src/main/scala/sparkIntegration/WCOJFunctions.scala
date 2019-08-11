@@ -64,11 +64,16 @@ class WCOJFunctions[T](ds: Dataset[T]) {
 
     val partitioning = conf.getPartitioning match {
       case Shares(_) => Shares(Hypercube.getBestConfigurationFor(conf.getParallelism, getQuery(edges), variableOrdering))
-      case SharesRange(_) => SharesRange(Hypercube.getBestConfigurationFor(conf.getParallelism, getQuery(edges), variableOrdering))
+      case SharesRange(None, prefix) =>
+        SharesRange(Some(Hypercube.getBestConfigurationFor(conf.getParallelism, getQuery(edges), variableOrdering, prefix)), prefix)
       case p @ SingleVariablePartitioning(variable) => {
         p.getEquivalentSharesRangePartitioning(conf.getParallelism, getQuery(edges).vertices.size)
       }
       case a @ AllTuples() => a
+      case p => {
+        throw new IllegalArgumentException(
+          s"Partitioning ${p.toString} not supported. Maybe this Shares partitioning has been intialized already?")
+      }
     }
     Metrics.lastUsedInitializedPartitioning = Some(partitioning)
 

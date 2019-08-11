@@ -75,7 +75,7 @@ class JoinSpecification(joinPattern: Seq[Pattern], val variableOrdering: Seq[Str
         joinPattern.zipWithIndex.map({
           case (AnonymousEdge(src: NamedVertex, dst: NamedVertex), i) => {
             partitioning match {
-              case part @ SharesRange(_) => {
+              case part @ SharesRange(_, _) => {
                 if (dstAccessibleRelationship(i)) {
                   val trieIterable = trieIterables(1).asInstanceOf[CSRTrieIterable]
                   val ti = trieIterable.trieIterator

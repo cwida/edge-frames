@@ -47,7 +47,7 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
      */
     private[this] val (firstLevelLowerBound, firstLevelUpperBound, secondLevelLowerBound, secondLevelUpperBound) = partitioning
     match {
-      case Some(SharesRange(hypercube)) => {
+      case Some(SharesRange(Some(hypercube), _)) => {
         val upper = edgeIndices.length - 1
         val coordinate = hypercube.getCoordinate(partition.get)
         val (fl, fu) = if (dimensionFirstLevel.get == 1) {
