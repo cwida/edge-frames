@@ -5,6 +5,8 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{DataFrame, Row}
 
 import scala.sys.process.Process
+import collection.{Iterable, mutable}
+import math.Ordering._
 
 case class Hypercube(dimensionSizes: Array[Int]) {
 
@@ -37,34 +39,52 @@ object Hypercube {
   def getBestConfigurationFor(partitions: Int, query: Query, variableOrdering: Seq[String]): Hypercube = {
     require(query.vertices == variableOrdering.toSet, "Variable ordering should contain all vertices.")
 
-    val configuration = callBestConfigurationScript(partitions, query)
-    val dimensionSizes = variableOrdering.map(d => configuration(d)).toArray
-    val dimensionSizesSorted = dimensionSizes.sorted.reverse  // All permuations have the same predicted value of work, by intuition I'd say
-    // assigning the biggest dimension to the first attribute is best.
+    val start = System.nanoTime()
 
-    Hypercube(dimensionSizesSorted)
+    val edgesAsIndices = query.edges.map(e => (variableOrdering.indexOf(e._1), variableOrdering.indexOf(e._2)))
+
+    var bestConfiguration = Array.fill(variableOrdering.size)(1)
+    var minimalCost = 1.0 * edgesAsIndices.length
+
+    val visited = mutable.Set[Array[Int]]()
+    val toVisit = mutable.Queue[Array[Int]]()
+    toVisit.enqueue(bestConfiguration)
+
+    while (toVisit.nonEmpty) {
+      val c = toVisit.dequeue()
+      val estimatedCosts = estimateCosts(edgesAsIndices, c)
+
+      if (estimatedCosts < minimalCost) {
+        minimalCost = estimatedCosts
+        bestConfiguration = c
+      } else if (estimatedCosts == minimalCost) {
+        if (c.max < bestConfiguration.max) {  // Try to choose a configuration of even dimension sizes to avoid skew
+          bestConfiguration = c
+        } else if (c.max == bestConfiguration.max)  {
+          // If the configuration is even and has the same cost, try to have the larger values on the first variables
+          bestConfiguration = Seq(c.toIterable, bestConfiguration.toIterable).sorted.reverse.head.toArray
+        }
+      }
+
+      var i = 0
+      while (i < c.length) {
+        val newConfig = c.clone()
+        newConfig(i) = c(i) + 1
+        if (newConfig.product <= partitions
+          && !visited.contains(newConfig)) {
+          toVisit.enqueue(newConfig)
+        }
+        i += 1
+      }
+      visited.add(c)
+    }
+
+    println("finding config", (System.nanoTime() - start) / 1e9)
+    new Hypercube(bestConfiguration)
   }
 
-  private def callBestConfigurationScript(partitions: Int, query: Query): Map[String, Int] = {
-    val edges: Seq[String] = query.edges.map(e => s"${e._1} ${e._2}").mkString(" ").split(" ")
-    val cmd: Seq[String] = Seq("python3", BEST_CONFIGURATION_SCRIPT, partitions.toString) ++ edges
-    val output = Process(cmd).lineStream
-
-    parsePythonDict(output.head)
+  private def estimateCosts(query: Seq[(Int, Int)], configuration: Array[Int]): Double = {
+    query.map(e => 1.0 / (configuration(e._1) * configuration(e._2))).sum
   }
-
-  private def parsePythonDict(dict: String): Map[String, Int] = {
-    dict
-      .replace("{", "")
-      .replace("}", "")
-      .replace("'", "")
-      .split(",")
-      .map(s => {
-        val keyValue = s.split(":").map(_.trim)
-        (keyValue(0), keyValue(1).toInt)
-      })
-      .toMap
-  }
-
 
 }

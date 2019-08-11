@@ -19,7 +19,6 @@ for d in $dirs
 do
         rsync -avh --exclude '.git*' $d $user@$target_machine:$server_dir
 done
-rsync -avh --exclude '.git*' src/best-computational-configuration.py $user@$target_machine:$server_dir/src/
 
 
 
