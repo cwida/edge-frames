@@ -25,8 +25,8 @@ scalacOptions ++= Seq(
   //  "-language:higherKinds",
   //  "-language:existentials",
   "-language:postfixOps",
-  "-optimize",
-  "-Xdisable-assertions"
+  "-optimize"
+//  "-Xdisable-assertions"
 )
 
 resolvers += "Spark Packages Repo" at "http://dl.bintray.com/spark-packages/maven"

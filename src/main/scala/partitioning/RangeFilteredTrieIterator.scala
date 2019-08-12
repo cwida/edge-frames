@@ -16,7 +16,6 @@ class RangeFilteredTrieIterator(
                                        val ranges1stLevel: Array[Int],
                                        val ranges2ndLevel: Array[Int],
                                        val trieIterator: TrieIterator) extends TrieIterator {
-  // TODO add unit tests?
   private[this] var firstLevelRangePosition = 0
   private[this] var secondLevelRangePosition = 0
 
@@ -84,7 +83,7 @@ class RangeFilteredTrieIterator(
           isAtEnd = true
         } else {
           if (trieIterator.key < ranges2ndLevel(secondLevelRangePosition)) {
-            seek(ranges1stLevel(secondLevelRangePosition))
+            seek(ranges2ndLevel(secondLevelRangePosition))
           }
         }
       }
@@ -107,5 +106,10 @@ class RangeFilteredTrieIterator(
 
   override def getDepth: Int = {
     trieIterator.getDepth
+  }
+
+  // TODO good estimate size implementation
+  override def estimateSize: Int = {
+    trieIterator.estimateSize
   }
 }
