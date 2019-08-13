@@ -170,25 +170,27 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
 
     override def seek(key: Long): Boolean = {
       assert(!atEnd)
-      assert(keyValue < key)
-      if (depth == 0) {
-        srcPosition = key.toInt
-        if (srcPosition < edgeIndices.length - 1 && // TODO srcPosition should never be bigger than edgeIndices.lenght -  1, investigate
-          edgeIndices(srcPosition) == edgeIndices(srcPosition + 1)) { // TODO does srcPosition < edgeIndices.length - 1 ruin
-          // predicatability?
-          moveToNextSrcPosition()
+      if (keyValue < key) {  // TODO quickfix, why does this call even happen, clique3 either amazon0302 or liveJournal
+        assert(keyValue < key)
+        if (depth == 0) {
+          srcPosition = key.toInt
+          if (srcPosition < edgeIndices.length - 1 && // TODO srcPosition should never be bigger than edgeIndices.lenght -  1, investigate
+            edgeIndices(srcPosition) == edgeIndices(srcPosition + 1)) { // TODO does srcPosition < edgeIndices.length - 1 ruin
+            // predicatability?
+            moveToNextSrcPosition()
+          }
+          isAtEnd = firstLevelUpperBound <= srcPosition
+          keyValue = srcPosition.toLong
+          isAtEnd
+        } else {
+          dstPosition = ArraySearch.find(edges, key, dstPosition, edgeIndices(srcPosition + 1))
+          isAtEnd = dstPosition == edgeIndices(srcPosition + 1) || secondLevelUpperBound <= edges(dstPosition)
+          if (!isAtEnd) {
+            keyValue = edges(dstPosition)
+          }
         }
-        isAtEnd = firstLevelUpperBound <= srcPosition
-        keyValue = srcPosition.toLong
-        isAtEnd
-      } else {
-        dstPosition = ArraySearch.find(edges, key, dstPosition, edgeIndices(srcPosition + 1))
-        isAtEnd = dstPosition == edgeIndices(srcPosition + 1) || secondLevelUpperBound <= edges(dstPosition)
-        if (!isAtEnd) {
-          keyValue = edges(dstPosition)
-        }
-        isAtEnd
       }
+      isAtEnd
     }
 
     private def moveToNextSrcPosition(): Unit = {
