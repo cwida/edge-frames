@@ -62,56 +62,78 @@ case class SharesRange(hypercube: Option[Hypercube] = None, prefix: Option[Int] 
 
     val numberOfPartitions = hypercube.get.dimensionSizes.product
 
-    val numberOfRanges = hypercube.get.dimensionSizes.product
+    val numberOfRanges = 1000
     val rangeIndices = (0 until numberOfRanges).indices
     val ranges = rangeIndices.map(i => getPartitionBoundsInRange(lower, upper, i, numberOfRanges, fromBelow = true))
 
     val otherRangeMap = new mutable.HashMap[(Int, Int), Seq[(Int, Int)]]()
-    // Ranges first dimension
-    val firstDimensionSize = hypercube.get.dimensionSizes.head
-    val rangesToAssign = numberOfRanges / firstDimensionSize
-    for (c <- 0 until firstDimensionSize) {
-      otherRangeMap((0, c)) = ranges.slice(c * rangesToAssign, (c+ 1) * rangesToAssign )
-    }
 
-
-    // Ranges with overlap first dimension
-    val secondDimesionSize = hypercube.get.dimensionSizes(1)
-    val rangesToAssignWithOverlap = numberOfRanges / (firstDimensionSize * secondDimesionSize)
-    for (c1 <- 0 until secondDimesionSize) {
-      for (c0 <- 0 until firstDimensionSize) {
-        otherRangeMap((1, c1)) =
-          otherRangeMap((0, c0)).slice(c1 * rangesToAssignWithOverlap, (c1 + 1) * rangesToAssignWithOverlap)
-      }
-    }
-
-    val rangesForDimesion = otherRangeMap.filter(_._1._1 == 1).values.flatten.toSeq
-    require(rangesForDimesion.size == rangesForDimesion.toSet.size, s"Dimension 1 is overlapping, ${rangesForDimesion.mkString(", ")}")
-
-    // Ranges without overlap first dimension
-    val takenRanges: Set[(Int, Int)] = otherRangeMap.filter({
-      case ((d, _), _) => {
-        d == 1
-      }
-    }).values.flatten.toSet
-    val freeRanges = ranges.filter(r => !takenRanges.contains(r)).toSeq
-
-    val rangesToAssigWithoutOverlap = numberOfRanges / secondDimesionSize - rangesToAssignWithOverlap
-    for (c1 <- 0 until secondDimesionSize) {
-        otherRangeMap((1, c1)) = (otherRangeMap((1, c1)) ++
-          freeRanges.slice(c1 * rangesToAssigWithoutOverlap, (c1 + 1) * rangesToAssigWithoutOverlap)).sorted
-    }
-
-    // Other dimensions
-    val random = new Random(2)
-    for (d <- 2 until hypercube.get.dimensionSizes.length) {
+    val random = new Random(42)
+    for (d <- hypercube.get.dimensionSizes.indices) {
       val dimensionSize = hypercube.get.dimensionSizes(d)
-      val freeRanges = random.shuffle(Seq(ranges: _*))
-      val rangesToAssign = numberOfRanges / dimensionSize
+      val numberRangesAssign = numberOfRanges / dimensionSize
+      val shuffledRanges = random.shuffle(ranges)
       for (c <- 0 until dimensionSize) {
-        otherRangeMap((d, c)) = freeRanges.slice(c * rangesToAssign, (c + 1) * rangesToAssign).sorted
+        otherRangeMap((d, c)) = shuffledRanges.slice(c * numberRangesAssign, (c + 1) * numberRangesAssign).sorted
       }
     }
+
+//    val otherRangeMap = new mutable.HashMap[(Int, Int), Seq[(Int, Int)]]()
+//
+//    val rangeMap = new mutable.HashMap[(Int, Int), Seq[(Int, Int)]]()
+//
+//    val numberOfPartitions = hypercube.get.dimensionSizes.product
+//
+//    val numberOfRanges = hypercube.get.dimensionSizes.product
+//    val rangeIndices = (0 until numberOfRanges).indices
+//    val ranges = rangeIndices.map(i => getPartitionBoundsInRange(lower, upper, i, numberOfRanges, fromBelow = true))
+//
+//    val otherRangeMap = new mutable.HashMap[(Int, Int), Seq[(Int, Int)]]()
+//    // Ranges first dimension
+//    val firstDimensionSize = hypercube.get.dimensionSizes.head
+//    val rangesToAssign = numberOfRanges / firstDimensionSize
+//    for (c <- 0 until firstDimensionSize) {
+//      otherRangeMap((0, c)) = ranges.slice(c * rangesToAssign, (c+ 1) * rangesToAssign )
+//    }
+//
+//
+//    // Ranges with overlap first dimension
+//    val secondDimesionSize = hypercube.get.dimensionSizes(1)
+//    val rangesToAssignWithOverlap = numberOfRanges / (firstDimensionSize * secondDimesionSize)
+//    for (c1 <- 0 until secondDimesionSize) {
+//      for (c0 <- 0 until firstDimensionSize) {
+//        otherRangeMap((1, c1)) =
+//          otherRangeMap((0, c0)).slice(c1 * rangesToAssignWithOverlap, (c1 + 1) * rangesToAssignWithOverlap)
+//      }
+//    }
+//
+//    val rangesForDimesion = otherRangeMap.filter(_._1._1 == 1).values.flatten.toSeq
+//    require(rangesForDimesion.size == rangesForDimesion.toSet.size, s"Dimension 1 is overlapping, ${rangesForDimesion.mkString(", ")}")
+//
+//    // Ranges without overlap first dimension
+//    val takenRanges: Set[(Int, Int)] = otherRangeMap.filter({
+//      case ((d, _), _) => {
+//        d == 1
+//      }
+//    }).values.flatten.toSet
+//    val freeRanges = ranges.filter(r => !takenRanges.contains(r)).toSeq
+//
+//    val rangesToAssigWithoutOverlap = numberOfRanges / secondDimesionSize - rangesToAssignWithOverlap
+//    for (c1 <- 0 until secondDimesionSize) {
+//        otherRangeMap((1, c1)) = (otherRangeMap((1, c1)) ++
+//          freeRanges.slice(c1 * rangesToAssigWithoutOverlap, (c1 + 1) * rangesToAssigWithoutOverlap)).sorted
+//    }
+//
+//    // Other dimensions
+//    val random = new Random(2)
+//    for (d <- 2 until hypercube.get.dimensionSizes.length) {
+//      val dimensionSize = hypercube.get.dimensionSizes(d)
+//      val freeRanges = random.shuffle(Seq(ranges: _*))
+//      val rangesToAssign = numberOfRanges / dimensionSize
+//      for (c <- 0 until dimensionSize) {
+//        otherRangeMap((d, c)) = freeRanges.slice(c * rangesToAssign, (c + 1) * rangesToAssign).sorted
+//      }
+//    }
 
     assert(otherRangeMap.values.forall(rs => rs == rs.sorted), "All range lists should be sorted")
 
@@ -196,6 +218,16 @@ case class SharesRange(hypercube: Option[Hypercube] = None, prefix: Option[Int] 
   }
 }
 
+case class RoundRobin(variable: Int) extends Partitioning {
+  override def getWorkersUsed(workersTotal: Int): Int = {
+    workersTotal
+  }
+
+  override def toString: String = {
+    s"RoundRobin($variable)"
+  }
+}
+
 case class SingleVariablePartitioning(variable: Int) extends Partitioning {
 
   def getEquivalentSharesRangePartitioning(parallelism: Int, numVariables: Int): SharesRange = {
@@ -222,12 +254,16 @@ object Partitioning {
   implicit def partitioningRead: scopt.Read[Partitioning] = {
     val singleVariablePartitioningPattern = raw"single\[(\d+)\]".r
     val sharesRangePartitioningPattern = raw"sharesRange\[(\d+)\]".r
+    val roundRobinPartitioningPattern = raw"roundRobin\[(\d+)\]".r
     scopt.Read.reads({
       case "allTuples" => {
         AllTuples()
       }
       case "shares" => {
         Shares()
+      }
+      case roundRobinPartitioningPattern(v) => {
+        RoundRobin(v.toInt)
       }
       case sharesRangePartitioningPattern(prefix) => {
         val intPrefix = prefix.toInt

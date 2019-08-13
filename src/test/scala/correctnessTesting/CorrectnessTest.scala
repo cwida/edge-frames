@@ -13,7 +13,7 @@ import testing.{SparkTest, Utils}
 import sparkIntegration.implicits._
 
 object CorrectnessTest {
-  var FAST = false
+  var FAST = true
   val FAST_LIMIT = 10000
 }
 

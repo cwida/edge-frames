@@ -2,7 +2,7 @@ package leapfrogTriejoin
 
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.GenericInternalRow
-import partitioning.{Partitioning, SharesRange}
+import partitioning.{Partitioning, RoundRobin, SharesRange}
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -47,28 +47,33 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
      */
     private[this] val (firstLevelLowerBound, firstLevelUpperBound, secondLevelLowerBound, secondLevelUpperBound) = partitioning
     match {
-      case Some(SharesRange(Some(hypercube), _)) => {
-        val upper = edgeIndices.length - 1
-        val coordinate = hypercube.getCoordinate(partition.get)
-        val (fl, fu) = if (dimensionFirstLevel.get == 1) {
-          getPartitionBoundsInRange(0, upper, coordinate(dimensionFirstLevel.get), hypercube.dimensionSizes(dimensionFirstLevel.get),
-            true)
-        } else {
-          getPartitionBoundsInRange(0, upper, coordinate(dimensionFirstLevel.get), hypercube.dimensionSizes(dimensionFirstLevel.get),
-            false)
-        }
-        val (sl, su) = if (dimensionSecondLevel.get == 1) {
-          getPartitionBoundsInRange(0, upper, coordinate(dimensionSecondLevel.get), hypercube.dimensionSizes(dimensionSecondLevel.get),
-            true)
-        } else {
-          getPartitionBoundsInRange(0, upper, coordinate(dimensionSecondLevel.get), hypercube.dimensionSizes(dimensionSecondLevel.get),
-            false)
-        }
-        (fl, fu, sl, su)
-      }
+//      case Some(SharesRange(Some(hypercube), _)) => {
+//        val upper = edgeIndices.length - 1
+//        val coordinate = hypercube.getCoordinate(partition.get)
+//        val (fl, fu) = if (dimensionFirstLevel.get == 1) {
+//          getPartitionBoundsInRange(0, upper, coordinate(dimensionFirstLevel.get), hypercube.dimensionSizes(dimensionFirstLevel.get),
+//            true)
+//        } else {
+//          getPartitionBoundsInRange(0, upper, coordinate(dimensionFirstLevel.get), hypercube.dimensionSizes(dimensionFirstLevel.get),
+//            false)
+//        }
+//        val (sl, su) = if (dimensionSecondLevel.get == 1) {
+//          getPartitionBoundsInRange(0, upper, coordinate(dimensionSecondLevel.get), hypercube.dimensionSizes(dimensionSecondLevel.get),
+//            true)
+//        } else {
+//          getPartitionBoundsInRange(0, upper, coordinate(dimensionSecondLevel.get), hypercube.dimensionSizes(dimensionSecondLevel.get),
+//            false)
+//        }
+//        (fl, fu, sl, su)
+//      }
       case _ => {
         (0, edgeIndices.length - 1, 0, edgeIndices.length - 1)
       }
+    }
+
+    private[this] val roundRobinNumber: Int = partitioning match {
+      case Some(RoundRobin(v)) => if (v == dimensionFirstLevel.get) partition.get + 1 else 1
+      case _ => 1
     }
 
 
@@ -173,7 +178,11 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
       if (keyValue < key) {  // TODO quickfix, why does this call even happen, clique3 either amazon0302 or liveJournal
         assert(keyValue < key)
         if (depth == 0) {
-          srcPosition = key.toInt
+          srcPosition = if (key % roundRobinNumber != 0) {
+            key.toInt + roundRobinNumber - key.toInt % roundRobinNumber
+          } else {
+            key.toInt
+          }
           if (srcPosition < edgeIndices.length - 1 && // TODO srcPosition should never be bigger than edgeIndices.lenght -  1, investigate
             edgeIndices(srcPosition) == edgeIndices(srcPosition + 1)) { // TODO does srcPosition < edgeIndices.length - 1 ruin
             // predicatability?
@@ -194,11 +203,16 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
     }
 
     private def moveToNextSrcPosition(): Unit = {
-      var indexToSearch = edgeIndices(srcPosition + 1) // A linear search is ideal, see log 05.06
+      if (srcPosition + roundRobinNumber < edgeIndices.length) {
+        var indexToSearch = edgeIndices(srcPosition + roundRobinNumber) // A linear search is ideal, see log 05.06
 
-      do {
-        srcPosition += 1
-      } while (srcPosition < edgeIndices.length - 1 && edgeIndices(srcPosition + 1) == indexToSearch) // TODO sentry element
+        do {
+          srcPosition += roundRobinNumber
+        } while (srcPosition < edgeIndices.length - 1 && edgeIndices(srcPosition + 1) == indexToSearch) // TODO sentry element
+      } else {
+        srcPosition += roundRobinNumber
+      }
+
     }
 
     // For testing

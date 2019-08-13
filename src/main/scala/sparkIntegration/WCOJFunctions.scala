@@ -13,7 +13,7 @@ import org.apache.spark.sql.catalyst.expressions.AttributeReference
 import org.apache.spark.sql.execution.CoalesceExec.EmptyRDDWithPartitions
 import org.apache.spark.sql.execution.RowIterator
 import partitioning.shares.Hypercube
-import partitioning.{AllTuples, Partitioning, Shares, SharesRange, SingleVariablePartitioning}
+import partitioning.{AllTuples, Partitioning, RoundRobin, Shares, SharesRange, SingleVariablePartitioning}
 import sparkIntegration.wcoj.ToTrieIterableRDD
 
 import Predef._
@@ -70,6 +70,7 @@ class WCOJFunctions[T](ds: Dataset[T]) {
         p.getEquivalentSharesRangePartitioning(conf.getParallelism, getQuery(edges).vertices.size)
       }
       case a @ AllTuples() => a
+      case a @ RoundRobin(variable) => a
       case p => {
         throw new IllegalArgumentException(
           s"Partitioning ${p.toString} not supported. Maybe this Shares partitioning has been intialized already?")

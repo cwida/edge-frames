@@ -5,7 +5,7 @@ import leapfrogTriejoin.{CSRTrieIterable, EdgeRelationship, LeapfrogTriejoin, Tr
 import org.apache.spark.sql.CSRTrieIterableBroadcast
 import org.apache.spark.sql.execution.SparkPlan
 import org.slf4j.LoggerFactory
-import partitioning.{AllTuples, RangeFilteredTrieIterator, Partitioning, Shares, SharesRange}
+import partitioning.{AllTuples, Partitioning, RangeFilteredTrieIterator, RoundRobin, Shares, SharesRange}
 import sparkIntegration.wcoj.ToArrayTrieIterableRDDExec
 
 import scala.collection.mutable
@@ -31,7 +31,9 @@ class JoinSpecification(joinPattern: Seq[Pattern], val variableOrdering: Seq[Str
           variable2RelationshipIndex.update(dst.name, (i.toInt, 1))
         }
       }
-      case _ => throw new IllegalArgumentException("Illegal join pattern used.")
+      case _ => {
+        throw new IllegalArgumentException("Illegal join pattern used.")
+      }
     }
   }
 
@@ -62,7 +64,9 @@ class JoinSpecification(joinPattern: Seq[Pattern], val variableOrdering: Seq[Str
     joinPattern.exists { case AnonymousEdge(src: NamedVertex, dst: NamedVertex) => {
       src.name == variable
     }
-    case _ => throw new IllegalArgumentException("Illegal join pattern used.")
+    case _ => {
+      throw new IllegalArgumentException("Illegal join pattern used.")
+    }
     }
   }
 
@@ -75,44 +79,58 @@ class JoinSpecification(joinPattern: Seq[Pattern], val variableOrdering: Seq[Str
         joinPattern.zipWithIndex.map({
           case (AnonymousEdge(src: NamedVertex, dst: NamedVertex), i) => {
             partitioning match {
-              case part @ SharesRange(_, _) => {
+              case part@SharesRange(_, _) => {
                 if (dstAccessibleRelationship(i)) {
                   val trieIterable = trieIterables(1).asInstanceOf[CSRTrieIterable]
+
+                  val firstDimension = variableOrdering.indexOf(dst.name)
+                  val secondDimension = variableOrdering.indexOf(src.name)
+
                   val ti = trieIterable.trieIterator
                   val firstDimensionRanges = part.getRanges(
-                    partition, variableOrdering.indexOf(dst.name), trieIterable.minValue, trieIterable.maxValue)
+                    partition, firstDimension, trieIterable.minValue, trieIterable.maxValue)
                     .flatMap(r => Seq(r._1, r._2)).toArray
                   val secondDimensionRanges = part.getRanges(
-                    partition, variableOrdering.indexOf(src.name), trieIterable.minValue, trieIterable.maxValue)
+                    partition, secondDimension, trieIterable.minValue, trieIterable.maxValue)
                     .flatMap(r => Seq(r._1, r._2)).toArray
 
                   new RangeFilteredTrieIterator(partition, firstDimensionRanges, secondDimensionRanges, ti)
-//                  trieIterables(1).asInstanceOf[CSRTrieIterable].trieIterator(
-//                    partition,
-//                    partitioning,
-//                    variableOrdering.indexOf(dst.name),
-//                    variableOrdering.indexOf(src.name)
-//                  )
+                  //                  trieIterables(1).asInstanceOf[CSRTrieIterable].trieIterator(
+                  //                    partition,
+                  //                    partitioning,
+                  //                    variableOrdering.indexOf(dst.name),
+                  //                    variableOrdering.indexOf(src.name)
+                  //                  )
                 } else {
                   val trieIterable = trieIterables.head.asInstanceOf[CSRTrieIterable]
-                  val ti = trieIterable.trieIterator
+                  val firstDimension = variableOrdering.indexOf(src.name)
+                  val secondDimension = variableOrdering.indexOf(dst.name)
+                  val ti = trieIterable.trieIterator(partition, partitioning, firstDimension, secondDimension)
                   val firstDimensionRanges = part.getRanges(
-                    partition, variableOrdering.indexOf(src.name), trieIterable.minValue, trieIterable.maxValue)
+                    partition, firstDimension, trieIterable.minValue, trieIterable.maxValue)
                     .flatMap(r => Seq(r._1, r._2)).toArray
                   val secondDimensionRanges = part.getRanges(
-                    partition, variableOrdering.indexOf(dst.name), trieIterable.minValue, trieIterable.maxValue)
+                    partition, secondDimension, trieIterable.minValue, trieIterable.maxValue)
                     .flatMap(r => Seq(r._1, r._2)).toArray
 
                   new RangeFilteredTrieIterator(partition, firstDimensionRanges, secondDimensionRanges, ti)
                   // TODO use TrieIterator directly for a single range
-//                  new MultiRangePartitionTrieIterator(Array(trieIterable.minValue, trieIterable.maxValue), Array(trieIterable.minValue, trieIterable.maxValue), ti)
-//                  trieIterables(0).asInstanceOf[CSRTrieIterable].trieIterator(
-//                    partition,
-//                    partitioning,
-//                    variableOrdering.indexOf(src.name),
-//                    variableOrdering.indexOf(dst.name)
-//                  )
+                  //                  new MultiRangePartitionTrieIterator(Array(trieIterable.minValue, trieIterable.maxValue), Array(trieIterable.minValue, trieIterable.maxValue), ti)
+                  //                  trieIterables(0).asInstanceOf[CSRTrieIterable].trieIterator(
+                  //                    partition,
+                  //                    partitioning,
+                  //                    variableOrdering.indexOf(src.name),
+                  //                    variableOrdering.indexOf(dst.name)
+                  //                  )
                 }
+              }
+              case RoundRobin(v) => {
+                val trieIterable = trieIterables.head.asInstanceOf[CSRTrieIterable]
+
+                val firstDimension = variableOrdering.indexOf(src.name)
+                val secondDimension = variableOrdering.indexOf(dst.name)
+
+                trieIterable.trieIterator(partition, partitioning, firstDimension, secondDimension)
               }
               case _ => {
                 if (dstAccessibleRelationship(i)) {
@@ -123,7 +141,9 @@ class JoinSpecification(joinPattern: Seq[Pattern], val variableOrdering: Seq[Str
               }
             }
           }
-          case (_, _) => throw new IllegalArgumentException("Illegal join pattern.")
+          case (_, _) => {
+            throw new IllegalArgumentException("Illegal join pattern.")
+          }
         })
       }
     }
