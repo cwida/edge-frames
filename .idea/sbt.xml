@@ -11,11 +11,8 @@
             <option value="$PROJECT_DIR$/project" />
           </set>
         </option>
-        <option name="sbtVersion" value="1.2.8" />
         <option name="useAutoImport" value="true" />
         <option name="useQualifiedModuleNames" value="true" />
-        <option name="useSbtShellForBuild" value="true" />
-        <option name="useSbtShellForImport" value="true" />
       </SbtProjectSettings>
     </option>
   </component>
