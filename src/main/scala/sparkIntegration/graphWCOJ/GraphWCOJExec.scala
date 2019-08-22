@@ -1,16 +1,22 @@
 package sparkIntegration.graphWCOJ
 
-import experiments.GraphWCOJ
+import java.util.concurrent.ConcurrentHashMap
+
+import experiments.{Datasets, GraphWCOJ}
 import experiments.metrics.Metrics
-import leapfrogTriejoin.TrieIterable
+import leapfrogTriejoin.{CSRTrieIterable, TrieIterable}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.{Attribute, AttributeSet, BoundReference, UnsafeProjection}
 import org.apache.spark.sql.execution.metric.SQLMetrics
 import org.apache.spark.sql.execution.{RowIterator, SparkPlan}
 import org.slf4j.LoggerFactory
+import partitioning.FirstVariablePartitioningWithWorkstealing
 import sparkIntegration.wcoj.WCOJExec
 import sparkIntegration.{JoinSpecification, WCOJConfiguration, WCOJInternalRow}
+
+import collection.JavaConverters._
+import scala.collection.concurrent.Map
 
 case class GraphWCOJExec(outputVariables: Seq[Attribute],
                          joinSpecification: JoinSpecification,
@@ -61,7 +67,20 @@ case class GraphWCOJExec(outputVariables: Seq[Attribute],
         val partitionRDD = partitionChild.execute()
         val csrBroadcast = graphChild.executeBroadcast[(TrieIterable, TrieIterable)]()
 
-        partitionRDD.mapPartitionsWithIndex((partition, _) => {
+        // TODO not correct yet and not query specific
+        joinSpecification.partitioning match {
+          case FirstVariablePartitioningWithWorkstealing() => {
+            val col = (0 to csrBroadcast.value._1.asInstanceOf[CSRTrieIterable].maxValue).toIndexedSeq.asJava
+            FirstVariablePartitioningWithWorkstealing.queue.clear()
+            FirstVariablePartitioningWithWorkstealing.queue.addAll(col)
+          }
+          case _ => {
+
+          } /* NOP */
+        }
+
+        val ret = partitionRDD.mapPartitionsWithIndex((partition, _) => {
+
           // TODO empty partitions?
           val toUnsafeProjection = UnsafeProjection.create(output.zipWithIndex.map({
             case (a, i) => {
@@ -105,6 +124,7 @@ case class GraphWCOJExec(outputVariables: Seq[Attribute],
           iter.toScala
         }
         )
+        ret
       }
     }
   }

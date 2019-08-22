@@ -243,15 +243,20 @@ trait CorrectnessTest extends Matchers with SparkTest with DatasetComparer {
     }
 
     "Four clique" should "be the same" in {
-      val a = cliquePattern(4, ds)
+      val a = cliquePattern(4, ds).cache()
       val e = queryCache.getOrCompute(cacheKey.copy(size = 4), cliqueBinaryJoins(4, sp, ds))
+      println(a.count())
+      println(e.count())
 
       assertDataSetEqual(a, e)
     }
 
     "5-clique query" should "be the same" in {
-      val a = cliquePattern(5, ds)
+      val a = cliquePattern(5, ds).cache()
       val e = queryCache.getOrCompute(cacheKey.copy(size = 5), cliqueBinaryJoins(5, sp, ds))
+
+      println(a.count())
+      println(e.count())
 
       assertDataSetEqual(a, e)
     }

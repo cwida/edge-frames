@@ -12,7 +12,7 @@ import scala.collection.mutable
 
 class JoinSpecification(joinPattern: Seq[Pattern], val variableOrdering: Seq[String],
                         val joinAlgorithm: WCOJAlgorithm,
-                        partitioning: Partitioning,
+                        val partitioning: Partitioning,
                         val distinctFilter: Boolean,
                         smallerThanFilter: Boolean) extends Serializable {
   private val logger = LoggerFactory.getLogger(classOf[JoinSpecification])

@@ -1,7 +1,7 @@
 package leapfrogTriejoin
 
 import partitioning.shares.Hash
-import partitioning.{AllTuples, Partitioning, Shares}
+import partitioning.{AllTuples, FirstVariablePartitioningWithWorkstealing, Partitioning, Shares}
 
 import Predef.assert
 import util.control.Breaks._
@@ -51,6 +51,15 @@ class LeapfrogTriejoin(trieIterators: Map[EdgeRelationship, TrieIterator],
     )
   }
   }).toArray
+
+  // TODO maybe leapfrogjoin interface instead of leapfrog join?
+  partitioning match {
+    case FirstVariablePartitioningWithWorkstealing() => {
+      leapfrogJoins(0) = new WorkstealingLeapfrogjoin(
+        FirstVariablePartitioningWithWorkstealing.queue, leapfrogJoins(0))
+    }
+    case _ => /* NOP */
+  }
 
   private[this] val variable2TrieIterators: Array[Array[TrieIterator]] = variableOrdering
     .map(v =>

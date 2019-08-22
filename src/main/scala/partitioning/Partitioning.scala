@@ -1,5 +1,7 @@
 package partitioning
 
+import java.util.concurrent.ConcurrentLinkedQueue
+
 import partitioning.shares.Hypercube
 
 import scala.collection.mutable
@@ -210,6 +212,20 @@ case class SingleVariablePartitioning(variable: Int) extends Partitioning {
   }
 }
 
+case class FirstVariablePartitioningWithWorkstealing() extends Partitioning {
+
+  override def getWorkersUsed(workersTotal: Int): Int = {
+    workersTotal
+  }
+
+  override def toString: String = {
+    "FirstVariablePartitioningWithWorkstealing"
+  }
+}
+
+object FirstVariablePartitioningWithWorkstealing {
+  val queue: ConcurrentLinkedQueue[Int] = new ConcurrentLinkedQueue[Int]()
+}
 
 case class AllTuples() extends Partitioning {
   override def getWorkersUsed(workersTotal: Int): Int = {
@@ -228,6 +244,9 @@ object Partitioning {
       }
       case "shares" => {
         Shares()
+      }
+      case "workstealing" => {
+        FirstVariablePartitioningWithWorkstealing()
       }
       case sharesRangePartitioningPattern(prefix) => {
         val intPrefix = prefix.toInt

@@ -290,6 +290,18 @@ class MaterializingLeapfrogJoin(var iterators: Array[TrieIterator],
   override def atEnd: Boolean = {
     isAtEnd
   }
+
+  override def leapfrogSeek(key: Long): Unit = {
+    if (fallback != null) {
+      fallback.leapfrogSeek(key)
+      isAtEnd = fallback.atEnd
+      if (!isAtEnd) {
+        keyValue = fallback.key
+      }
+    } else {
+      throw new UnsupportedOperationException("No seek on MaterializingLeapfrogjoin without fallback.")
+    }
+  }
 }
 
 object MaterializingLeapfrogJoin {
