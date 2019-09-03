@@ -10,5 +10,5 @@ object Runner extends App {
 //  run(new SNBWCOJ)
 //  run(new AmazonWCOJ)
 //  run(new GoogleWebWCOJ)
-
+    run(new FirstVariablePartitioningWithWorkstealing)
 }

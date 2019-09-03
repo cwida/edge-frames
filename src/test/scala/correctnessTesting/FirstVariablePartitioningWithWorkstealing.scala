@@ -15,6 +15,7 @@ class FirstVariablePartitioningWithWorkstealing extends FlatSpec with Correctnes
     wcojConfig.setPartitioning(FirstVariablePartitioningWithWorkstealing())
     wcojConfig.setShouldMaterialize(true)
     wcojConfig.setParallelism(8)
+    wcojConfig.setWorkstealingBatchSize(1)
   }
 
   override def afterAll(): Unit = {
@@ -24,11 +25,11 @@ class FirstVariablePartitioningWithWorkstealing extends FlatSpec with Correctnes
     wcojConfig.setPartitioning(AllTuples())
   }
 
-//  "with parallelsim 17" should behave like sparkTriangleJoinsSimple(17, shouldMaterialize = true, DATASET_PATH, ds)
+  "with parallelsim 17" should behave like sparkTriangleJoinsSimple(8, shouldMaterialize = true, DATASET_PATH, ds)
 
   // TODO use of two different queries, prepared at the same time. needs to be decoupled
 //  "WCOJ" should behave like sparkTriangleJoins(DATASET_PATH, ds)
-  "WCOJ" should behave like sparkCliqueJoins(DATASET_PATH, ds)
-  "WCOJ" should behave like sparkCycleJoins(DATASET_PATH, ds)
-  "WCOJ" should behave like sparkOtherJoins(DATASET_PATH, ds)
+//  "WCOJ" should behave like sparkCliqueJoins(DATASET_PATH, ds)
+//  "WCOJ" should behave like sparkCycleJoins(DATASET_PATH, ds)
+//  "WCOJ" should behave like sparkOtherJoins(DATASET_PATH, ds)
 }

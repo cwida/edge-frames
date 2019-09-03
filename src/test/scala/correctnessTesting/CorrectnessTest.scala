@@ -161,6 +161,9 @@ trait CorrectnessTest extends Matchers with SparkTest with DatasetComparer {
 
 
       try {
+        println(e.count)
+        println(a.count)
+//        a.show(200)
         assertDataSetEqual(a, e)
       } catch {
         case ex : Exception => throw ex
