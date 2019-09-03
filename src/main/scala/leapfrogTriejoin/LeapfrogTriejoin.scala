@@ -52,11 +52,10 @@ class LeapfrogTriejoin(trieIterators: Map[EdgeRelationship, TrieIterator],
   }
   }).toArray
 
-  // TODO maybe leapfrogjoin interface instead of leapfrog join?
   partitioning match {
-    case FirstVariablePartitioningWithWorkstealing() => {
+    case FirstVariablePartitioningWithWorkstealing(batchSize) => {
       leapfrogJoins(0) = new WorkstealingLeapfrogjoin(
-        FirstVariablePartitioningWithWorkstealing.queue, leapfrogJoins(0))
+        FirstVariablePartitioningWithWorkstealing.queue, leapfrogJoins(0), batchSize)
     }
     case _ => /* NOP */
   }

@@ -2,7 +2,7 @@
   <configuration default="false" name="Amazon0302" type="Application" factoryName="Application" editBeforeRun="true">
     <option name="MAIN_CLASS_NAME" value="experiments.ExperimentRunner" />
     <module name="SparkTest" />
-    <option name="PROGRAM_PARAMETERS" value="--dataset-type ama --dataset-path $PROJECT_DIR$/../master-thesis/datasets/amazon-0302 --out ./out.csv --reps 1 --algorithms graphWCOJ --queries clique3 --materializeLeapfrogs 1 --parallelism 6 --partitioning workstealing" />
+    <option name="PROGRAM_PARAMETERS" value="--dataset-type ama --dataset-path $PROJECT_DIR$/../master-thesis/datasets/amazon-0302 --out ./out.csv --reps 1 --algorithms graphWCOJ --queries clique3 --materializeLeapfrogs 1 --parallelism 6 --partitioning workstealing --workstealingBatchSize 1,10,20" />
     <extension name="coverage">
       <pattern>
         <option name="PATTERN" value="experiments.*" />

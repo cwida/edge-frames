@@ -15,7 +15,8 @@ class WCOJConfiguration private(
                                  private var parallelism: Int,
                                  private var joinAlgorithm: WCOJAlgorithm,
                                  private var partitioning: Partitioning,
-                                 private var shouldMaterialize: Boolean
+                                 private var shouldMaterialize: Boolean,
+                                 private var workStealingBatchSize: Int
                                ) {
 
   private def this(spark: SparkSession) = {
@@ -24,7 +25,9 @@ class WCOJConfiguration private(
       spark.sparkContext.getConf.get("spark.default.parallelism", "1").toInt,
       experiments.WCOJ,
       AllTuples(),
-      false)
+      false,
+      1
+    )
   }
 
 
@@ -80,8 +83,21 @@ class WCOJConfiguration private(
     shouldMaterialize
   }
 
+  def setWorkstealingBatchSize(bs: Int): WCOJConfiguration = {
+    if (bs != workStealingBatchSize) {
+      workStealingBatchSize = bs
+      println(s"Setting workstealing batch size to $bs")
+    }
+
+    this
+  }
+
+  def getWorkstealingBatchSize: Int = {
+    workStealingBatchSize
+  }
+
   def copy: WCOJConfiguration = {
-    new WCOJConfiguration(broadcastTimeout, parallelism, joinAlgorithm, partitioning, shouldMaterialize)
+    new WCOJConfiguration(broadcastTimeout, parallelism, joinAlgorithm, partitioning, shouldMaterialize, workStealingBatchSize)
   }
 
   def from(c: WCOJConfiguration): WCOJConfiguration = {
@@ -90,6 +106,7 @@ class WCOJConfiguration private(
     setParallelism(c.parallelism)
     setPartitioning(c.partitioning)
     setShouldMaterialize(c.shouldMaterialize)
+    setWorkstealingBatchSize(c.workStealingBatchSize)
   }
 }
 

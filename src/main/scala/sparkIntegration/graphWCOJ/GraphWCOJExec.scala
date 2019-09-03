@@ -69,8 +69,9 @@ case class GraphWCOJExec(outputVariables: Seq[Attribute],
 
         // TODO not correct yet and not query specific
         joinSpecification.partitioning match {
-          case FirstVariablePartitioningWithWorkstealing() => {
-            val col = (0 to csrBroadcast.value._1.asInstanceOf[CSRTrieIterable].maxValue).toIndexedSeq.asJava
+          case FirstVariablePartitioningWithWorkstealing(batchSize) => {
+            val col = (0 to csrBroadcast.value._1.asInstanceOf[CSRTrieIterable].maxValue by batchSize)
+              .toIndexedSeq.asJava
             FirstVariablePartitioningWithWorkstealing.queue.clear()
             FirstVariablePartitioningWithWorkstealing.queue.addAll(col)
           }

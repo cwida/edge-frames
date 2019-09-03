@@ -2,10 +2,16 @@ package leapfrogTriejoin
 
 import java.util.concurrent.ConcurrentLinkedQueue
 
+import sparkIntegration.WCOJConfiguration
+
 class WorkstealingLeapfrogjoin(queue: ConcurrentLinkedQueue[Int],
-                               val localLeapfrog: LeapfrogJoinInterface) extends LeapfrogJoinInterface {
+                               private[this] val localLeapfrog: LeapfrogJoinInterface,
+                               private[this] val batchSize: Int) extends LeapfrogJoinInterface {
 
   private[this] var isAtEnd = queue.isEmpty || localLeapfrog.atEnd
+
+  private[this] var workQueueSize: Int = 0
+  private[this] var currentWorkItem: Int = 0
 
   override def init(): Unit = {
     localLeapfrog.init()
@@ -13,12 +19,19 @@ class WorkstealingLeapfrogjoin(queue: ConcurrentLinkedQueue[Int],
   }
 
   override def leapfrogNext(): Unit = {
-    var nextPossibleValue = -1
     do {
-      nextPossibleValue = queue.poll()
-      localLeapfrog.leapfrogSeek(nextPossibleValue)
-    } while (!queue.isEmpty && !localLeapfrog.atEnd && localLeapfrog.key != nextPossibleValue)
-    isAtEnd = queue.isEmpty || localLeapfrog.atEnd
+      if (workQueueSize == 0) {
+        currentWorkItem = queue.poll()
+        workQueueSize = batchSize - 1
+      } else {
+        currentWorkItem += 1
+        workQueueSize -= 1
+      }
+      if (localLeapfrog.key < currentWorkItem) {
+        localLeapfrog.leapfrogSeek(currentWorkItem)
+      }
+    } while (!(queue.isEmpty && workQueueSize == 0) && !localLeapfrog.atEnd && localLeapfrog.key != currentWorkItem)
+    isAtEnd = (queue.isEmpty && workQueueSize == 0) || localLeapfrog.atEnd
   }
 
   override def key: Long = {

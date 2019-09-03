@@ -212,7 +212,7 @@ case class SingleVariablePartitioning(variable: Int) extends Partitioning {
   }
 }
 
-case class FirstVariablePartitioningWithWorkstealing() extends Partitioning {
+case class FirstVariablePartitioningWithWorkstealing(batchSize: Int = 1) extends Partitioning {
 
   override def getWorkersUsed(workersTotal: Int): Int = {
     workersTotal

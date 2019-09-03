@@ -70,7 +70,7 @@ class WCOJFunctions[T](ds: Dataset[T]) {
         p.getEquivalentSharesRangePartitioning(conf.getParallelism, getQuery(edges).vertices.size)
       }
       case a @ AllTuples() => a
-      case p @ FirstVariablePartitioningWithWorkstealing() => p
+      case p @ FirstVariablePartitioningWithWorkstealing(batchSize) => p.copy(batchSize = conf.getWorkstealingBatchSize)
       case p => {
         throw new IllegalArgumentException(
           s"Partitioning ${p.toString} not supported. Maybe this Shares partitioning has been intialized already?")

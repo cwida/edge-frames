@@ -96,7 +96,8 @@ case class ExperimentConfig(
                              reps: Int = 1,
                              limitDataset: Int = -1,
                              comment: String = "",
-                             materializeLeapfrogs: Boolean = true
+                             materializeLeapfrogs: Boolean = true,
+                             workstealingBatchSizes: Seq[Int] = Seq(1)
                            )
 
 
@@ -211,7 +212,10 @@ object ExperimentRunner extends App {
           .action((x, c) => c.copy(comment = x)),
         opt[Boolean]('m', "materializeLeapfrogs")
           .optional()
-          .action((x, c) => c.copy(materializeLeapfrogs = x))
+          .action((x, c) => c.copy(materializeLeapfrogs = x)),
+        opt[Seq[Int]]('b', "workstealingBatchSize")
+          .optional()
+          .action((x, c) => c.copy(workstealingBatchSizes = x))
       )
     }
     OParser.parse(parser1, args, ExperimentConfig())
@@ -391,31 +395,34 @@ object ExperimentRunner extends App {
         wcojConfig.setPartitioning(p)
         if ((p == AllTuples() && pl == 1) || (pl != 1 && p != AllTuples())) {
           for (algoritm <- algorithms) {
-            val queryDataFrame = algoritm match {
-              case BinaryJoins => {
-                query.applyBinaryQuery(ds, sp)
+            for (bs <- config.workstealingBatchSizes) {
+              wcojConfig.setWorkstealingBatchSize(bs)
+              val queryDataFrame = algoritm match {
+                case BinaryJoins => {
+                  query.applyBinaryQuery(ds, sp)
+                }
+                case WCOJ | GraphWCOJ => {
+                  wcojConfig.setJoinAlgorithm(algoritm.asInstanceOf[WCOJAlgorithm])
+                  query.applyPatternQuery(ds)
+                }
               }
-              case WCOJ | GraphWCOJ => {
-                wcojConfig.setJoinAlgorithm(algoritm.asInstanceOf[WCOJAlgorithm])
-                query.applyPatternQuery(ds)
-              }
-            }
 
-            algoritm match {
-              case BinaryJoins => {
-                if (pl == 1) { // TODO enable running spark in parallel
+              algoritm match {
+                case BinaryJoins => {
+                  if (pl == 1) { // TODO enable running spark in parallel
+                    runAndReportPlan(queryDataFrame, query, algoritm, p, pl)
+                  }
+                }
+                case WCOJ => {
+                  wcojConfig.setShouldMaterialize(false)
+                  if (pl == 1) {
+                    runAndReportPlan(queryDataFrame, query, algoritm, p, pl)
+                  }
+                }
+                case GraphWCOJ => {
+                  wcojConfig.setShouldMaterialize(config.materializeLeapfrogs)
                   runAndReportPlan(queryDataFrame, query, algoritm, p, pl)
                 }
-              }
-              case WCOJ => {
-                wcojConfig.setShouldMaterialize(false)
-                if (pl == 1) {
-                  runAndReportPlan(queryDataFrame, query, algoritm, p, pl)
-                }
-              }
-              case GraphWCOJ => {
-                wcojConfig.setShouldMaterialize(config.materializeLeapfrogs)
-                runAndReportPlan(queryDataFrame, query, algoritm, p, pl)
               }
             }
           }
