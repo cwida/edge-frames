@@ -28,7 +28,12 @@ class WorkstealingLeapfrogjoin(queue: ConcurrentLinkedQueue[Int],
     do {
       if (workQueueSize == 0) {
         currentWorkItem = queue.poll()
-        workQueueSize = batchSize - 1
+        if (queue.isEmpty && currentWorkItem == 0) {
+          workQueueSize = 0
+        } else {
+          workQueueSize = batchSize - 1
+        }
+
       } else {
         currentWorkItem += 1
         workQueueSize -= 1
@@ -43,10 +48,6 @@ class WorkstealingLeapfrogjoin(queue: ConcurrentLinkedQueue[Int],
     workQueueSize -= localLeapfrog.key.toInt - currentWorkItem
     currentWorkItem = localLeapfrog.key.toInt
     isAtEnd = (queue.isEmpty && workQueueSize == 0) || localLeapfrog.atEnd
-//    println(localLeapfrog.key)
-//    require(!produced.contains(key), s"$key has been produced already")
-//    produced.add(key)
-    require(isAtEnd || oldKey != localLeapfrog.key || localLeapfrog.key == 0)
   }
 
   override def key: Long = {
@@ -58,6 +59,6 @@ class WorkstealingLeapfrogjoin(queue: ConcurrentLinkedQueue[Int],
   }
 
   override def leapfrogSeek(key: Long): Unit = {
-    ???  // TODO maybe implement?
+    ??? // TODO maybe implement?
   }
 }
