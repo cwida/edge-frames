@@ -5,6 +5,7 @@ import java.util.concurrent.ConcurrentHashMap
 import experiments.{Datasets, GraphWCOJ}
 import experiments.metrics.Metrics
 import leapfrogTriejoin.{CSRTrieIterable, TrieIterable}
+import org.apache.spark.TaskContext
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.{Attribute, AttributeSet, BoundReference, UnsafeProjection}
@@ -66,21 +67,23 @@ case class GraphWCOJExec(outputVariables: Seq[Attribute],
       case GraphWCOJ => {
         val partitionRDD = partitionChild.execute()
         val csrBroadcast = graphChild.executeBroadcast[(TrieIterable, TrieIterable)]()
-
         // TODO not correct yet and not query specific
-        joinSpecification.partitioning match {
-          case FirstVariablePartitioningWithWorkstealing(batchSize) => {
-            val col = (0 to csrBroadcast.value._1.asInstanceOf[CSRTrieIterable].maxValue by batchSize)
-              .toIndexedSeq.asJava
-            FirstVariablePartitioningWithWorkstealing.queue.clear()
-            FirstVariablePartitioningWithWorkstealing.queue.addAll(col)
-          }
-          case _ => {
-
-          } /* NOP */
-        }
 
         val ret = partitionRDD.mapPartitionsWithIndex((partition, _) => {
+          val tc = TaskContext.get()
+
+          joinSpecification.partitioning match {
+            case p @ FirstVariablePartitioningWithWorkstealing(batchSize) => {
+              // TODO use stage attempt as well for ID?
+              val col = (0 to csrBroadcast.value._1.asInstanceOf[CSRTrieIterable].maxValue by batchSize)
+              val id = FirstVariablePartitioningWithWorkstealing.newQueue(tc.stageId(), col)
+              p.queueID = id
+            }
+            case _ => {
+              /* NOP */
+              -1
+            }
+          }
 
           // TODO empty partitions?
           val toUnsafeProjection = UnsafeProjection.create(output.zipWithIndex.map({

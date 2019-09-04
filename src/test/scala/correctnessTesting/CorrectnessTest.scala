@@ -138,6 +138,11 @@ trait CorrectnessTest extends Matchers with SparkTest with DatasetComparer {
     }
   }
 
+  def showDuplicates(df: DataFrame): Unit = {
+    import sp.implicits._
+    df.groupBy("a", "b", "c").count.sort($"count".desc).show(30)
+  }
+
   def sparkTriangleJoinsSimple(parallelism: Int, shouldMaterialize: Boolean, dataSetPath: String, rawDataset: DataFrame): Unit = {
     val cacheKey = if (CorrectnessTest.FAST) {
       CacheKey(dataSetPath, "", CorrectnessTest.FAST_LIMIT, -1)
@@ -159,11 +164,7 @@ trait CorrectnessTest extends Matchers with SparkTest with DatasetComparer {
       val e = queryCache.getOrCompute(cacheKey.copy(queryName = "clique", size = 3), cliqueBinaryJoins(3, sp, ds)).cache()
       val a = cliquePattern(3, ds).cache()
 
-
       try {
-        println(e.count)
-        println(a.count)
-//        a.show(200)
         assertDataSetEqual(a, e)
       } catch {
         case ex : Exception => throw ex

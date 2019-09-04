@@ -53,9 +53,9 @@ class LeapfrogTriejoin(trieIterators: Map[EdgeRelationship, TrieIterator],
   }).toArray
 
   partitioning match {
-    case FirstVariablePartitioningWithWorkstealing(batchSize) => {
+    case p @ FirstVariablePartitioningWithWorkstealing(batchSize) => {
       leapfrogJoins(0) = new WorkstealingLeapfrogjoin(
-        FirstVariablePartitioningWithWorkstealing.queue, leapfrogJoins(0), batchSize)
+        FirstVariablePartitioningWithWorkstealing.getQueue(p.queueID), leapfrogJoins(0), batchSize)
     }
     case _ => /* NOP */
   }

@@ -2,12 +2,15 @@ package partitioning
 
 import java.util.concurrent.ConcurrentLinkedQueue
 
+import org.slf4j.LoggerFactory
 import partitioning.shares.Hypercube
 
 import scala.collection.mutable
 import scala.util.Random
 import math.Ordering
 import scala.annotation.elidable
+
+import collection.JavaConverters._
 
 sealed trait Partitioning {
   def getWorkersUsed(workersTotal: Int): Int
@@ -213,6 +216,7 @@ case class SingleVariablePartitioning(variable: Int) extends Partitioning {
 }
 
 case class FirstVariablePartitioningWithWorkstealing(batchSize: Int = 1) extends Partitioning {
+  var queueID = -1
 
   override def getWorkersUsed(workersTotal: Int): Int = {
     workersTotal
@@ -224,7 +228,22 @@ case class FirstVariablePartitioningWithWorkstealing(batchSize: Int = 1) extends
 }
 
 object FirstVariablePartitioningWithWorkstealing {
-  val queue: ConcurrentLinkedQueue[Int] = new ConcurrentLinkedQueue[Int]()
+  val logger = LoggerFactory.getLogger(FirstVariablePartitioningWithWorkstealing.getClass)
+
+  val queues: mutable.Map[Int, ConcurrentLinkedQueue[Int]] = mutable.HashMap()
+
+  def newQueue(id: Int, content: Seq[Int]): Int =  synchronized {
+    if (!queues.isDefinedAt(id)) {
+      val q = new ConcurrentLinkedQueue[Int]()
+      q.addAll(content.asJava)
+      queues.update(id, q)
+    }
+    id
+  }
+
+  def getQueue(id: Int): ConcurrentLinkedQueue[Int] = {
+    queues(id)
+  }
 }
 
 case class AllTuples() extends Partitioning {
