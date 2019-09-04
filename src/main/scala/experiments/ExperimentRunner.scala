@@ -431,6 +431,12 @@ object ExperimentRunner extends App {
     }
   }
 
+  private def showDuplicates(df: DataFrame): Unit = {
+    import sp.implicits._
+    df.groupBy("a", "b", "c").count.filter($"count" > 1).sort($"count".desc, $"a", $"b", $"c").show(200)
+  }
+
+
   private def runAndReportPlan(plan: DataFrame, query: Query, algorithm: Algorithm, partitioning: Partitioning, parallelism: Int): Unit = {
     val results = ListBuffer[QueryResult]()
 

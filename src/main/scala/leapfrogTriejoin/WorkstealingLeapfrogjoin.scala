@@ -45,6 +45,10 @@ class WorkstealingLeapfrogjoin(queue: ConcurrentLinkedQueue[Int],
           && !localLeapfrog.atEnd
           && !(localLeapfrog.key <= currentWorkItem + workQueueSize))
       workQueueSize -= localLeapfrog.key.toInt - currentWorkItem
+      // Case: queue.isEmpty == true, workQueueSize == 0 and (localLeapfrog.key <= currentWorkItem +workQueueSize) == false.
+      // In words, the loop should fetch the next batch but there is no next batch. Therefore, it ends even though it's on a value that
+      // does not belong to its batch.
+      isAtEnd = workQueueSize < 0
       currentWorkItem = localLeapfrog.key.toInt
     }
 

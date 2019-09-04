@@ -1,5 +1,6 @@
 package leapfrogTriejoin
 
+import org.slf4j.LoggerFactory
 import partitioning.shares.Hash
 import partitioning.{AllTuples, FirstVariablePartitioningWithWorkstealing, Partitioning, Shares}
 
@@ -15,6 +16,8 @@ class LeapfrogTriejoin(trieIterators: Map[EdgeRelationship, TrieIterator],
                        partition: Int = 0,
                        partitioning: Partitioning = AllTuples()
                       ) {
+
+  val logger = LoggerFactory.getLogger(MaterializingLeapfrogJoin.getClass)
 
   private[this] val DONE: Int = 0
   private[this] val DOWN_ACTION: Int = 1
