@@ -15,39 +15,41 @@ class WorkstealingLeapfrogjoin(queue: ConcurrentLinkedQueue[Int],
   private[this] var workQueueSize: Int = 0
   private[this] var currentWorkItem: Int = 0
 
-  private[this] var oldKey = 0L
-  private[this] var produced = mutable.Set[Long]()
-
   override def init(): Unit = {
     localLeapfrog.init()
     leapfrogNext()
   }
 
   override def leapfrogNext(): Unit = {
-    oldKey =localLeapfrog.key
-    do {
-      if (workQueueSize == 0) {
-        currentWorkItem = queue.poll()
-        if (queue.isEmpty && currentWorkItem == 0) {
-          workQueueSize = 0
-        } else {
-          workQueueSize = batchSize - 1
-        }
-
-      } else {
-        currentWorkItem += 1
-        workQueueSize -= 1
-      }
-      if (localLeapfrog.key < currentWorkItem) {
-        localLeapfrog.leapfrogSeek(currentWorkItem)
-      }
-    } while (
-      !(queue.isEmpty && workQueueSize == 0)
-        && !localLeapfrog.atEnd
-        && !(localLeapfrog.key <= currentWorkItem + workQueueSize))
-    workQueueSize -= localLeapfrog.key.toInt - currentWorkItem
-    currentWorkItem = localLeapfrog.key.toInt
+    // Before because queue.isEmpty = true and workQueueSize = 0 means that one last value is available. Hence, we should only
+    // set atEnd after returning this value.
     isAtEnd = (queue.isEmpty && workQueueSize == 0) || localLeapfrog.atEnd
+    if (!isAtEnd) {
+      do {
+        if (workQueueSize == 0) {
+          currentWorkItem = queue.poll()
+          if (queue.isEmpty && currentWorkItem == 0) {
+            workQueueSize = 0
+          } else {
+            workQueueSize = batchSize - 1
+          }
+        } else {
+          currentWorkItem += 1
+          workQueueSize -= 1
+        }
+        if (localLeapfrog.key < currentWorkItem) {
+          localLeapfrog.leapfrogSeek(currentWorkItem)
+        }
+      } while (
+        !(queue.isEmpty && workQueueSize == 0)
+          && !localLeapfrog.atEnd
+          && !(localLeapfrog.key <= currentWorkItem + workQueueSize))
+      workQueueSize -= localLeapfrog.key.toInt - currentWorkItem
+      currentWorkItem = localLeapfrog.key.toInt
+    }
+
+    // In the end because the loop above could have moved the localLeapfrog to its end.
+    isAtEnd = isAtEnd || localLeapfrog.atEnd
   }
 
   override def key: Long = {

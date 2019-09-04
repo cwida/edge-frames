@@ -15,7 +15,7 @@ class FirstVariablePartitioningWithWorkstealing extends FlatSpec with Correctnes
     wcojConfig.setPartitioning(FirstVariablePartitioningWithWorkstealing())
     wcojConfig.setShouldMaterialize(true)
     wcojConfig.setParallelism(8)
-    wcojConfig.setWorkstealingBatchSize(1)
+    wcojConfig.setWorkstealingBatchSize(10)
   }
 
   override def afterAll(): Unit = {
