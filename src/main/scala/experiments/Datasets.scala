@@ -36,6 +36,12 @@ object Datasets {
       sp)
   }
 
+  def loadOrkutDatasets(dataSetPath: String, sp: SparkSession): DataFrame = {
+    loadAndCacheAsParquet(dataSetPath,
+      snapDatasetReader(sp),
+      sp)
+  }
+
   def loadGoogleWebGraph(dataSetPath: String, sp: SparkSession): DataFrame = {
     val parquetFile = dataSetPath + ".parquet"
     if (Files.exists(Paths.get(parquetFile.replace("file://", "")))) {
@@ -138,6 +144,9 @@ object Datasets {
       }
       case "google" => {
         GoogleWeb
+      }
+      case "orkut" => {
+        Orkut
       }
       case _ => {
         throw new IllegalArgumentException("Dataset type can be only `ama` or `snb`")

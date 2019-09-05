@@ -16,7 +16,7 @@ sealed trait Query {
     edges.flatMap(e => Seq(e._1, e._2)).toSet
   }
 
-  def applyPatternQuery(df: DataFrame): DataFrame
+  def applyPatternQuery(df: DataFrame, csrFilename: String): DataFrame
 
   def applyBinaryQuery(df: DataFrame, sp: SparkSession): DataFrame
 }
@@ -27,7 +27,7 @@ sealed trait Query {
   * @param edges
   */
 case class DescriptiveQuery(name: String, edges: Seq[(String, String)]) extends Query {
-  override def applyPatternQuery(df: DataFrame): DataFrame = ???
+  override def applyPatternQuery(df: DataFrame, csrFilename: String = ""): DataFrame = ???
 
   override def applyBinaryQuery(df: DataFrame, sp: SparkSession): DataFrame = ???
 }
@@ -45,8 +45,8 @@ case class Clique(size: Int) extends Query {
     ('a' to 'z').take(size).map(c => s"$c").toSet
   }
 
-  override def applyPatternQuery(df: DataFrame): DataFrame = {
-    Queries.cliquePattern(size, df)
+  override def applyPatternQuery(df: DataFrame, csrFilename: String = ""): DataFrame = {
+    Queries.cliquePattern(size, df, false, csrFilename)
   }
 
   override def applyBinaryQuery(df: DataFrame, sp: SparkSession): DataFrame = {
@@ -73,7 +73,7 @@ case class Cycle(size: Int) extends Query {
     ('a' to 'z').slice(0, size).map(c => s"$c").toSet
   }
 
-  override def applyPatternQuery(df: DataFrame): DataFrame = {
+  override def applyPatternQuery(df: DataFrame, csrFilename: String = ""): DataFrame = {
     Queries.cyclePattern(size, df)
   }
 
@@ -91,7 +91,7 @@ case class PathQuery(size: Int, selectivity: Double) extends Query {
     ???
   }
 
-  override def applyPatternQuery(df: DataFrame): DataFrame = {
+  override def applyPatternQuery(df: DataFrame, csrFilename: String = ""): DataFrame = {
     val (ns1, ns2) = Queries.pathQueryNodeSets(df, selectivity)
     Queries.pathPattern(size, df, ns1, ns2)
   }
@@ -115,7 +115,7 @@ case class DiamondQuery() extends Query {
     Seq(("a", "b"), ("a", "c"), ("b", "d"), ("c", "d"))
   }
 
-  override def applyPatternQuery(df: DataFrame): DataFrame = {
+  override def applyPatternQuery(df: DataFrame, csrFilename: String = ""): DataFrame = {
     // TODO variable ordering
     df.findPattern(Queries.edgesToPatternString(edges), List("a", "b", "c", "d"), distinctFilter = true)
       .selectExpr("a", "b", "c", "d")
@@ -147,7 +147,7 @@ case class HouseQuery() extends Query {
     ("d", "e")
   )
 
-  override def applyPatternQuery(df: DataFrame): DataFrame = {
+  override def applyPatternQuery(df: DataFrame, csrFilename: String = ""): DataFrame = {
     Queries.housePattern(df)
   }
 
@@ -170,7 +170,7 @@ case class KiteQuery() extends Query {
     ("c", "d")
   )
 
-  override def applyPatternQuery(df: DataFrame): DataFrame = {
+  override def applyPatternQuery(df: DataFrame, csrFilename: String = ""): DataFrame = {
     Queries.kitePattern(df)
   }
 

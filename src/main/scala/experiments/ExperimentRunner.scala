@@ -1,6 +1,6 @@
 package experiments
 
-import java.io.{BufferedWriter, File, FileWriter}
+import java.io.{BufferedWriter, File, FileOutputStream, FileWriter}
 import java.text.{DecimalFormat, NumberFormat}
 import java.util.{Formatter, Locale}
 
@@ -81,6 +81,12 @@ case object TwitterSnapEgo extends DatasetType {
 case object GoogleWeb extends DatasetType {
   override def loadDataset(filePath: String, sp: SparkSession): DataFrame = {
     Datasets.loadGoogleWebGraph(filePath, sp)
+  }
+}
+
+case object Orkut extends  DatasetType {
+  override def loadDataset(filePath: String, sp: SparkSession): DataFrame = {
+    Datasets.loadOrkutDatasets(filePath, sp)
   }
 }
 
@@ -359,7 +365,7 @@ object ExperimentRunner extends App {
 
 
   private def graphFilenameToCSRFilename(graphFileName: String): String = {
-    graphFileName + ".csrObjects"
+    (graphFileName + ".csrObjects").replace("file://", "")
   }
 
   private def cacheGraphBroadcast(): Unit = {
@@ -408,7 +414,7 @@ object ExperimentRunner extends App {
                 }
                 case WCOJ | GraphWCOJ => {
                   wcojConfig.setJoinAlgorithm(algoritm.asInstanceOf[WCOJAlgorithm])
-                  query.applyPatternQuery(ds)
+                  query.applyPatternQuery(ds, graphFilenameToCSRFilename(config.datasetFilePath))
                 }
               }
 

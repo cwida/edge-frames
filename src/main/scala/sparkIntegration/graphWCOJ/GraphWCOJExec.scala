@@ -11,6 +11,7 @@ import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.{Attribute, AttributeSet, BoundReference, UnsafeProjection}
 import org.apache.spark.sql.execution.metric.SQLMetrics
 import org.apache.spark.sql.execution.{RowIterator, SparkPlan}
+import org.apache.spark.util.SizeEstimator
 import org.slf4j.LoggerFactory
 import partitioning.FirstVariablePartitioningWithWorkstealing
 import sparkIntegration.wcoj.WCOJExec

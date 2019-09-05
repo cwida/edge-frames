@@ -3,11 +3,11 @@ package correctnessTesting
 import experiments.Datasets._
 import experiments.GraphWCOJ
 import org.scalatest.{BeforeAndAfterAll, FlatSpec}
-import partitioning.{AllTuples, FirstVariablePartitioningWithWorkstealing, SingleVariablePartitioning}
+import partitioning.{AllTuples, FirstVariablePartitioningWithWorkstealing}
 import testing.Utils._
 
-class FirstVariablePartitioningWithWorkstealing extends FlatSpec with CorrectnessTest with BeforeAndAfterAll {
-  val DATASET_PATH = getDatasetPath("amazon-0302")
+class Orkut extends FlatSpec with CorrectnessTest with BeforeAndAfterAll {
+  val DATASET_PATH = getDatasetPath("orkut")
   val ds = loadAmazonDataset(DATASET_PATH, sp).cache()
 
   override def beforeAll(): Unit = {
