@@ -257,7 +257,8 @@ object Queries {
     }
 
     val relationships = Seq(leftRel) ++ (0 until size - 2).map(i => ds.alias(s"edges$i")) ++ Seq(rightRel)
-    ds.findPattern(pattern, variableOrdering, distinctFilter = true, smallerThanFilter = false, relationships).selectExpr(verticeNames: _*)
+    ds.findPattern(pattern, variableOrdering, distinctFilter = true, smallerThanFilter = false, relationships, "")
+      .selectExpr(verticeNames: _*)
   }
 
   private def twoPathBinaryJoins(rel: DataFrame, nodeSet1: DataFrame, nodeSet2: DataFrame): DataFrame = {
@@ -357,7 +358,7 @@ object Queries {
   val fiveVerticePermuations = ('a' to 'e').map(c => s"$c").permutations.toList
   var permCounter = 0
 
-  def cliquePattern(size: Int, rel: DataFrame, useDistinctFilter: Boolean = false): DataFrame = {
+  def cliquePattern(size: Int, rel: DataFrame, useDistinctFilter: Boolean = false, csrFileName: String = ""): DataFrame = {
     //    val perm = fiveVerticePermuations(permCounter)
     //    permCounter += 1
     val alphabet = 'a' to 'z'
@@ -367,7 +368,7 @@ object Queries {
       .map(e => s"(${e(0)}) - [] -> (${e(1)})")
       .mkString(";")
     //    println(s"Perm: ${perm.mkString(",")} at position $permCounter")
-    rel.findPattern(pattern, verticeNames, distinctFilter = useDistinctFilter, smallerThanFilter = !useDistinctFilter)
+    rel.findPattern(pattern, verticeNames, distinctFilter = useDistinctFilter, smallerThanFilter = !useDistinctFilter, csrFileName)
   }
 
   def houseBinaryJoins(sp: SparkSession, rel: DataFrame): DataFrame = {

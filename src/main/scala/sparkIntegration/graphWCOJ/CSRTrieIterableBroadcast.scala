@@ -1,5 +1,7 @@
 package org.apache.spark.sql
 
+import java.io.{File, FileInputStream, FileOutputStream, ObjectInputStream, ObjectOutputStream}
+
 import experiments.metrics.Metrics
 import leapfrogTriejoin.{CSRTrieIterable, TrieIterable}
 import org.apache.spark.broadcast.Broadcast
@@ -18,7 +20,8 @@ import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService, Futu
 
 
 // TODO should be exchange?
-case class CSRTrieIterableBroadcast(graphID: Int, forwardEdges: SparkPlan, backwardEdges: SparkPlan) extends SparkPlan {
+case class CSRTrieIterableBroadcast(graphID: Int, forwardEdges: SparkPlan, backwardEdges: SparkPlan, graphCSRFile: String = "")
+  extends SparkPlan {
   private val broadcastTimeout = WCOJConfiguration.get(sparkContext).broadcastTimeout
 
   override val children: Seq[SparkPlan] = Seq(forwardEdges, backwardEdges)
@@ -73,33 +76,70 @@ case class CSRTrieIterableBroadcast(graphID: Int, forwardEdges: SparkPlan, backw
       // with the correct execution.
       SQLExecution.withExecutionId(sqlContext.sparkSession, executionId) {
         val beforeCollect = System.nanoTime()
+        var writingTime = 0L
 
-        // TODO can I build the CSR still in parallel on the executors?
+        val (csrForward, csrBackward) =
+          if (graphCSRFile != "" && new File(graphCSRFile).exists()) {
+            println(s"Reading CSR object from disk: $graphCSRFile")
+            readFromDisk()
+          } else {
+            // TODO can I build the CSR still in parallel on the executors?
 
-        // Use executeCollect/executeCollectIterator to avoid conversion to Scala types
-        val (sizeHintForward, forwardInput) = forwardEdges.executeCollectIterator()
-        val (sizeHintBackwards, backwardInput) = backwardEdges.executeCollectIterator()
+            // Use executeCollect/executeCollectIterator to avoid conversion to Scala types
+            val (sizeHintForward, forwardInput) = forwardEdges.executeCollectIterator()
+            val (sizeHintBackwards, backwardInput) = backwardEdges.executeCollectIterator()
 
-        val beforeBuild = System.nanoTime()
-        longMetric(COLLECT_TIME) += (beforeBuild - beforeCollect) / 1000000
+            val beforeBuild = System.nanoTime()
+            longMetric(COLLECT_TIME) += (beforeBuild - beforeCollect) / 1000000
 
-        val (csrForward, csrBackward) = CSRTrieIterable.buildBothDirectionsFrom(forwardInput,
-          backwardInput.map(t => InternalRow(t.getLong(1), t.getLong(0))))
+            val (forward, backward) = CSRTrieIterable.buildBothDirectionsFrom(forwardInput,
+              backwardInput.map(t => InternalRow(t.getLong(1), t.getLong(0))))
+            longMetric(BUILD_TIME) += (System.nanoTime() - beforeBuild) / 1000000
+
+            if (graphCSRFile != "") {
+              val beforeWriting = System.nanoTime()
+              println(s"Writing CSR object from disk: $graphCSRFile")
+              writeToDisk(forward, backward)
+              writingTime = System.nanoTime() - beforeWriting
+            }
+
+            (forward, backward)
+          }
 
         val beforeBroadcast = System.nanoTime()
-        longMetric(BUILD_TIME) += (beforeBroadcast - beforeBuild) / 1000000
 
         val broadcasted = sparkContext.broadcast((csrForward, csrBackward))
         val end = System.nanoTime()
         longMetric(BROADCAST_TIME) += (end - beforeBroadcast) / 1000000
 
-        longMetric(MATERIALIZATION_TIME_METRIC) += (end - beforeCollect) / 1000000
-        Metrics.masterTimers.put(MATERIALIZATION_TIME_METRIC, end - beforeCollect)
+        longMetric(MATERIALIZATION_TIME_METRIC) += (end - beforeCollect - writingTime) / 1000000
+        Metrics.masterTimers.put(MATERIALIZATION_TIME_METRIC, end - beforeCollect - writingTime)
 
         SQLMetrics.postDriverMetricUpdates(sparkContext, executionId, metrics.values.toSeq)
         broadcasted
       }
     }(CSRTrieIterableBroadcast.executionContext)
+  }
+
+  private def writeToDisk(forward: CSRTrieIterable, backward: CSRTrieIterable): Unit = {
+    val f = new FileOutputStream(new File(graphCSRFile))
+    val o = new ObjectOutputStream(f)
+    o.writeObject(forward)
+    o.writeObject(backward)
+    o.close()
+    f.close()
+  }
+
+  private def readFromDisk(): (CSRTrieIterable, CSRTrieIterable) = {
+    val fi = new FileInputStream(new File(graphCSRFile))
+    val oi = new ObjectInputStream(fi)
+
+    val forward = oi.readObject().asInstanceOf[CSRTrieIterable]
+    val backward = oi.readObject().asInstanceOf[CSRTrieIterable]
+
+    oi.close()
+    fi.close()
+    (forward, backward)
   }
 
   override protected def doPrepare(): Unit = {

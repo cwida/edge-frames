@@ -19,7 +19,8 @@ import sparkIntegration.wcoj.ToTrieIterableRDD
 import Predef._
 
 class WCOJFunctions[T](ds: Dataset[T]) {
-  def findPattern(pattern: String, variableOrdering: Seq[String], distinctFilter: Boolean = false, smallerThanFilter: Boolean = false): DataFrame = {
+  def findPattern(pattern: String, variableOrdering: Seq[String], distinctFilter: Boolean = false, smallerThanFilter: Boolean = false,
+                  graphCSRFileName: String = ""): DataFrame = {
     val conf = WCOJConfiguration.get(ds.sparkSession.sparkContext)
     val edges = Pattern.parse(pattern)
 
@@ -40,10 +41,11 @@ class WCOJFunctions[T](ds: Dataset[T]) {
         Seq(ds.alias("forward").toDF(), ds.alias("backward").toDF())
       }
     }
-    findPattern(pattern, variableOrdering, distinctFilter, smallerThanFilter, children)
+    findPattern(pattern, variableOrdering, distinctFilter, smallerThanFilter, children, graphCSRFileName)
   }
 
-  def findPattern(pattern: String, variableOrdering: Seq[String], distinctFilter: Boolean, smallerThanFilter: Boolean, children: Seq[DataFrame]): DataFrame = {
+  def findPattern(pattern: String, variableOrdering: Seq[String], distinctFilter: Boolean, smallerThanFilter: Boolean,
+                  children: Seq[DataFrame], graphCSRFile: String): DataFrame = {
     val conf = WCOJConfiguration.get(ds.sparkSession.sparkContext)
     // TODO does not support filtered relationships for GraphWCOJ
     require(ds.columns.contains("src"), "Edge table should have a column called `src`")
@@ -86,7 +88,7 @@ class WCOJFunctions[T](ds: Dataset[T]) {
     val partitionChild = children.head.sparkSession.emptyDataFrame.repartition(partitioning.getWorkersUsed(conf.getParallelism))
 
     Dataset.ofRows(ds.sparkSession,
-      WCOJ(ds.rdd.id, outputVariables, joinSpecification, children.map(_.logicalPlan), partitionChild.logicalPlan))
+      WCOJ(ds.rdd.id, outputVariables, joinSpecification, children.map(_.logicalPlan), partitionChild.logicalPlan, graphCSRFile))
   }
 
   private def getQuery(ps: Seq[Pattern]): Query = {

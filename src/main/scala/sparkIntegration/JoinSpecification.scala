@@ -145,7 +145,7 @@ class JoinSpecification(joinPattern: Seq[Pattern], val variableOrdering: Seq[Str
     new LeapfrogTriejoin(trieIteratorMapping, variableOrdering, distinctFilter, smallerThanFilter, partition, partitioning)
   }
 
-  def buildTrieIterables(children: Seq[SparkPlan], graphID: Int): Seq[SparkPlan] = {
+  def buildTrieIterables(children: Seq[SparkPlan], graphID: Int, graphCSRFile: String = ""): Seq[SparkPlan] = {
     joinAlgorithm match {
       case experiments.WCOJ => {
         children.zipWithIndex.map({ case (c, i) => {
@@ -160,7 +160,7 @@ class JoinSpecification(joinPattern: Seq[Pattern], val variableOrdering: Seq[Str
       }
       case GraphWCOJ => {
         require(children.size == 2, "GraphWCOJ requires exactly two children.")
-        Seq(CSRTrieIterableBroadcast(graphID, children.head, children(1)))
+        Seq(CSRTrieIterableBroadcast(graphID, children.head, children(1), graphCSRFile))
       }
     }
   }

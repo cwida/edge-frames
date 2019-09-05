@@ -358,6 +358,10 @@ object ExperimentRunner extends App {
   }
 
 
+  private def graphFilenameToCSRFilename(graphFileName: String): String = {
+    graphFileName + ".csrObjects"
+  }
+
   private def cacheGraphBroadcast(): Unit = {
     for (algoritm <- config.algorithms) {
       algoritm match {
@@ -368,7 +372,8 @@ object ExperimentRunner extends App {
           Metrics.masterTimers.clear()
           System.gc()
           wcojConfig.setJoinAlgorithm(algoritm.asInstanceOf[WCOJAlgorithm])
-          Queries.cliquePattern(3, ds).count() // Trigger caching
+          val csrFileName = graphFilenameToCSRFilename(config.datasetFilePath)
+          Queries.cliquePattern(3, ds, false, csrFileName).count() // Trigger caching
 
           println(s"GraphWCOJ broadcast materialization took: ${Metrics.masterTimers("materializationTime").toDouble / 1e9} seconds")
           reportMaterializationTime(Metrics.masterTimers("materializationTime").toDouble / 1e9, algoritm)

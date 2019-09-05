@@ -9,7 +9,7 @@ import sparkIntegration.wcoj.{ToArrayTrieIterableRDDExec, ToTrieIterableRDD, WCO
 
 object WCOJ2WCOJExec extends Strategy {
   override def apply(plan: LogicalPlan): Seq[SparkPlan] = plan match {
-    case WCOJ(graphID, outputVariables, joinSpecification, cs, partitionChild) => {
+    case WCOJ(graphID, outputVariables, joinSpecification, cs, partitionChild, graphCSRFile) => {
       joinSpecification.joinAlgorithm match {
         case experiments.WCOJ => {
           val children = joinSpecification.buildTrieIterables(cs.map(planLater), graphID)
@@ -18,7 +18,7 @@ object WCOJ2WCOJExec extends Strategy {
         case GraphWCOJ => {
           val graphChild = CSRCache.get(graphID) match {
             case None =>
-              joinSpecification.buildTrieIterables(cs.map(planLater), graphID).head
+              joinSpecification.buildTrieIterables(cs.map(planLater), graphID, graphCSRFile).head
             case Some(b) =>
               ReusedCSRBroadcast(graphID)
           }

@@ -10,7 +10,7 @@ import org.slf4j.LoggerFactory
 import Predef._
 
 case class WCOJ(graphID: Int, ouputVariables: Seq[Attribute], joinSpecification: JoinSpecification, children: Seq[LogicalPlan],
-                partitionChild: LogicalPlan) extends LogicalPlan {
+                partitionChild: LogicalPlan, graphCSRFile: String = "") extends LogicalPlan {
 
   override def references: AttributeSet = {
     AttributeSet(children.flatMap(c => c.output.filter(a => List("src", "dst").contains(a.name))))
