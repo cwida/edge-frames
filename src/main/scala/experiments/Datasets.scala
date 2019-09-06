@@ -37,9 +37,29 @@ object Datasets {
   }
 
   def loadOrkutDatasets(dataSetPath: String, sp: SparkSession): DataFrame = {
-    loadAndCacheAsParquet(dataSetPath,
-      snapDatasetReader(sp),
-      sp)
+    import sp.implicits._
+    val parquetFile = dataSetPath + ".parquet"
+    val d = if (Files.exists(Paths.get(parquetFile.replace("file://", "")))) {
+      sp.read.parquet(parquetFile)
+    } else {
+      println("Parquet file not existing")
+      val df = sp.read
+        .format("csv")
+        .option("delimiter", "\t")
+        .option("comment", "#")
+        .schema(schema)
+        .csv(dataSetPath + ".csv")
+        .toDF("src", "dst")
+
+      val undirected = makeUndirected(df, sp)
+        .filter($"src" =!= $"dst")
+        .distinct()
+        .sort("src", "dst")
+      println("Caching as parquet file")
+      undirected.write.parquet(parquetFile)
+      undirected
+    }
+    d.repartition(1)
   }
 
   def loadGoogleWebGraph(dataSetPath: String, sp: SparkSession): DataFrame = {
