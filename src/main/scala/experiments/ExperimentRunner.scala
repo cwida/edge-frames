@@ -84,7 +84,7 @@ case object GoogleWeb extends DatasetType {
   }
 }
 
-case object Orkut extends  DatasetType {
+case object Orkut extends DatasetType {
   override def loadDataset(filePath: String, sp: SparkSession): DataFrame = {
     Datasets.loadOrkutDatasets(filePath, sp)
   }
@@ -114,12 +114,21 @@ sealed trait QueryResult {
 
   def count: Long
 
+  def start: Long
+
+  def end: Long
+
   def time: Double
 
   def parallelism: Int
 }
 
-case class BinaryQueryResult(query: Query, parallelism: Int, count: Long, time: Double) extends QueryResult {
+case class BinaryQueryResult(query: Query, parallelism: Int, count: Long, start: Long, end: Long) extends QueryResult {
+
+  override def time: Double = {
+    (end - start) / 1e9
+  }
+
   override def algorithm: Algorithm = {
     BinaryJoins
   }
@@ -130,10 +139,21 @@ case class WCOJQueryResult(algorithm: Algorithm,
                            partitioning: Partitioning,
                            parallelism: Int,
                            count: Long,
-                           time: Double,
+                           start: Long,
+                           end: Long,
+                           algorithmStart: Long,
+                           scheduledTimes: List[Long],
+                           algorithmEnd: List[Long],
                            wcojTimes: List[Double],
                            copyTimes: List[Double],
                            materializationTime: Option[Double]) extends QueryResult {
+  override def time: Double = {
+    (end - start) / 1e9
+  }
+
+  def wcojTimes2: Seq[Double] = {
+    scheduledTimes.zip(algorithmEnd).map(t => (t._2 - t._1) / 1e9)
+  }
 }
 
 // TODO exclude count times for Spark joins (time after the join)
@@ -285,12 +305,17 @@ object ExperimentRunner extends App {
     }"))
     csvWriter.writeNext(Array(s"# Comment: ${config.comment}"))
     csvWriter.writeNext(
-      Array("Query", "Algorithm", "Partitioning", "Parallelism", "Count", "Time", "Copy", "Materialization")
-        ++ (0 until config.parallelismLevels.max).map(i => s"WCOJTime-$i"))
+      Array("Query", "Algorithm", "Partitioning", "Parallelism", "Count", "Start", "End", "Copy", "Materialization", "AlgoStart")
+        ++ (0 until config.parallelismLevels.max).map(i => s"WCOJTime-$i")
+        ++ (0 until config.parallelismLevels.max).map(i => s"Scheduled-$i")
+        ++ (0 until config.parallelismLevels.max).map(i => s"AlgoEnd-$i"))
   }
 
   private def reportResult(result: QueryResult): Unit = {
     var wcojTimes = List.fill(config.parallelismLevels.max)(0.0)
+    var algoEnd = List.fill(config.parallelismLevels.max)(0L)
+    var schedulesTimes = List.fill(config.parallelismLevels.max)(0L)
+    var algoStart = 0L
     var copyTimeTotal = 0.0
     var materializationTime = 0.0
 
@@ -302,6 +327,10 @@ object ExperimentRunner extends App {
       partitioning = wcojResult.partitioning.toString
       wcojTimes = wcojResult.wcojTimes
       copyTimeTotal = wcojResult.copyTimes.sum
+      algoStart = wcojResult.algorithmStart
+      algoEnd = wcojResult.algorithmEnd
+      schedulesTimes = wcojResult.scheduledTimes
+
       materializationTime = wcojResult.materializationTime match {
         case Some(t) => {
           t
@@ -318,12 +347,16 @@ object ExperimentRunner extends App {
       partitioning,
       result.parallelism.toString,
       String.format(Locale.GERMAN, "%,013d", result.count.asInstanceOf[Object]),
-      String.format(Locale.US, "%.2f", result.time.asInstanceOf[Object]),
+      result.start.toString,
+      result.end.toString,
       String.format(Locale.US, "%.2f", copyTimeTotal.asInstanceOf[Object]),
-      String.format(Locale.US, "%.2f", materializationTime.asInstanceOf[Object]))
-      // TODO rais precission on a per partition basis, a lot of 0.00
-      ++ wcojTimes.map(t => String.format(Locale.US, "%.2f", t.asInstanceOf[Object])))  // TODO needs to be filled till max parallelism
-    // level
+      String.format(Locale.US, "%.2f", materializationTime.asInstanceOf[Object]),
+      algoStart.toString)
+      ++ wcojTimes.map(t => String.format(Locale.US, "%.2f", t.asInstanceOf[Object]))
+      ++ schedulesTimes.map(t => t.toString)
+      ++ algoEnd.map(t => t.toString)
+    )
+    // TODO needs to be filled till max parallelism level
 
     csvWriter.flush()
   }
@@ -331,9 +364,7 @@ object ExperimentRunner extends App {
   private def printSummary(results: Seq[QueryResult], partitioning: Partitioning): Unit = {
     require(results.size == config.reps)
 
-    // TODO use require again after fixing workstealing
-    println(results.map(_.count).mkString(", "))
-//    require(results.map(_.count).toSet.size == 1)
+    require(results.map(_.count).toSet.size == 1)
     require(results.map(_.algorithm).toSet.size == 1)
     require(results.map(_.query).toSet.size == 1)
     require(results.map(_.parallelism).toSet.size == 1)
@@ -343,9 +374,8 @@ object ExperimentRunner extends App {
     val count = results.head.count
     val parallelism = results.head.parallelism
 
-    println(s"Using $algorithm, $query with partitioning ${partitioning.toString} took ${Utils.avg(results.map(_.time))} in average over ${config
-      .reps} " +
-      s"repetitions (result size $count) using ${partitioning.getWorkersUsed(parallelism)} out of $parallelism workers.")
+    println(s"Using $algorithm, $query with partitioning ${partitioning.toString} took ${Utils.avg(results.map(_.time))} in average " +
+      s"over ${config.reps} repetitions (result size $count) using ${partitioning.getWorkersUsed(parallelism)} out of $parallelism workers.")
 
     if (Seq(GraphWCOJ, WCOJ).contains(algorithm)) {
       val wcojResults = results.map(_.asInstanceOf[WCOJQueryResult])
@@ -353,11 +383,26 @@ object ExperimentRunner extends App {
       val copyTimesAverage = wcojResults.flatMap(_.copyTimes).sum / wcojResults.map(_.copyTimes.length).sum
 
       val wcojTimesAverage = wcojResults.flatMap(_.wcojTimes).sum / wcojResults.map(_.wcojTimes.length).sum
+      val wcojTimesAverage2 = wcojResults.flatMap(_.wcojTimes2).sum /
+        wcojResults.map(_.scheduledTimes.length).sum
+
+
       val wcojTimesMax = wcojResults.flatMap(_.wcojTimes).max
+      val wcojTimesMax2 = wcojResults.flatMap(_.wcojTimes2).max
+
       val wcojTimesMin = wcojResults.flatMap(_.wcojTimes).min
+      val wcojTimesMin2 = wcojResults.flatMap(_.wcojTimes2).min
+
+      val shortestRep = wcojResults.minBy(_.time)
+      val firstStart = shortestRep.scheduledTimes.min
+      val lastEnd = shortestRep.algorithmEnd.max
 
       println(
         s"WCOJ took $wcojTimesAverage in average(max: $wcojTimesMax, min: $wcojTimesMin), copying took in average $copyTimesAverage took.")
+      println(
+        s"WCOJ took $wcojTimesAverage2 in average(max: $wcojTimesMax2, min: $wcojTimesMin2")
+      println(s"WCOJ took ${}")
+      println(s"Spark overhead: ${shortestRep.time - (lastEnd - firstStart) / 1e9}")
     }
 
     println("")
@@ -457,25 +502,32 @@ object ExperimentRunner extends App {
       val start = System.nanoTime()
       val count = plan.count()
       val end = System.nanoTime()
-      val time = (end - start).toDouble / 1e9
-
-
 
       val result = algorithm match {
         case WCOJ | GraphWCOJ => {
           val joinTimes = Metrics.getTimes("wcoj_join_time")
           val copyTimes = Metrics.getTimes("copy_time")
           val materializationTimes = Metrics.getTimes("materializationTime")
+          val algorithmEnd = Metrics.getTimes("algorithm_end")
+          val scheduled = Metrics.getTimes("scheduled")
+
+          val algorithmStart = Metrics.masterTimers("algorithmStart")
 
           WCOJQueryResult(algorithm,
             query,
-            Metrics.lastUsedInitializedPartitioning.get, parallelism, count, time,
+            Metrics.lastUsedInitializedPartitioning.get, parallelism, count,
+            start,
+            end,
+            algorithmStart,
+            scheduled.sortBy(_._1).map(_._2),
+            algorithmEnd.sortBy(_._1).map(_._2),
             joinTimes.sortBy(_._1).map(_._2.toDouble / 1e9),
             copyTimes.sortBy(_._1).map(_._2.toDouble / 1e9),
-            materializationTimes.map(_._2.toDouble / 1e9).headOption)
+            materializationTimes.map(_._2.toDouble / 1e9).headOption
+          )
         }
         case BinaryJoins => {
-          BinaryQueryResult(query, parallelism, count, time)
+          BinaryQueryResult(query, parallelism, count, start, end)
         }
       }
       reportResult(result)

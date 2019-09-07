@@ -98,7 +98,7 @@ case class CSRTrieIterableBroadcast(graphID: Int, forwardEdges: SparkPlan, backw
 
             if (graphCSRFile != "") {
               val beforeWriting = System.nanoTime()
-              println(s"Writing CSR object from disk: $graphCSRFile")
+              println(s"Writing CSR object to disk: $graphCSRFile")
               writeToDisk(forward, backward)
               writingTime = System.nanoTime() - beforeWriting
             }

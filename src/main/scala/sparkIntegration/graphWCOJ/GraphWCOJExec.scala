@@ -28,6 +28,8 @@ case class GraphWCOJExec(outputVariables: Seq[Attribute],
 
   val JOIN_TIME_METRIC = "wcoj_join_time"
   val COPY_OUTPUT_TIME_METRIC = "copy_time"
+  val BEFORE_AFTER_TIME = "algorithm_end"
+  val UNTIL_SCHEDULED = "scheduled"
 
   override lazy val metrics = Map(
     JOIN_TIME_METRIC -> SQLMetrics.createTimingMetric(sparkContext, "wcoj time"),
@@ -55,11 +57,13 @@ case class GraphWCOJExec(outputVariables: Seq[Attribute],
 
     val joinTimer = Metrics.getTimer(sparkContext, JOIN_TIME_METRIC)
     val copyTimer = Metrics.getTimer(sparkContext, COPY_OUTPUT_TIME_METRIC)
+    val algorithmEndTime = Metrics.getTimer(sparkContext, BEFORE_AFTER_TIME)
+    val scheduledTime = Metrics.getTimer(sparkContext, UNTIL_SCHEDULED)
 
     var copyTimeAcc: Long = 0L
     var joinTimeAcc: Long = 0L
 
-    val beforeTime = System.nanoTime()
+    Metrics.masterTimers.update("algorithmStart", System.nanoTime())
 
     config.getJoinAlgorithm match {
       case experiments.WCOJ => {
@@ -71,6 +75,7 @@ case class GraphWCOJExec(outputVariables: Seq[Attribute],
         // TODO not correct yet and not query specific
 
         val ret = partitionRDD.mapPartitionsWithIndex((partition, _) => {
+          scheduledTime.add(partition, System.nanoTime())
           val tc = TaskContext.get()
 
           joinSpecification.partitioning match {
@@ -108,6 +113,7 @@ case class GraphWCOJExec(outputVariables: Seq[Attribute],
 
                 joinTimer.add(partition, joinTimeAcc)
                 copyTimer.add(partition, copyTimeAcc)
+                algorithmEndTime.add(partition, System.nanoTime())
                 false
               } else {
                 val start = System.nanoTime()
