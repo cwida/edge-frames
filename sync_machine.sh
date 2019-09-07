@@ -12,6 +12,9 @@ fi
 
 user=perfuchs
 server_dir=/scratch/per/experimentRunner
+if [ "$target_machine" == 'diamonds1' ]; then
+  server_dir=/export/scratch2/per/experimentRunner
+fi
 
 dirs="target/scala-2.11/*.jar"
 
