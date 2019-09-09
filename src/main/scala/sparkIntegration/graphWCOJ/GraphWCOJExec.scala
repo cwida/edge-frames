@@ -116,18 +116,18 @@ case class GraphWCOJExec(outputVariables: Seq[Attribute],
                 algorithmEndTime.add(partition, System.nanoTime())
                 false
               } else {
-                val start = System.nanoTime()
+//                val start = System.nanoTime()
                 row = join.next()
-                joinTimeAcc += (System.nanoTime() - start)
+//                joinTimeAcc += (System.nanoTime() - start)
                 true
               }
             }
 
             override def getRow: InternalRow = {
-              val start = System.nanoTime()
+//              val start = System.nanoTime()
               internalRowBuffer.row = row
               val ur = toUnsafeProjection(internalRowBuffer)
-              copyTimeAcc += (System.nanoTime() - start)
+//              copyTimeAcc += (System.nanoTime() - start)
 
               ur
             }

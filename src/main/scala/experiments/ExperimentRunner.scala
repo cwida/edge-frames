@@ -409,7 +409,6 @@ object ExperimentRunner extends App {
         s"WCOJ took $wcojTimesAverage in average(max: $wcojTimesMax, min: $wcojTimesMin), copying took in average $copyTimesAverage took.")
       println(
         s"WCOJ took $wcojTimesAverage2 in average(max: $wcojTimesMax2, min: $wcojTimesMin2")
-      println(s"WCOJ took ${}")
       println(s"Spark overhead: ${shortestRep.time - (lastEnd - firstStart) / 1e9}")
     }
 
