@@ -164,7 +164,6 @@ case class WCOJQueryResult(algorithm: Algorithm,
   }
 }
 
-// TODO exclude count times for Spark joins (time after the join)
 object ExperimentRunner extends App {
   val f = new Formatter(Locale.US)
   val formatter = NumberFormat.getInstance(Locale.US).asInstanceOf[DecimalFormat]
@@ -349,6 +348,7 @@ object ExperimentRunner extends App {
       }
     }
 
+    val padding = Seq.fill(config.parallelismLevels.max - result.parallelism)("0")
     csvWriter.writeNext(Array[String](
       result.query.toString,
       result.algorithm.toString,
@@ -361,10 +361,12 @@ object ExperimentRunner extends App {
       String.format(Locale.US, "%.2f", materializationTime.asInstanceOf[Object]),
       algoStart.toString)
       ++ wcojTimes.map(t => String.format(Locale.US, "%.2f", t.asInstanceOf[Object]))
+      ++ padding
       ++ schedulesTimes.map(t => t.toString)
+      ++ padding
       ++ algoEnd.map(t => t.toString)
+      ++ padding
     )
-    // TODO needs to be filled till max parallelism level
 
     csvWriter.flush()
   }
