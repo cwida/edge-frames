@@ -19,11 +19,13 @@ case class WCOJExec(outputVariables: Seq[Attribute], joinSpecification: JoinSpec
 
   val JOIN_TIME_METRIC = "wcoj_join_time"
   val COPY_OUTPUT_TIME_METRIC = "copy_time"
+  val BEFORE_AFTER_TIME = "algorithm_end"
+  val UNTIL_SCHEDULED = "scheduled"
 
   override lazy val metrics = Map(
     JOIN_TIME_METRIC -> SQLMetrics.createTimingMetric(sparkContext, "wcoj time"),
-    COPY_OUTPUT_TIME_METRIC -> SQLMetrics.createTimingMetric(sparkContext, "copy"))
-
+    COPY_OUTPUT_TIME_METRIC -> SQLMetrics.createTimingMetric(sparkContext, "copy")
+  )
 
   override def output: Seq[Attribute] = {
     outputVariables ++ Seq()
@@ -39,11 +41,14 @@ case class WCOJExec(outputVariables: Seq[Attribute], joinSpecification: JoinSpec
 
     val joinTimer = Metrics.getTimer(sparkContext, JOIN_TIME_METRIC)
     val copyTimer = Metrics.getTimer(sparkContext, COPY_OUTPUT_TIME_METRIC)
+    val algorithmEndTime = Metrics.getTimer(sparkContext, BEFORE_AFTER_TIME)
+    val scheduledTime = Metrics.getTimer(sparkContext, UNTIL_SCHEDULED)
 
     var copyTimeAcc: Long = 0L
     var joinTimeAcc: Long = 0L
 
     val beforeTime = System.nanoTime()
+
 
     val childRDDs = children.map(_.execute())
 
@@ -51,6 +56,8 @@ case class WCOJExec(outputVariables: Seq[Attribute], joinSpecification: JoinSpec
 //    require(childRDDs.forall(_.isInstanceOf[TrieIterableRDD[TrieIterable]]))
 
     def zipPartitions(is : List[Iterator[TrieIterable]]): Iterator[InternalRow] = {
+      scheduledTime.add(0, System.nanoTime())
+
       val toUnsafeProjection = UnsafeProjection.create(output.zipWithIndex.map( {
         case (a, i) => BoundReference(i, a.dataType, a.nullable)
       }))
@@ -72,21 +79,21 @@ case class WCOJExec(outputVariables: Seq[Attribute], joinSpecification: JoinSpec
 
               joinTimer.add(0, joinTimeAcc)
               copyTimer.add(0, copyTimeAcc)
-
+              algorithmEndTime.add(0, System.nanoTime())
               false
             } else {
-              val start = System.nanoTime()
+//              val start = System.nanoTime()
               row = join.next()
-              joinTimeAcc += (System.nanoTime() - start)
+//              joinTimeAcc += (System.nanoTime() - start)
               true
             }
           }
 
           override def getRow: InternalRow = {
-            val start = System.nanoTime()
+//            val start = System.nanoTime()
             internalRowBuffer.row = row
             val ur = toUnsafeProjection(internalRowBuffer)
-            copyTimeAcc += (System.nanoTime() - start)
+//            copyTimeAcc += (System.nanoTime() - start)
             ur
           }
         }
@@ -94,6 +101,9 @@ case class WCOJExec(outputVariables: Seq[Attribute], joinSpecification: JoinSpec
       }
       )
     }
+
+    Metrics.masterTimers.update("algorithmStart", System.nanoTime())
+
     config.getJoinAlgorithm match {
       case experiments.WCOJ => {
         val trieIterableRDDs = childRDDs.map(_.asInstanceOf[TrieIterableRDD[TrieIterable]].trieIterables)
