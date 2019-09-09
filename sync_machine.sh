@@ -12,7 +12,7 @@ fi
 
 user=perfuchs
 server_dir=/scratch/per/experimentRunner
-if [ "$target_machine" == 'diamonds1' ]; then
+if [ "$target_machine" == 'diamonds2' ]; then
   server_dir=/export/scratch2/per/experimentRunner
 fi
 
