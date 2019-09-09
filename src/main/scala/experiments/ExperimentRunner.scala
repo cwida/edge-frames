@@ -390,25 +390,27 @@ object ExperimentRunner extends App {
 
       val copyTimesAverage = wcojResults.flatMap(_.copyTimes).sum / wcojResults.map(_.copyTimes.length).sum
 
-      val wcojTimesAverage = wcojResults.flatMap(_.wcojTimes).sum / wcojResults.map(_.wcojTimes.length).sum
-      val wcojTimesAverage2 = wcojResults.flatMap(_.wcojTimes2).sum /
+      val wcojTimesAveragePrecise = wcojResults.flatMap(_.wcojTimes).sum / wcojResults.map(_.wcojTimes.length).sum
+      val wcojTimesAverage = wcojResults.flatMap(_.wcojTimes2).sum /
         wcojResults.map(_.scheduledTimes.length).sum
 
 
-      val wcojTimesMax = wcojResults.flatMap(_.wcojTimes).max
-      val wcojTimesMax2 = wcojResults.flatMap(_.wcojTimes2).max
+      val wcojTimesMaxPrecise = wcojResults.flatMap(_.wcojTimes).max
+      val wcojTimesMax = wcojResults.flatMap(_.wcojTimes2).max
 
-      val wcojTimesMin = wcojResults.flatMap(_.wcojTimes).min
-      val wcojTimesMin2 = wcojResults.flatMap(_.wcojTimes2).min
+      val wcojTimesMinPrecise = wcojResults.flatMap(_.wcojTimes).min
+      val wcojTimesMin = wcojResults.flatMap(_.wcojTimes2).min
 
       val shortestRep = wcojResults.minBy(_.time)
       val firstStart = shortestRep.scheduledTimes.min
       val lastEnd = shortestRep.algorithmEnd.max
 
+      if (wcojTimesAveragePrecise != 0.0) {
+        println(s"(Precise measurement) WCOJ took $wcojTimesAveragePrecise in average(max: $wcojTimesMaxPrecise, " +
+          s"min: $wcojTimesMinPrecise), copying took in average $copyTimesAverage took.")
+      }
       println(
-        s"WCOJ took $wcojTimesAverage in average(max: $wcojTimesMax, min: $wcojTimesMin), copying took in average $copyTimesAverage took.")
-      println(
-        s"WCOJ took $wcojTimesAverage2 in average(max: $wcojTimesMax2, min: $wcojTimesMin2")
+        s"WCOJ took $wcojTimesAverage in average(max: $wcojTimesMax, min: $wcojTimesMin")
       println(s"Spark overhead: ${shortestRep.time - (lastEnd - firstStart) / 1e9}")
     }
 
