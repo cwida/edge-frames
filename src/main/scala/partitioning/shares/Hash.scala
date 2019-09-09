@@ -2,7 +2,6 @@ package partitioning.shares
 
 import scala.util.hashing.MurmurHash3
 
-// TODO much faster hash functions for ints: https://burtleburtle.net/bob/hash/integer.html
 class Hash(seed: Int, max: Int) {
 
   /**

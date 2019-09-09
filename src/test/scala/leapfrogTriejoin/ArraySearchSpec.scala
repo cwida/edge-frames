@@ -5,8 +5,6 @@ import org.scalatest.{FlatSpec, Matchers}
 
 import scala.util.Random
 
-
-// TODO Unit tests are mostly obsolete after the optimizations
 class ArraySearchSpec extends FlatSpec with Matchers with GeneratorDrivenPropertyChecks {
 
   "For a existing key" should "return the position" in {

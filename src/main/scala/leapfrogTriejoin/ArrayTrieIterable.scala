@@ -10,7 +10,6 @@ import collection.JavaConverters._
 
 
 class ArrayTrieIterable(iter: Iterator[InternalRow]) extends TrieIterable {
-  // TODO build needs to tbe done correclty
   private[this] val srcColumn = new ExposedArrayColumnVector(4000000)
   private[this] val dstColumn = new ExposedArrayColumnVector(4000000)
   private[this] var numRows = 0
@@ -18,7 +17,7 @@ class ArrayTrieIterable(iter: Iterator[InternalRow]) extends TrieIterable {
   while (iter.hasNext) {
     val row = iter.next()
     srcColumn.appendLong(row.getLong(0))
-    dstColumn.appendLong(row.getLong(1)) // TODO sync field names and position
+    dstColumn.appendLong(row.getLong(1))
     numRows += 1
   }
   private[this] val tuples = new ColumnarBatch(Array(srcColumn, dstColumn))
@@ -55,7 +54,7 @@ class ArrayTrieIterable(iter: Iterator[InternalRow]) extends TrieIterable {
       assert(depth < maxDepth, "Cannot open TrieIterator at maxDepth")
 
       var newEnd = numRows
-      if (depth >= 0) { // TODO remove ifs?
+      if (depth >= 0) {
         newEnd = currentPosition
 
         val beginValue = currentColumn(currentPosition)
@@ -115,7 +114,7 @@ class ArrayTrieIterable(iter: Iterator[InternalRow]) extends TrieIterable {
 
     override def seek(key: Long): Boolean = {
       if (key != this.key) {
-        currentPosition = ArraySearch.find(currentColumn, key, currentPosition, end(depth))  // TODO use currentEnd
+        currentPosition = ArraySearch.find(currentColumn, key, currentPosition, end(depth))
         updateAtEnd()
       }
       isAtEnd

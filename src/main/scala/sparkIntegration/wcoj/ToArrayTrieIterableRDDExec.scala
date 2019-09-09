@@ -37,7 +37,7 @@ case class ToArrayTrieIterableRDDExec(child: SparkPlan, attributeOrdering: Seq[S
         val trieIterable = new ArrayTrieIterable(iter.map(
           ir => {
             if (attributeOrdering == Seq("src", "dst")) {
-              new GenericInternalRow(Array[Any](ir.getLong(0), ir.getLong(1)))  // TODO should I safe this rewrite, e.g. by doing it in ArrayTrieIterable
+              new GenericInternalRow(Array[Any](ir.getLong(0), ir.getLong(1)))
             } else {
               new GenericInternalRow(Array[Any](ir.getLong(1), ir.getLong(0)))
             }

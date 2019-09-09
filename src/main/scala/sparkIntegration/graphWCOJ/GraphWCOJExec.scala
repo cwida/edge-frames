@@ -72,7 +72,6 @@ case class GraphWCOJExec(outputVariables: Seq[Attribute],
       case GraphWCOJ => {
         val partitionRDD = partitionChild.execute()
         val csrBroadcast = graphChild.executeBroadcast[(TrieIterable, TrieIterable)]()
-        // TODO not correct yet and not query specific
 
         val ret = partitionRDD.mapPartitionsWithIndex((partition, _) => {
           scheduledTime.add(partition, System.nanoTime())
@@ -91,7 +90,6 @@ case class GraphWCOJExec(outputVariables: Seq[Attribute],
             }
           }
 
-          // TODO empty partitions?
           val toUnsafeProjection = UnsafeProjection.create(output.zipWithIndex.map({
             case (a, i) => {
               BoundReference(i, a.dataType, a.nullable)

@@ -83,12 +83,11 @@ class LeapfrogTriejoin(trieIterators: Map[EdgeRelationship, TrieIterator],
   // Any TrieIterator returns the same translation, we choose the first.
   val translator = trieIterators.values.head
 
-  // TODO avoid copying
   def next(): Array[Long] = {
     if (atEnd) {
       throw new IllegalStateException("Cannot call next of LeapfrogTriejoin when already at end.")
     }
-    val tuple = new Array[Long](maxDepth + 1) // TODO if I don't use a new array each time this will be faster
+    val tuple = new Array[Long](maxDepth + 1)
     bindings.copyToArray(tuple)
     translator.translate(tuple)
     moveToNextTuple()

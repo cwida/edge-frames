@@ -31,7 +31,6 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
     new TrieIteratorImpl(partition, partitioning, dimensionFirstLevel, dimensionSecondLevel)
   }
 
-  // TODO sort out range filtering functionality, either in here or in MultiRangePartitionTrieIterator
   class TrieIteratorImpl(
                           val partition: Option[Int],
                           val partitioning: Option[Partitioning],
@@ -121,7 +120,7 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
       if (depth == 0) {
         srcPosition = firstSourcePosition
         keyValue = srcPosition.toLong
-      } else if (depth == 1) { // TODO predicatable
+      } else if (depth == 1) {
         dstPosition = edgeIndices(srcPosition)
         isAtEnd = secondLevelUpperBound <= edges(dstPosition)
         if (!isAtEnd && secondLevelLowerBound != 0) {
@@ -170,13 +169,12 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
 
     override def seek(key: Long): Boolean = {
       assert(!atEnd)
-      if (keyValue < key) {  // TODO quickfix, why does this call even happen, clique3 either amazon0302 or liveJournal
+      if (keyValue < key) {
         assert(keyValue < key)
         if (depth == 0) {
           srcPosition = key.toInt
-          if (srcPosition < edgeIndices.length - 1 && // TODO srcPosition should never be bigger than edgeIndices.lenght -  1, investigate
-            edgeIndices(srcPosition) == edgeIndices(srcPosition + 1)) { // TODO does srcPosition < edgeIndices.length - 1 ruin
-            // predicatability?
+          if (srcPosition < edgeIndices.length - 1 &&
+            edgeIndices(srcPosition) == edgeIndices(srcPosition + 1)) {
             moveToNextSrcPosition()
           }
           isAtEnd = firstLevelUpperBound <= srcPosition
@@ -198,7 +196,7 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
 
       do {
         srcPosition += 1
-      } while (srcPosition < edgeIndices.length - 1 && edgeIndices(srcPosition + 1) == indexToSearch) // TODO sentry element
+      } while (srcPosition < edgeIndices.length - 1 && edgeIndices(srcPosition + 1) == indexToSearch)
     }
 
     // For testing
@@ -297,7 +295,7 @@ object CSRTrieIterable {
       val alignedZippedIter = new AlignedZippedIterator(iterSrcDst, iterDstSrc).buffered
 
       val verticeIDsBuffer = new ArrayBuffer[Long](10000)
-      val edgeIndicesSrcBuffer = new ArrayBuffer[Int](10000) // TODO those two are the same.
+      val edgeIndicesSrcBuffer = new ArrayBuffer[Int](10000)
       val edgeIndicesDstBuffer = new ArrayBuffer[Int](10000)
       val edgesDstBuffer = new ArrayBuffer[Long](10000)
       val edgesSrcBuffer = new ArrayBuffer[Long](10000)
@@ -336,7 +334,6 @@ object CSRTrieIterable {
 
       verticeIDsBuffer.append(lastVertice)
 
-      // TODO Optimize
       val edgesDstArray = edgesDstBuffer.toArray.map(dst => verticeIDToIndex(dst))
       val edgesSrcArray = edgesSrcBuffer.toArray.map(src => verticeIDToIndex(src))
 

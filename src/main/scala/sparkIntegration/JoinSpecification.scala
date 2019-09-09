@@ -104,7 +104,6 @@ class JoinSpecification(joinPattern: Seq[Pattern], val variableOrdering: Seq[Str
                     .flatMap(r => Seq(r._1, r._2)).toArray
 
                   new RangeFilteredTrieIterator(partition, firstDimensionRanges, secondDimensionRanges, ti)
-                  // TODO use TrieIterator directly for a single range
 //                  new MultiRangePartitionTrieIterator(Array(trieIterable.minValue, trieIterable.maxValue), Array(trieIterable.minValue, trieIterable.maxValue), ti)
 //                  trieIterables(0).asInstanceOf[CSRTrieIterable].trieIterator(
 //                    partition,

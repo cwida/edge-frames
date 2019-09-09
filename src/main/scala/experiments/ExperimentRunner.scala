@@ -60,7 +60,6 @@ case object BroadcastHashJoin extends BinaryJoins {
 
 }
 
-// TODO migrate to Datasets
 sealed trait DatasetType {
   def loadDataset(filePath: String, sp: SparkSession): DataFrame
 }

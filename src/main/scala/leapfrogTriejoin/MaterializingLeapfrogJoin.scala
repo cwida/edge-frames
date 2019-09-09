@@ -92,7 +92,7 @@ class MaterializingLeapfrogJoin(var iterators: Array[TrieIterator],
       }
 
       isAtEnd = fallback.atEnd
-      if (!isAtEnd) {  // TODO unnessesary if?
+      if (!isAtEnd) {
         keyValue = fallback.key
       }
     } else {
@@ -173,8 +173,6 @@ class MaterializingLeapfrogJoin(var iterators: Array[TrieIterator],
     materializedValues(i) = -1
   }
 
-  // TODO reused of intersection! see print of mat after first and second intersection
-
   private def intersect(i1: LinearIterator, i2: LinearIterator): Unit = {
     var valueCounter = 0
     while (!i1.atEnd && !i2.atEnd) {
@@ -192,7 +190,7 @@ class MaterializingLeapfrogJoin(var iterators: Array[TrieIterator],
     materializedValues(valueCounter) = -1
   }
 
-  private def intersect(iter: LinearIterator): Unit = { // TODO optimizable?
+  private def intersect(iter: LinearIterator): Unit = {
 
     //    val buffer = mutable.Buffer[Long]()
     //    val clone = iter.clone()
@@ -261,11 +259,11 @@ class MaterializingLeapfrogJoin(var iterators: Array[TrieIterator],
       } else {
         fallback.leapfrogNext()
         isAtEnd = fallback.atEnd
-        if (!isAtEnd) {  // TODO unnessesary if?
+        if (!isAtEnd) {
           keyValue = fallback.key
         }
       }
-    } while (coordinate != -1 && !isAtEnd && hash.hash(keyValue.toInt) != coordinate) // TODO optimizable by combining loops?
+    } while (coordinate != -1 && !isAtEnd && hash.hash(keyValue.toInt) != coordinate)
   }
 
   @inline
@@ -273,7 +271,7 @@ class MaterializingLeapfrogJoin(var iterators: Array[TrieIterator],
     var i = 0
     var in = true
     while (!isAtEnd && i < firstLevelIterators.length) {
-      if (!firstLevelIterators(i).seek(value)) { // TODO can i optimize that for the case that it is nearly always true?
+      if (!firstLevelIterators(i).seek(value)) {
         in &= firstLevelIterators(i).key == value
       } else {
         isAtEnd = true

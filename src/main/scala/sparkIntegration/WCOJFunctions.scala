@@ -31,7 +31,6 @@ class WCOJFunctions[T](ds: Dataset[T]) {
             ds.alias(s"edges_${
               i.toString
             }")
-              // TODO can I remove this now?
               .withColumnRenamed("src", s"src") // Needed to guarantee that src and dst on the aliases are referenced by different attributes.
               .withColumnRenamed("dst", s"dst")
           }

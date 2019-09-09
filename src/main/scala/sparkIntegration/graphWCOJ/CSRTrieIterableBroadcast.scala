@@ -18,8 +18,6 @@ import sparkIntegration.graphWCOJ.CSRCache
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService, Future, TimeoutException}
 
-
-// TODO should be exchange?
 case class CSRTrieIterableBroadcast(graphID: Int, forwardEdges: SparkPlan, backwardEdges: SparkPlan, graphCSRFile: String = "")
   extends SparkPlan {
   private val broadcastTimeout = WCOJConfiguration.get(sparkContext).broadcastTimeout
@@ -83,8 +81,6 @@ case class CSRTrieIterableBroadcast(graphID: Int, forwardEdges: SparkPlan, backw
             println(s"Reading CSR object from disk: $graphCSRFile")
             readFromDisk()
           } else {
-            // TODO can I build the CSR still in parallel on the executors?
-
             // Use executeCollect/executeCollectIterator to avoid conversion to Scala types
             val (sizeHintForward, forwardInput) = forwardEdges.executeCollectIterator()
             val (sizeHintBackwards, backwardInput) = backwardEdges.executeCollectIterator()

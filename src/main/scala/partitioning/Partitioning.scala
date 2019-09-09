@@ -37,7 +37,7 @@ case class SharesRange(hypercube: Option[Hypercube] = None, prefix: Option[Int] 
   override def toString: String = {
     hypercube match {
       case Some(Hypercube(dimensionSizes)) => {
-        s"SharesRange(${dimensionSizes.mkString(", ")})" // TODO no commas in name because that ruins CSVs
+        s"SharesRange(${dimensionSizes.mkString("; ")})"
       }
       case None => {
         s"SharesRange(Uninitialized, prefix=$prefix)"
@@ -209,7 +209,6 @@ case class SingleVariablePartitioning(variable: Int) extends Partitioning {
     SharesRange(Some(Hypercube(dimensions)))
   }
 
-  // TODO should I print this as name?
   override def getWorkersUsed(workersTotal: Int): Int = {
     workersTotal
   }

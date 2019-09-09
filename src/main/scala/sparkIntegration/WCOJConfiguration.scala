@@ -9,7 +9,6 @@ import partitioning.{AllTuples, Partitioning}
 
 import scala.collection.mutable
 
-// TODO correct overwriting of getters and setters in Scala?
 class WCOJConfiguration private(
                                  var broadcastTimeout: Int,
                                  private var parallelism: Int,

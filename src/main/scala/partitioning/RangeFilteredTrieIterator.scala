@@ -60,7 +60,6 @@ class RangeFilteredTrieIterator(
   }
 
   private def updateRange(): Unit = {
-    // TODO faster with array instead of variables per depth?
     if (!isAtEnd) {
       if (trieIterator.getDepth == 0 && ranges1stLevel(firstLevelRangePosition + 1) <= trieIterator.key) {
         while (firstLevelRangePosition + 1 < ranges1stLevel.length && ranges1stLevel(firstLevelRangePosition + 1) <= trieIterator.key) {
@@ -108,7 +107,6 @@ class RangeFilteredTrieIterator(
     trieIterator.getDepth
   }
 
-  // TODO good estimate size implementation
   override def estimateSize: Int = {
     trieIterator.estimateSize
   }

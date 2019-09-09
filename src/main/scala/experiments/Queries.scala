@@ -314,7 +314,6 @@ object Queries {
   }
 
 
-  // TODO run binaries on worst order
   private def fourCliqueBinaryJoins(sp: SparkSession, rel: DataFrame): DataFrame = {
     import sp.implicits._
     val triangles = triangleBinaryJoins(sp, rel)

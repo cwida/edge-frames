@@ -8,7 +8,6 @@ object ArraySearch {
 
   private val LINEAR_SEARCH_THRESHOLD = 60
 
-  // TODO could be used with summary
   def find(values: Array[Long], key: Long, start: Int, end: Int): Int = {
     assert(0 <= start)
     assert(start < end)
@@ -33,7 +32,6 @@ object ArraySearch {
     }
   }
 
-  // TODO write more unit tests about this
   @inline
   def binarySearch(vector: Array[Long], key: Long, start: Int, end: Int): Int = {
     assert(0 <= start)
