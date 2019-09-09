@@ -23,8 +23,11 @@ object Readers {
       case "graphWCOJ" => {
         GraphWCOJ
       }
-      case "bin" => {
-        BinaryJoins
+      case "broadcast" => {
+        BroadcastHashJoin
+      }
+      case "sortmerge" => {
+        SortMergeJoin
       }
       case _ => {
         throw new IllegalArgumentException("Algorithm can be only `WCOJ`, `graphWCOJ` or `bin`")
@@ -46,7 +49,15 @@ case object WCOJ extends WCOJAlgorithm {
 case object GraphWCOJ extends WCOJAlgorithm {
 }
 
-case object BinaryJoins extends Algorithm {
+sealed trait BinaryJoins extends Algorithm {
+}
+
+case object SortMergeJoin extends BinaryJoins {
+
+}
+
+case object BroadcastHashJoin extends BinaryJoins {
+
 }
 
 // TODO migrate to Datasets
@@ -91,7 +102,7 @@ case object Orkut extends DatasetType {
 }
 
 case class ExperimentConfig(
-                             algorithms: Seq[Algorithm] = Seq(WCOJ, BinaryJoins),
+                             algorithms: Seq[Algorithm] = Seq(WCOJ),
                              datasetType: DatasetType = AmazonCoPurchase,
                              datasetFilePath: String = ".",
                              queries: Seq[Query] = Seq.empty,
@@ -123,14 +134,11 @@ sealed trait QueryResult {
   def parallelism: Int
 }
 
-case class BinaryQueryResult(query: Query, parallelism: Int, count: Long, start: Long, end: Long) extends QueryResult {
+case class BinaryQueryResult(algorithm: Algorithm, query: Query, parallelism: Int, count: Long, start: Long, end: Long) extends
+  QueryResult {
 
   override def time: Double = {
     (end - start) / 1e9
-  }
-
-  override def algorithm: Algorithm = {
-    BinaryJoins
   }
 }
 
@@ -416,7 +424,7 @@ object ExperimentRunner extends App {
   private def cacheGraphBroadcast(): Unit = {
     for (algoritm <- config.algorithms) {
       algoritm match {
-        case BinaryJoins | WCOJ => {
+        case _ : BinaryJoins | WCOJ => {
           // Do nothing
         }
         case GraphWCOJ => {
@@ -447,15 +455,28 @@ object ExperimentRunner extends App {
   private def runQuery(algorithms: Seq[Algorithm], query: Query): Unit = {
     for (pl <- config.parallelismLevels) {
       wcojConfig.setParallelism(pl)
+
+      val dsPartitioned = ds.repartition(pl).cache()
+      if (algorithms.exists(_.isInstanceOf[BinaryJoins])) {
+        dsPartitioned.count()
+      }
+
       for (p <- config.partitionings) {
         wcojConfig.setPartitioning(p)
-        if ((p == AllTuples() && pl == 1) || (pl != 1 && p != AllTuples())) {
-          for (algoritm <- algorithms) {
+        for (algoritm <- algorithms) {
+          if ((p == AllTuples() && pl == 1)
+            || (pl != 1 && p != AllTuples())
+            || (p == AllTuples() && algoritm.isInstanceOf[BinaryJoins])) {
             for (bs <- config.workstealingBatchSizes) {
               wcojConfig.setWorkstealingBatchSize(bs)
               val queryDataFrame = algoritm match {
-                case BinaryJoins => {
-                  query.applyBinaryQuery(ds, sp)
+                case a : BinaryJoins => {
+                  if (a == SortMergeJoin) {
+                    sp.conf.set("spark.sql.autoBroadcastJoinThreshold", "-1") // High threshold
+                  } else {
+                    sp.conf.set("spark.sql.autoBroadcastJoinThreshold", "104857600") // High threshold
+                  }
+                  query.applyBinaryQuery(dsPartitioned, sp)
                 }
                 case WCOJ | GraphWCOJ => {
                   wcojConfig.setJoinAlgorithm(algoritm.asInstanceOf[WCOJAlgorithm])
@@ -464,10 +485,8 @@ object ExperimentRunner extends App {
               }
 
               algoritm match {
-                case BinaryJoins => {
-                  if (pl == 1) { // TODO enable running spark in parallel
-                    runAndReportPlan(queryDataFrame, query, algoritm, p, pl)
-                  }
+                case a: BinaryJoins => {
+                  runAndReportPlan(queryDataFrame, query, algoritm, p, pl)
                 }
                 case WCOJ => {
                   wcojConfig.setShouldMaterialize(false)
@@ -526,8 +545,8 @@ object ExperimentRunner extends App {
             materializationTimes.map(_._2.toDouble / 1e9).headOption
           )
         }
-        case BinaryJoins => {
-          BinaryQueryResult(query, parallelism, count, start, end)
+        case _: BinaryJoins => {
+          BinaryQueryResult(algorithm, query, parallelism, count, start, end)
         }
       }
       reportResult(result)
