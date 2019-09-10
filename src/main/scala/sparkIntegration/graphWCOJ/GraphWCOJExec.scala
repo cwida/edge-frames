@@ -63,7 +63,7 @@ case class GraphWCOJExec(outputVariables: Seq[Attribute],
     var copyTimeAcc: Long = 0L
     var joinTimeAcc: Long = 0L
 
-    Metrics.masterTimers.update("algorithmStart", System.nanoTime())
+    Metrics.masterTimers.update("algorithmStart", System.currentTimeMillis())
 
     config.getJoinAlgorithm match {
       case experiments.WCOJ => {
@@ -74,7 +74,7 @@ case class GraphWCOJExec(outputVariables: Seq[Attribute],
         val csrBroadcast = graphChild.executeBroadcast[(TrieIterable, TrieIterable)]()
 
         val ret = partitionRDD.mapPartitionsWithIndex((partition, _) => {
-          scheduledTime.add(partition, System.nanoTime())
+          scheduledTime.add(partition, System.currentTimeMillis())
           val tc = TaskContext.get()
 
           joinSpecification.partitioning match {
@@ -111,7 +111,7 @@ case class GraphWCOJExec(outputVariables: Seq[Attribute],
 
                 joinTimer.add(partition, joinTimeAcc)
                 copyTimer.add(partition, copyTimeAcc)
-                algorithmEndTime.add(partition, System.nanoTime())
+                algorithmEndTime.add(partition, System.currentTimeMillis())
                 false
               } else {
 //                val start = System.nanoTime()

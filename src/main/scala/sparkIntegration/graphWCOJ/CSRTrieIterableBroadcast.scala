@@ -73,7 +73,7 @@ case class CSRTrieIterableBroadcast(graphID: Int, forwardEdges: SparkPlan, backw
       // This will run in another thread. Set the execution id so that we can connect these jobs
       // with the correct execution.
       SQLExecution.withExecutionId(sqlContext.sparkSession, executionId) {
-        val beforeCollect = System.nanoTime()
+        val beforeCollect = System.currentTimeMillis()
         var writingTime = 0L
 
         val (csrForward, csrBackward) =
@@ -85,30 +85,30 @@ case class CSRTrieIterableBroadcast(graphID: Int, forwardEdges: SparkPlan, backw
             val (sizeHintForward, forwardInput) = forwardEdges.executeCollectIterator()
             val (sizeHintBackwards, backwardInput) = backwardEdges.executeCollectIterator()
 
-            val beforeBuild = System.nanoTime()
-            longMetric(COLLECT_TIME) += (beforeBuild - beforeCollect) / 1000000
+            val beforeBuild = System.currentTimeMillis()
+            longMetric(COLLECT_TIME) += (beforeBuild - beforeCollect) / 1000
 
             val (forward, backward) = CSRTrieIterable.buildBothDirectionsFrom(forwardInput,
               backwardInput.map(t => InternalRow(t.getLong(1), t.getLong(0))))
-            longMetric(BUILD_TIME) += (System.nanoTime() - beforeBuild) / 1000000
+            longMetric(BUILD_TIME) += (System.currentTimeMillis() - beforeBuild) / 1000
 
             if (graphCSRFile != "") {
-              val beforeWriting = System.nanoTime()
+              val beforeWriting = System.currentTimeMillis()
               println(s"Writing CSR object to disk: $graphCSRFile")
               writeToDisk(forward, backward)
-              writingTime = System.nanoTime() - beforeWriting
+              writingTime = System.currentTimeMillis() - beforeWriting
             }
 
             (forward, backward)
           }
 
-        val beforeBroadcast = System.nanoTime()
+        val beforeBroadcast = System.currentTimeMillis()
 
         val broadcasted = sparkContext.broadcast((csrForward, csrBackward))
-        val end = System.nanoTime()
-        longMetric(BROADCAST_TIME) += (end - beforeBroadcast) / 1000000
+        val end = System.currentTimeMillis()
+        longMetric(BROADCAST_TIME) += (end - beforeBroadcast) / 1000
 
-        longMetric(MATERIALIZATION_TIME_METRIC) += (end - beforeCollect - writingTime) / 1000000
+        longMetric(MATERIALIZATION_TIME_METRIC) += (end - beforeCollect - writingTime) / 1000
         Metrics.masterTimers.put(MATERIALIZATION_TIME_METRIC, end - beforeCollect - writingTime)
 
         SQLMetrics.postDriverMetricUpdates(sparkContext, executionId, metrics.values.toSeq)

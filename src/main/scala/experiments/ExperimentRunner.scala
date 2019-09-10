@@ -137,7 +137,7 @@ case class BinaryQueryResult(algorithm: Algorithm, query: Query, parallelism: In
   QueryResult {
 
   override def time: Double = {
-    (end - start) / 1e9
+    (end - start) / 1e3
   }
 }
 
@@ -155,11 +155,11 @@ case class WCOJQueryResult(algorithm: Algorithm,
                            copyTimes: List[Double],
                            materializationTime: Option[Double]) extends QueryResult {
   override def time: Double = {
-    (end - start) / 1e9
+    (end - start) / 1e3
   }
 
   def wcojTimes2: Seq[Double] = {
-    scheduledTimes.zip(algorithmEnd).map(t => (t._2 - t._1) / 1e9)
+    scheduledTimes.zip(algorithmEnd).map(t => (t._2 - t._1) / 1e3)
   }
 }
 
@@ -412,7 +412,7 @@ object ExperimentRunner extends App {
       }
       println(
         s"WCOJ took $wcojTimesAverage in average(max: $wcojTimesMax, min: $wcojTimesMin")
-      println(s"Spark overhead: ${shortestRep.time - (lastEnd - firstStart) / 1e9}")
+      println(s"Spark overhead: ${shortestRep.time - (lastEnd - firstStart) / 1e3}")
     }
 
     println("")
@@ -436,8 +436,8 @@ object ExperimentRunner extends App {
           val csrFileName = graphFilenameToCSRFilename(config.datasetFilePath)
           Queries.cliquePattern(3, ds, false, csrFileName).count() // Trigger caching
 
-          println(s"GraphWCOJ broadcast materialization took: ${Metrics.masterTimers("materializationTime").toDouble / 1e9} seconds")
-          reportMaterializationTime(Metrics.masterTimers("materializationTime").toDouble / 1e9, algoritm)
+          println(s"GraphWCOJ broadcast materialization took: ${Metrics.masterTimers("materializationTime").toDouble / 1e3} seconds")
+          reportMaterializationTime(Metrics.masterTimers("materializationTime").toDouble / 1e3, algoritm)
         }
       }
     }
@@ -520,9 +520,9 @@ object ExperimentRunner extends App {
     for (i <- 1 to config.reps) {
       System.gc()
       print(".")
-      val start = System.nanoTime()
+      val start = System.currentTimeMillis()
       val count = plan.count()
-      val end = System.nanoTime()
+      val end = System.currentTimeMillis()
 
       val result = algorithm match {
         case WCOJ | GraphWCOJ => {
@@ -542,9 +542,9 @@ object ExperimentRunner extends App {
             algorithmStart,
             scheduled.sortBy(_._1).map(_._2),
             algorithmEnd.sortBy(_._1).map(_._2),
-            joinTimes.sortBy(_._1).map(_._2.toDouble / 1e9),
-            copyTimes.sortBy(_._1).map(_._2.toDouble / 1e9),
-            materializationTimes.map(_._2.toDouble / 1e9).headOption
+            joinTimes.sortBy(_._1).map(_._2.toDouble / 1e3),
+            copyTimes.sortBy(_._1).map(_._2.toDouble / 1e3),
+            materializationTimes.map(_._2.toDouble / 1e3).headOption
           )
         }
         case _: BinaryJoins => {

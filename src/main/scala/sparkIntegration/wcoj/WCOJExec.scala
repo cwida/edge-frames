@@ -47,8 +47,9 @@ case class WCOJExec(outputVariables: Seq[Attribute], joinSpecification: JoinSpec
     var copyTimeAcc: Long = 0L
     var joinTimeAcc: Long = 0L
 
-    val beforeTime = System.nanoTime()
+    val beforeTime = System.currentTimeMillis()
 
+    Metrics.masterTimers.update("algorithmStart", beforeTime)
 
     val childRDDs = children.map(_.execute())
 
@@ -56,7 +57,7 @@ case class WCOJExec(outputVariables: Seq[Attribute], joinSpecification: JoinSpec
 //    require(childRDDs.forall(_.isInstanceOf[TrieIterableRDD[TrieIterable]]))
 
     def zipPartitions(is : List[Iterator[TrieIterable]]): Iterator[InternalRow] = {
-      scheduledTime.add(0, System.nanoTime())
+      scheduledTime.add(0, System.currentTimeMillis())
 
       val toUnsafeProjection = UnsafeProjection.create(output.zipWithIndex.map( {
         case (a, i) => BoundReference(i, a.dataType, a.nullable)
@@ -79,7 +80,7 @@ case class WCOJExec(outputVariables: Seq[Attribute], joinSpecification: JoinSpec
 
               joinTimer.add(0, joinTimeAcc)
               copyTimer.add(0, copyTimeAcc)
-              algorithmEndTime.add(0, System.nanoTime())
+              algorithmEndTime.add(0, System.currentTimeMillis())
               false
             } else {
 //              val start = System.nanoTime()
@@ -102,7 +103,7 @@ case class WCOJExec(outputVariables: Seq[Attribute], joinSpecification: JoinSpec
       )
     }
 
-    Metrics.masterTimers.update("algorithmStart", System.nanoTime())
+    Metrics.masterTimers.update("algorithmStart", System.currentTimeMillis())
 
     config.getJoinAlgorithm match {
       case experiments.WCOJ => {

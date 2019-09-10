@@ -33,7 +33,7 @@ case class ToArrayTrieIterableRDDExec(child: SparkPlan, attributeOrdering: Seq[S
 
     new TrieIterableRDD[ArrayTrieIterable](child.execute()
       .mapPartitions(iter => {
-        val start = System.nanoTime()
+        val start = System.currentTimeMillis()
         val trieIterable = new ArrayTrieIterable(iter.map(
           ir => {
             if (attributeOrdering == Seq("src", "dst")) {
@@ -44,7 +44,7 @@ case class ToArrayTrieIterableRDDExec(child: SparkPlan, attributeOrdering: Seq[S
           }
         ))
 
-        val end = System.nanoTime()
+        val end = System.currentTimeMillis()
 
         matTime += (end - start) / 1000000
         materializationTimer.add((0, end - start))
