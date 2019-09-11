@@ -9,4 +9,4 @@ fi
 
 
 
-rsync  perfuchs@$target_machine:/scratch/per/experimentRunner/results/* brickResults
+rsync  perfuchs@$target_machine:/export/scratch2/per/experimentRunner/results/* brickResults

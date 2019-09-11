@@ -21,7 +21,7 @@ case class Shares(hypercube: Hypercube = Hypercube(Array[Int]())) extends Partit
     if (hypercube.dimensionSizes.isEmpty) {
       "Shares(Uninitialized)"
     } else {
-      s"Shares(${hypercube.dimensionSizes.mkString(", ")})"
+      s"Shares(${hypercube.dimensionSizes.mkString("; ")})"
     }
   }
 
