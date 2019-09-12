@@ -301,6 +301,7 @@ object ExperimentRunner extends App {
 
     csvWriter.writeNext(Array(s"# Dataset: ${config.datasetType} ${ds.count()} ${config.datasetFilePath}"))
     csvWriter.writeNext(Array(s"# Repetitions: ${config.reps}"))
+    csvWriter.writeNext(Array(s"# Batchsize: ${config.workstealingBatchSizes}"))
     csvWriter.writeNext(Array(s"# Git commit: ${BuildInfo.gitCommit}"))
     csvWriter.writeNext(Array(s"# Materializing Leapfrogjoins: ${
       if (config.materializeLeapfrogs) {
