@@ -1,6 +1,7 @@
 package experiments
 
 import java.io.{BufferedWriter, File, FileOutputStream, FileWriter}
+import java.net.InetAddress
 import java.text.{DecimalFormat, NumberFormat}
 import java.util.{Formatter, Locale}
 
@@ -303,6 +304,7 @@ object ExperimentRunner extends App {
     csvWriter.writeNext(Array(s"# Repetitions: ${config.reps}"))
     csvWriter.writeNext(Array(s"# Batchsize: ${config.workstealingBatchSizes}"))
     csvWriter.writeNext(Array(s"# Git commit: ${BuildInfo.gitCommit}"))
+    csvWriter.writeNext(Array(s"# Machine: ${InetAddress.getLocalHost.getHostName}"))
     csvWriter.writeNext(Array(s"# Materializing Leapfrogjoins: ${
       if (config.materializeLeapfrogs) {
         "Enabled (for GraphWCOJ only, WCOJ run without materializing)"

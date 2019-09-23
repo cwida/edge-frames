@@ -15,6 +15,9 @@ server_dir=/scratch/per/experimentRunner
 if [ "$target_machine" == 'diamonds2' ]; then
   server_dir=/export/scratch2/per/experimentRunner
 fi
+if [ "$target_machine" == 'diamonds3' ]; then
+  server_dir=/export/scratch2/per/experimentRunner
+fi
 
 dirs="target/scala-2.11/*.jar"
 
