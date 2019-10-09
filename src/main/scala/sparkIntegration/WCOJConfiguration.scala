@@ -72,9 +72,14 @@ class WCOJConfiguration private(
 
   def setShouldMaterialize(value: Boolean): WCOJConfiguration = {
     if (shouldMaterialize != value) {
+      if (value) {
+        println("Leapfrogjoins ARE materialized")
+      } else {
+        println("Leapfrogjoins are NOT materialized")
+      }
       shouldMaterialize = value
-      MaterializingLeapfrogJoin.setShouldMaterialize(value)
     }
+    MaterializingLeapfrogJoin.setShouldMaterialize(value)
     this
   }
 
