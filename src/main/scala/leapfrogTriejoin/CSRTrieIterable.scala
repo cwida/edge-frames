@@ -1,5 +1,6 @@
 package leapfrogTriejoin
 
+import experiments.ExperimentRunner
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.GenericInternalRow
 import partitioning.{Partitioning, SharesRange}
@@ -168,6 +169,7 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
     }
 
     override def seek(key: Long): Boolean = {
+      ExperimentRunner.seekCalls += 1
       assert(!atEnd)
       if (keyValue < key) {
         assert(keyValue < key)

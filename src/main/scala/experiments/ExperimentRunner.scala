@@ -13,6 +13,9 @@ import partitioning.{AllTuples, Partitioning, Shares}
 import scopt.OParser
 import sparkIntegration.{WCOJ2WCOJExec, WCOJConfiguration}
 
+import java.lang.management.ManagementFactory
+import java.lang.management.RuntimeMXBean
+
 import scala.collection.mutable.ListBuffer
 
 object Readers {
@@ -165,6 +168,8 @@ case class WCOJQueryResult(algorithm: Algorithm,
 }
 
 object ExperimentRunner extends App {
+  var seekCalls = 0
+
   val f = new Formatter(Locale.US)
   val formatter = NumberFormat.getInstance(Locale.US).asInstanceOf[DecimalFormat]
   val symbols = formatter.getDecimalFormatSymbols
@@ -190,6 +195,13 @@ object ExperimentRunner extends App {
   cacheGraphBroadcast()
 
   println()
+
+  val bean = ManagementFactory.getRuntimeMXBean
+  val jvmName = bean.getName
+
+  val pid = jvmName.split("@")(0).toLong
+
+  println("PID is: $pid")
   runQueries()
 
   scala.io.StdIn.readLine("Stop?")
@@ -417,7 +429,8 @@ object ExperimentRunner extends App {
         s"WCOJ took $wcojTimesAverage in average(max: $wcojTimesMax, min: $wcojTimesMin")
       println(s"Spark overhead: ${shortestRep.time - (lastEnd - firstStart) / 1e3}")
     }
-
+    println("Calls to seek:", seekCalls)
+    seekCalls = 0
     println("")
   }
 
