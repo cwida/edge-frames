@@ -524,7 +524,6 @@ object ExperimentRunner extends App {
       System.gc()
       print(".")
       val start = System.currentTimeMillis()
-      plan.explain(true)
       val count = plan.count()
       val end = System.currentTimeMillis()
 
