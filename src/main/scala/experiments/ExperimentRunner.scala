@@ -201,7 +201,7 @@ object ExperimentRunner extends App {
 
   val pid = jvmName.split("@")(0).toLong
 
-  println("PID is: $pid")
+  println(s"PID is: $pid")
   runQueries()
 
   scala.io.StdIn.readLine("Stop?")
