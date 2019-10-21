@@ -168,8 +168,6 @@ case class WCOJQueryResult(algorithm: Algorithm,
 }
 
 object ExperimentRunner extends App {
-  var seekCalls = 0
-
   val f = new Formatter(Locale.US)
   val formatter = NumberFormat.getInstance(Locale.US).asInstanceOf[DecimalFormat]
   val symbols = formatter.getDecimalFormatSymbols
@@ -429,8 +427,6 @@ object ExperimentRunner extends App {
         s"WCOJ took $wcojTimesAverage in average(max: $wcojTimesMax, min: $wcojTimesMin")
       println(s"Spark overhead: ${shortestRep.time - (lastEnd - firstStart) / 1e3}")
     }
-    println("Calls to seek:", seekCalls)
-    seekCalls = 0
     println("")
   }
 

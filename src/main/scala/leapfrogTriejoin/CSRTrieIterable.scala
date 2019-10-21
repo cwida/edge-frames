@@ -171,7 +171,6 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
     }
 
     override def seek(key: Long): Boolean = {
-      ExperimentRunner.seekCalls += 1
       assert(!atEnd)
       if (keyValue < key) {
         assert(keyValue < key)
