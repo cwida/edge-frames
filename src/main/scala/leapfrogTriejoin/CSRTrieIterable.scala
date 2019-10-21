@@ -39,6 +39,8 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
                           val dimensionSecondLevel: Option[Int]
                         ) extends TrieIterator {
 
+    private[this] val LINEAR_SEARCH_THRESHOLD = 1600
+
     /*
      Partitioning
      Allows to bind both levels of the iterator to a range of values. The lower bound is included the upper bound is excluded.
@@ -183,7 +185,7 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
           keyValue = srcPosition.toLong
           isAtEnd
         } else {
-          dstPosition = ArraySearch.find(edges, key, dstPosition, edgeIndices(srcPosition + 1))
+          dstPosition = ArraySearch.find(edges, key, dstPosition, edgeIndices(srcPosition + 1), LINEAR_SEARCH_THRESHOLD)
           isAtEnd = dstPosition == edgeIndices(srcPosition + 1) || secondLevelUpperBound <= edges(dstPosition)
           if (!isAtEnd) {
             keyValue = edges(dstPosition)

@@ -10,6 +10,8 @@ import collection.JavaConverters._
 
 
 class ArrayTrieIterable(iter: Iterator[InternalRow]) extends TrieIterable {
+  private[this] val LINEAR_SEARCH_THRESHOLD = 200
+
   private[this] val srcColumn = new ExposedArrayColumnVector(4000000)
   private[this] val dstColumn = new ExposedArrayColumnVector(4000000)
   private[this] var numRows = 0
@@ -114,7 +116,7 @@ class ArrayTrieIterable(iter: Iterator[InternalRow]) extends TrieIterable {
 
     override def seek(key: Long): Boolean = {
       if (key != this.key) {
-        currentPosition = ArraySearch.find(currentColumn, key, currentPosition, end(depth))
+        currentPosition = ArraySearch.find(currentColumn, key, currentPosition, end(depth), LINEAR_SEARCH_THRESHOLD)
         updateAtEnd()
       }
       isAtEnd
