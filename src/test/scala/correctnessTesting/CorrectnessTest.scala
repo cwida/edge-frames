@@ -14,7 +14,7 @@ import sparkIntegration.implicits._
 
 object CorrectnessTest {
   var FAST = true
-  val FAST_LIMIT = 10000
+  val FAST_LIMIT = 100
 }
 
 trait CorrectnessTest extends Matchers with SparkTest with DatasetComparer {

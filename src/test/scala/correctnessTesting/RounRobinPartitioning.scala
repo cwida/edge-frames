@@ -25,8 +25,8 @@ class RounRobinPartitioning extends FlatSpec with CorrectnessTest with BeforeAnd
   }
 
   "with parallelsim 17" should behave like sparkTriangleJoinsSimple(2, shouldMaterialize = true, DATASET_PATH, ds)
-//  "WCOJ" should behave like sparkTriangleJoins(DATASET_PATH, ds)
-//  "WCOJ" should behave like sparkCliqueJoins(DATASET_PATH, ds)
-//  "WCOJ" should behave like sparkCycleJoins(DATASET_PATH, ds)
-//  "WCOJ" should behave like sparkOtherJoins(DATASET_PATH, ds)
+  "WCOJ" should behave like sparkTriangleJoins(DATASET_PATH, ds)
+  "WCOJ" should behave like sparkCliqueJoins(DATASET_PATH, ds)
+  "WCOJ" should behave like sparkCycleJoins(DATASET_PATH, ds)
+  "WCOJ" should behave like sparkOtherJoins(DATASET_PATH, ds)
 }

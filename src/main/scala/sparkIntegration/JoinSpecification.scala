@@ -70,7 +70,7 @@ class JoinSpecification(joinPattern: Seq[Pattern], val variableOrdering: Seq[Str
     }
   }
 
-  def build(trieIterables: Seq[TrieIterable], partition: Int): LeapfrogTriejoin = {
+  def build(trieIterables: Seq[TrieIterable], partition: Int, partitions: Int): LeapfrogTriejoin = {
     val trieIterators = joinAlgorithm match {
       case experiments.WCOJ => {
         trieIterables.map(_.trieIterator)
@@ -105,7 +105,7 @@ class JoinSpecification(joinPattern: Seq[Pattern], val variableOrdering: Seq[Str
                   val trieIterable = trieIterables.head.asInstanceOf[CSRTrieIterable]
                   val firstDimension = variableOrdering.indexOf(src.name)
                   val secondDimension = variableOrdering.indexOf(dst.name)
-                  val ti = trieIterable.trieIterator(partition, partitioning, firstDimension, secondDimension)
+                  val ti = trieIterable.trieIterator(partition, partitions, partitioning, firstDimension, secondDimension)
                   val firstDimensionRanges = part.getRanges(
                     partition, firstDimension, trieIterable.minValue, trieIterable.maxValue)
                     .flatMap(r => Seq(r._1, r._2)).toArray
@@ -130,7 +130,7 @@ class JoinSpecification(joinPattern: Seq[Pattern], val variableOrdering: Seq[Str
                 val firstDimension = variableOrdering.indexOf(src.name)
                 val secondDimension = variableOrdering.indexOf(dst.name)
 
-                trieIterable.trieIterator(partition, partitioning, firstDimension, secondDimension)
+                trieIterable.trieIterator(partition, partitions, partitioning, firstDimension, secondDimension)
               }
               case _ => {
                 if (dstAccessibleRelationship(i)) {

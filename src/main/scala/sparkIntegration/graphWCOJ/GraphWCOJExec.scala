@@ -61,6 +61,8 @@ case class GraphWCOJExec(outputVariables: Seq[Attribute],
         val partitionRDD = partitionChild.execute()
         val csrBroadcast = graphChild.executeBroadcast[(TrieIterable, TrieIterable)]()
 
+        val partitions = partitionRDD.getNumPartitions
+
         partitionRDD.mapPartitionsWithIndex((partition, _) => {
           // TODO empty partitions?
           val toUnsafeProjection = UnsafeProjection.create(output.zipWithIndex.map({
@@ -70,7 +72,7 @@ case class GraphWCOJExec(outputVariables: Seq[Attribute],
           }))
 
           val csr = csrBroadcast.value
-          val join = joinSpecification.build(Seq(csr._1, csr._2), partition)
+          val join = joinSpecification.build(Seq(csr._1, csr._2), partition, partitions)
 
           val iter = new RowIterator {
             var row: Array[Long] = null

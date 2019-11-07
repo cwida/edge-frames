@@ -13,27 +13,31 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
                       private[this] val edges: Array[Long]) extends TrieIterable with Serializable {
 
   override def trieIterator: TrieIteratorImpl = {
-    trieIterator(None, None, None, None)
+    trieIterator(None, None, None, None, None)
   }
 
   def trieIterator(partition: Int,
+                   partitions: Int,
                    partitioning: Partitioning,
                    dimensionFirstLevel: Int,
                    dimensionSecondLevel: Int): TrieIteratorImpl = {
-    new TrieIteratorImpl(Option(partition), Option(partitioning), Option(dimensionFirstLevel), Option(dimensionSecondLevel))
+    new TrieIteratorImpl(Option(partition), Option(partitions), Option(partitioning), Option(dimensionFirstLevel), Option
+    (dimensionSecondLevel))
   }
 
 
   def trieIterator(partition: Option[Int],
+                   partitions: Option[Int],
                    partitioning: Option[Partitioning],
                    dimensionFirstLevel: Option[Int],
                    dimensionSecondLevel: Option[Int]): TrieIteratorImpl = {
-    new TrieIteratorImpl(partition, partitioning, dimensionFirstLevel, dimensionSecondLevel)
+    new TrieIteratorImpl(partition, partitions, partitioning, dimensionFirstLevel, dimensionSecondLevel)
   }
 
   // TODO sort out range filtering functionality, either in here or in MultiRangePartitionTrieIterator
   class TrieIteratorImpl(
                           val partition: Option[Int],
+                          val partitions: Option[Int],
                           val partitioning: Option[Partitioning],
                           val dimensionFirstLevel: Option[Int],
                           val dimensionSecondLevel: Option[Int]
@@ -72,7 +76,7 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
     }
 
     private[this] val roundRobinNumber: Int = partitioning match {
-      case Some(RoundRobin(v)) => if (v == dimensionFirstLevel.get) partition.get + 1 else 1
+      case Some(RoundRobin(v)) => if (v == dimensionFirstLevel.get) partitions.get else 1
       case _ => 1
     }
 
@@ -81,7 +85,11 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
 
     private[this] var depth = -1
 
-    private[this] var srcPosition: Int = firstLevelLowerBound
+    private[this] var srcPosition: Int = partitioning match {
+      case Some(RoundRobin(v)) => if (v == dimensionFirstLevel.get) firstLevelLowerBound + partition.get else 1
+      case _ => firstLevelLowerBound
+    }
+
     if (!isAtEnd && edgeIndices(srcPosition) == edgeIndices(srcPosition + 1)) {
       moveToNextSrcPosition()
     }
@@ -92,6 +100,8 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
     private[this] var dstPosition = 0
 
     private[this] var keyValue = 0L
+
+//    println("Init", partition.get)
 
     private def getPartitionBoundsInRange(lower: Int, upper: Int, partition: Int, numPartitions: Int, fromBelow: Boolean): (Int, Int) = {
       val totalSize = upper - lower
@@ -120,6 +130,9 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
     }
 
     override def open(): Unit = {
+      if (roundRobinNumber != 1 && depth == -1) {
+//        println("Open", partition.get)
+      }
       assert(!isAtEnd, "open cannot be called when atEnd")
       depth += 1
 
@@ -159,6 +172,9 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
         moveToNextSrcPosition()
         isAtEnd = firstLevelUpperBound <= srcPosition
         keyValue = srcPosition.toLong
+        if (roundRobinNumber != 1) {
+//          println("Partition next", partition.get, keyValue)
+        }
       } else {
         dstPosition += 1
         isAtEnd = dstPosition == edgeIndices(srcPosition + 1) || secondLevelUpperBound <= edges(dstPosition)
@@ -178,11 +194,13 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
       if (keyValue < key) {  // TODO quickfix, why does this call even happen, clique3 either amazon0302 or liveJournal
         assert(keyValue < key)
         if (depth == 0) {
-          srcPosition = if (key % roundRobinNumber != 0) {
-            key.toInt + roundRobinNumber - key.toInt % roundRobinNumber
+          srcPosition = if (roundRobinNumber != 1 && key % roundRobinNumber != partition.get) {
+            (key + key % roundRobinNumber + partition.get).toInt
           } else {
             key.toInt
           }
+          val correctedKey = srcPosition
+
           if (srcPosition < edgeIndices.length - 1 && // TODO srcPosition should never be bigger than edgeIndices.lenght -  1, investigate
             edgeIndices(srcPosition) == edgeIndices(srcPosition + 1)) { // TODO does srcPosition < edgeIndices.length - 1 ruin
             // predicatability?
@@ -190,6 +208,10 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
           }
           isAtEnd = firstLevelUpperBound <= srcPosition
           keyValue = srcPosition.toLong
+          if (roundRobinNumber != 1) {
+
+//            println("Partition seek", partition.get, keyValue, key, correctedKey)
+          }
           isAtEnd
         } else {
           dstPosition = ArraySearch.find(edges, key, dstPosition, edgeIndices(srcPosition + 1))
@@ -242,7 +264,7 @@ class CSRTrieIterable(private[this] val verticeIDs: Array[Long],
     }
 
     override def clone(): AnyRef = {
-      val c = new TrieIteratorImpl(partition, partitioning, dimensionFirstLevel, dimensionSecondLevel)
+      val c = new TrieIteratorImpl(partition, partitions, partitioning, dimensionFirstLevel, dimensionSecondLevel)
       c.copy(isAtEnd, depth, srcPosition, dstPosition, keyValue)
       c
     }
