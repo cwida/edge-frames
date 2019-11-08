@@ -9,35 +9,35 @@ class ArraySearchSpec extends FlatSpec with Matchers with GeneratorDrivenPropert
 
   "For a existing key" should "return the position" in {
     var v = Array(1L)
-    ArraySearch.find(v, 1, 0, 1) should equal(0)
+    ArraySearch.find(v, 1, 0, 1, 1) should equal(0)
 
     v = Array(1, 2)
-    ArraySearch.find(v, 1, 0, 2) should equal(0)
+    ArraySearch.find(v, 1, 0, 2, 1) should equal(0)
 
     v = Array(1, 2)
-    ArraySearch.find(v, 2, 0, 2) should equal(1)
+    ArraySearch.find(v, 2, 0, 2, 1) should equal(1)
 
     v = Array(1, 2, 3)
-    ArraySearch.find(v, 3, 0, 3) should equal(2)
+    ArraySearch.find(v, 3, 0, 3, 1) should equal(2)
   }
 
   "For a existing key it" should "return the first position" in {
     var v = Array[Long](2, 2)
-    ArraySearch.find(v, 2, 0, 2) should equal(0)
+    ArraySearch.find(v, 2, 0, 2, 1) should equal(0)
 
     v = Array(1, 2, 2, 3)
-    ArraySearch.find(v, 2, 0, 4) should equal(1)
+    ArraySearch.find(v, 2, 0, 4, 1) should equal(1)
   }
 
   "For a none-existing key it" should "return the first position of the next bigger element" in {
     var v = Array(1L)
-    ArraySearch.find(v, 2, 0, 1) should equal(1)
+    ArraySearch.find(v, 2, 0, 1, 1) should equal(1)
 
     v = Array(1, 3)
-    ArraySearch.find(v, 2, 0, 2) should equal(1)
+    ArraySearch.find(v, 2, 0, 2, 1) should equal(1)
 
     v = Array(1, 3, 3)
-    ArraySearch.find(v, 2, 0, 2) should equal(1)
+    ArraySearch.find(v, 2, 0, 2, 1) should equal(1)
   }
 
   "It" should "return the first position of an element in the list if it exists and is in range" in {
@@ -56,7 +56,7 @@ class ArraySearchSpec extends FlatSpec with Matchers with GeneratorDrivenPropert
       }
       val end = Math.max(start + Random.nextInt(sorted.length - start) + 1, keyPosition)
 
-      val ret = ArraySearch.find(sorted, key, start, end)
+      val ret = ArraySearch.find(sorted, key, start, end, 1)
       assert(ret == keyPosition, s"In ${sorted.mkString(", ")} key $key should be found at $keyPosition not $ret with start $start and end $end")
     }
   }
@@ -83,13 +83,13 @@ class ArraySearchSpec extends FlatSpec with Matchers with GeneratorDrivenPropert
         }
         val end = Math.max(start + Random.nextInt(sorted.length - start) + 1, keyPosition)
 
-        val ret = ArraySearch.find(sorted, noneExistingKey, start, end)
+        val ret = ArraySearch.find(sorted, noneExistingKey, start, end, 1)
         assert(ret == keyPosition, s"In ${sorted.mkString(", ")} with none-existing $noneExistingKey return $keyPosition not $ret with start $start and end $end")
       }
     }
   }
 
   "Regression 1: it" should "never access the array at end" in {
-    ArraySearch.find(Array(1, 2), 3, 0, 2) should be(2)
+    ArraySearch.find(Array(1, 2), 3, 0, 2, 1) should be(2)
   }
 }
