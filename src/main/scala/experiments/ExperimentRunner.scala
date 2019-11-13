@@ -157,7 +157,8 @@ case class WCOJQueryResult(algorithm: Algorithm,
                            algorithmEnd: List[Long],
                            wcojTimes: List[Double],
                            copyTimes: List[Double],
-                           materializationTime: Option[Double]) extends QueryResult {
+                           materializationTime: Option[Double],
+                           tasks: List[Long]) extends QueryResult {
   override def time: Double = {
     (end - start) / 1e3
   }
@@ -327,13 +328,15 @@ object ExperimentRunner extends App {
       Array("Query", "Algorithm", "Partitioning", "Parallelism", "Count", "Start", "End", "Copy", "Materialization", "AlgoStart")
         ++ (0 until config.parallelismLevels.max).map(i => s"WCOJTime-$i")
         ++ (0 until config.parallelismLevels.max).map(i => s"Scheduled-$i")
-        ++ (0 until config.parallelismLevels.max).map(i => s"AlgoEnd-$i"))
+        ++ (0 until config.parallelismLevels.max).map(i => s"AlgoEnd-$i")
+        ++ (0 until config.parallelismLevels.max).map(i => s"Tasks-$i"))
   }
 
   private def reportResult(result: QueryResult): Unit = {
     var wcojTimes = List.fill(config.parallelismLevels.max)(0.0)
     var algoEnd = List.fill(config.parallelismLevels.max)(0L)
     var schedulesTimes = List.fill(config.parallelismLevels.max)(0L)
+    var tasks = List.fill(config.parallelismLevels.max)(0L)
     var algoStart = 0L
     var copyTimeTotal = 0.0
     var materializationTime = 0.0
@@ -349,6 +352,7 @@ object ExperimentRunner extends App {
       algoStart = wcojResult.algorithmStart
       algoEnd = wcojResult.algorithmEnd
       schedulesTimes = wcojResult.scheduledTimes
+      tasks = wcojResult.tasks
 
       materializationTime = wcojResult.materializationTime match {
         case Some(t) => {
@@ -377,6 +381,8 @@ object ExperimentRunner extends App {
       ++ schedulesTimes.map(t => t.toString)
       ++ padding
       ++ algoEnd.map(t => t.toString)
+      ++ padding
+      ++ tasks.map(t => t.toString)
       ++ padding
     )
 
@@ -543,6 +549,7 @@ object ExperimentRunner extends App {
           val materializationTimes = Metrics.getTimes("materializationTime")
           val algorithmEnd = Metrics.getTimes("algorithm_end")
           val scheduled = Metrics.getTimes("scheduled")
+          val tasks = Metrics.getTimes("tasks")
 
           val algorithmStart = Metrics.masterTimers("algorithmStart")
 
@@ -556,7 +563,8 @@ object ExperimentRunner extends App {
             algorithmEnd.sortBy(_._1).map(_._2),
             joinTimes.sortBy(_._1).map(_._2.toDouble / 1e3),
             copyTimes.sortBy(_._1).map(_._2.toDouble / 1e3),
-            materializationTimes.map(_._2.toDouble / 1e3).headOption
+            materializationTimes.map(_._2.toDouble / 1e3).headOption,
+            tasks.sortBy(_._1).map(_._2)
           )
         }
         case _: BinaryJoins => {

@@ -15,6 +15,8 @@ class WorkstealingLeapfrogjoin(queue: ConcurrentLinkedQueue[Int],
   private[this] var workQueueSize: Int = 0
   private[this] var currentWorkItem: Int = 0
 
+  private[this] var tasks: Long = 0
+
   override def init(): Unit = {
     localLeapfrog.init()
     leapfrogNext()
@@ -31,6 +33,7 @@ class WorkstealingLeapfrogjoin(queue: ConcurrentLinkedQueue[Int],
           if (queue.isEmpty && currentWorkItem == 0) {
             workQueueSize = 0
           } else {
+            tasks += 1
             workQueueSize = batchSize - 1
           }
         } else {
@@ -66,5 +69,9 @@ class WorkstealingLeapfrogjoin(queue: ConcurrentLinkedQueue[Int],
 
   override def leapfrogSeek(key: Long): Unit = {
     ???
+  }
+
+  def getTasks: Long = {
+    tasks
   }
 }

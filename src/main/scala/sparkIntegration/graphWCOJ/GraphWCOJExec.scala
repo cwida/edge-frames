@@ -60,6 +60,8 @@ case class GraphWCOJExec(outputVariables: Seq[Attribute],
     val algorithmEndTime = Metrics.getTimer(sparkContext, BEFORE_AFTER_TIME)
     val scheduledTime = Metrics.getTimer(sparkContext, UNTIL_SCHEDULED)
 
+    val tasksPerWorker = Metrics.getTimer(sparkContext, "tasks")
+
     var copyTimeAcc: Long = 0L
     var joinTimeAcc: Long = 0L
 
@@ -112,6 +114,8 @@ case class GraphWCOJExec(outputVariables: Seq[Attribute],
                 joinTimer.add(partition, joinTimeAcc)
                 copyTimer.add(partition, copyTimeAcc)
                 algorithmEndTime.add(partition, System.currentTimeMillis())
+
+                tasksPerWorker.add(partition, join.getTasks)
                 false
               } else {
 //                val start = System.nanoTime()

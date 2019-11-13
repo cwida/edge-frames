@@ -63,6 +63,15 @@ class LeapfrogTriejoin(trieIterators: Map[EdgeRelationship, TrieIterator],
     case _ => /* NOP */
   }
 
+  def getTasks: Long = {
+    partitioning match {
+      case FirstVariablePartitioningWithWorkstealing(_) => {
+        leapfrogJoins(0).asInstanceOf[WorkstealingLeapfrogjoin].getTasks
+      }
+      case _ => 0
+    }
+  }
+
   private[this] val variable2TrieIterators: Array[Array[TrieIterator]] = variableOrdering
     .map(v =>
       trieIterators.filter({ case (r, _) => {
