@@ -214,6 +214,18 @@ case class SingleVariablePartitioning(variable: Int) extends Partitioning {
   }
 }
 
+case class SingleHashVariablePartitioning(variable: Int) extends Partitioning {
+  def getEquivalentSharesPartitioning(parallelism: Int, numVariables: Int): Shares = {
+    val dimensions = Array.fill(numVariables)(1)
+    dimensions(variable) = parallelism
+    Shares(Hypercube(dimensions))
+  }
+
+  override def getWorkersUsed(workersTotal: Int): Int = {
+    workersTotal
+  }
+}
+
 case class FirstVariablePartitioningWithWorkstealing(batchSize: Int = 1) extends Partitioning {
   var queueID = -1
 
@@ -255,6 +267,7 @@ object Partitioning {
 
   implicit def partitioningRead: scopt.Read[Partitioning] = {
     val singleVariablePartitioningPattern = raw"single\[(\d+)\]".r
+    val singleVariableHashPartitioningPattern = raw"singleHash\[(\d+)\]".r
     val sharesRangePartitioningPattern = raw"sharesRange\[(\d+)\]".r
     scopt.Read.reads({
       case "allTuples" => {
@@ -276,6 +289,9 @@ object Partitioning {
       }
       case singleVariablePartitioningPattern(v) => {
         SingleVariablePartitioning(v.toInt)
+      }
+      case singleVariableHashPartitioningPattern(v) => {
+        SingleHashVariablePartitioning(v.toInt)
       }
       case _ => {
         throw new IllegalArgumentException("Partitionings can be only `allTuples` or `shares`")

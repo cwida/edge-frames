@@ -13,7 +13,7 @@ import org.apache.spark.sql.catalyst.expressions.AttributeReference
 import org.apache.spark.sql.execution.CoalesceExec.EmptyRDDWithPartitions
 import org.apache.spark.sql.execution.RowIterator
 import partitioning.shares.Hypercube
-import partitioning.{AllTuples, FirstVariablePartitioningWithWorkstealing, Partitioning, Shares, SharesRange, SingleVariablePartitioning}
+import partitioning.{AllTuples, FirstVariablePartitioningWithWorkstealing, Partitioning, Shares, SharesRange, SingleHashVariablePartitioning, SingleVariablePartitioning}
 import sparkIntegration.wcoj.ToTrieIterableRDD
 
 import Predef._
@@ -69,6 +69,9 @@ class WCOJFunctions[T](ds: Dataset[T]) {
         SharesRange(Some(Hypercube.getBestConfigurationFor(conf.getParallelism, getQuery(edges), variableOrdering, prefix)), prefix)
       case p @ SingleVariablePartitioning(variable) => {
         p.getEquivalentSharesRangePartitioning(conf.getParallelism, getQuery(edges).vertices.size)
+      }
+      case p @ SingleHashVariablePartitioning(variable) => {
+        p.getEquivalentSharesPartitioning(conf.getParallelism, getQuery(edges).vertices.size)
       }
       case a @ AllTuples() => a
       case p @ FirstVariablePartitioningWithWorkstealing(batchSize) => p.copy(batchSize = conf.getWorkstealingBatchSize)
