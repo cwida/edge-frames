@@ -5,8 +5,8 @@ import java.util.concurrent.ConcurrentHashMap
 import experiments.{Datasets, GraphWCOJ}
 import experiments.metrics.Metrics
 import leapfrogTriejoin.{CSRTrieIterable, TrieIterable}
-import org.apache.spark.TaskContext
-import org.apache.spark.rdd.RDD
+import org.apache.spark.{BarrierTaskContext, PublicTaskContext, TaskContext}
+import org.apache.spark.rdd.{RDD, RDDBarrier}
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.{Attribute, AttributeSet, BoundReference, UnsafeProjection}
 import org.apache.spark.sql.execution.metric.SQLMetrics
@@ -19,6 +19,7 @@ import sparkIntegration.{JoinSpecification, WCOJConfiguration, WCOJInternalRow}
 
 import collection.JavaConverters._
 import scala.collection.concurrent.Map
+import scala.reflect.ClassTag
 
 case class GraphWCOJExec(outputVariables: Seq[Attribute],
                          joinSpecification: JoinSpecification,
@@ -49,6 +50,40 @@ case class GraphWCOJExec(outputVariables: Seq[Attribute],
     AttributeSet(Seq(graphChild).flatMap(c => c.output.filter(a => List("src", "dst").contains(a.name))))
   }
 
+  private def calculateWorkstealingValues(partition: Int,
+                                          barrierTaskContext: BarrierTaskContext,
+                                          batchSize: Int,
+                                          maxValue: Int): Seq[Int] = {
+    val taskInfos = barrierTaskContext.getTaskInfos()
+    val ownTaskInfo = taskInfos(partition)
+
+    val numberOfTasks = taskInfos.length
+    val valuesPerTask = maxValue / numberOfTasks
+
+    val executors: Seq[String] = Set(taskInfos.map(_.address): _*).toSeq.sorted
+    val numberOfExecutors = executors.size
+
+
+    val currentExecutorIndex = executors.indexOf(ownTaskInfo.address)
+
+    val tasksPerExecutor = taskInfos.map(ti => executors.indexOf(ti.address)).groupBy(identity)
+
+    val numberOfTasksOnCurrentExecutor = tasksPerExecutor(currentExecutorIndex).length
+
+    val tasksUpToCurrentExecutor: Int = if (currentExecutorIndex == 0) {
+      0
+    } else {
+      (0 until currentExecutorIndex).map(i => tasksPerExecutor(i).length).sum
+    }
+
+    if (currentExecutorIndex == numberOfExecutors - 1) {
+      (valuesPerTask * tasksUpToCurrentExecutor to maxValue)
+    } else {
+      (valuesPerTask * tasksUpToCurrentExecutor
+        until valuesPerTask * (tasksUpToCurrentExecutor + numberOfTasksOnCurrentExecutor))
+    }
+  }
+
   override protected def doExecute(): RDD[InternalRow] = {
     val config = WCOJConfiguration.get(sparkContext)
 
@@ -61,6 +96,7 @@ case class GraphWCOJExec(outputVariables: Seq[Attribute],
     val scheduledTime = Metrics.getTimer(sparkContext, UNTIL_SCHEDULED)
 
     val tasksPerWorker = Metrics.getTimer(sparkContext, "tasks")
+    val partitionToExecutor = Metrics.getStringAccumable(sparkContext, "executors")
 
     var copyTimeAcc: Long = 0L
     var joinTimeAcc: Long = 0L
@@ -75,15 +111,40 @@ case class GraphWCOJExec(outputVariables: Seq[Attribute],
         val partitionRDD = partitionChild.execute()
         val csrBroadcast = graphChild.executeBroadcast[(TrieIterable, TrieIterable)]()
 
-        val ret = partitionRDD.mapPartitionsWithIndex((partition, _) => {
-          scheduledTime.add(partition, System.currentTimeMillis())
+        val maybeBarrierPartitionRDD = joinSpecification.partitioning match {
+          case FirstVariablePartitioningWithWorkstealing(_) => {
+            new MaybeBarrierRDD(Some(partitionRDD.barrier()), None)
+          }
+          case _ => new MaybeBarrierRDD(None, Some(partitionRDD))
+        }
+
+        val ret = maybeBarrierPartitionRDD.mapPartitions(_ => {
           val tc = TaskContext.get()
+          val partition = tc.partitionId()
+
+          val executor = joinSpecification.partitioning match {
+            case FirstVariablePartitioningWithWorkstealing(_) => {
+              val btc = BarrierTaskContext.get()
+              val myAddress = btc.getTaskInfos()(partition).address
+              myAddress + ";" + Thread.currentThread().getId
+            }
+            case _ => {
+              Thread.currentThread().getId.toString
+            }
+          }
+          partitionToExecutor.add(partition, executor)
+
+          scheduledTime.add(partition, System.currentTimeMillis())
 
           joinSpecification.partitioning match {
             case p @ FirstVariablePartitioningWithWorkstealing(batchSize) => {
+              val btc = BarrierTaskContext.get()
               // TODO use stage attempt as well for ID?
-              val col = (0 to csrBroadcast.value._1.asInstanceOf[CSRTrieIterable].maxValue by batchSize)
+
+              require(batchSize == 1)
+              val col = calculateWorkstealingValues(partition, btc, batchSize, csrBroadcast.value._1.asInstanceOf[CSRTrieIterable].maxValue)
               val id = FirstVariablePartitioningWithWorkstealing.newQueue(tc.stageId(), col)
+
               p.queueID = id
             }
             case _ => {
@@ -139,6 +200,16 @@ case class GraphWCOJExec(outputVariables: Seq[Attribute],
         )
         ret
       }
+    }
+  }
+}
+
+class MaybeBarrierRDD[T](rddBarrier: Option[RDDBarrier[T]], rdd: Option[RDD[T]]) {
+  def mapPartitions[S](f: (scala.Iterator[T]) => scala.Iterator[S])(implicit evidence: ClassTag[S]): org.apache.spark.rdd.RDD[S] = {
+    if (rddBarrier.nonEmpty) {
+      rddBarrier.get.mapPartitions(f)
+    } else {
+      rdd.get.mapPartitions(f)
     }
   }
 }

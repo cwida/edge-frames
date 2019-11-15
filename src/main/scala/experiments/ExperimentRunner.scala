@@ -158,13 +158,28 @@ case class WCOJQueryResult(algorithm: Algorithm,
                            wcojTimes: List[Double],
                            copyTimes: List[Double],
                            materializationTime: Option[Double],
-                           tasks: List[Long]) extends QueryResult {
+                           privateTasks: List[Long],
+                           privateExecutors: List[String]) extends QueryResult {
   override def time: Double = {
     (end - start) / 1e3
   }
 
   def wcojTimes2: Seq[Double] = {
     scheduledTimes.zip(algorithmEnd).map(t => (t._2 - t._1) / 1e3)
+  }
+
+  def tasks: List[Long] = {
+    privateTasks match {
+      case Nil => List.fill(parallelism)(0)
+      case x => x
+    }
+  }
+
+  def executors: List[String] = {
+    privateExecutors match {
+      case Nil => List.fill(parallelism)("")
+      case x => x
+    }
   }
 }
 
@@ -277,7 +292,6 @@ object ExperimentRunner extends App {
 
   private def setupSpark(): SparkSession = {
     val conf = new SparkConf()
-      .setMaster(s"local[${config.workers}]")
       .setAppName("Spark test")
       .set("spark.executor.memory", "40g")
       .set("spark.driver.memory", "40g")
@@ -329,7 +343,8 @@ object ExperimentRunner extends App {
         ++ (0 until config.parallelismLevels.max).map(i => s"WCOJTime-$i")
         ++ (0 until config.parallelismLevels.max).map(i => s"Scheduled-$i")
         ++ (0 until config.parallelismLevels.max).map(i => s"AlgoEnd-$i")
-        ++ (0 until config.parallelismLevels.max).map(i => s"Tasks-$i"))
+        ++ (0 until config.parallelismLevels.max).map(i => s"Tasks-$i")
+        ++ (0 until config.parallelismLevels.max).map(i => s"Executor-$i"))
   }
 
   private def reportResult(result: QueryResult): Unit = {
@@ -337,6 +352,7 @@ object ExperimentRunner extends App {
     var algoEnd = List.fill(config.parallelismLevels.max)(0L)
     var schedulesTimes = List.fill(config.parallelismLevels.max)(0L)
     var tasks = List.fill(config.parallelismLevels.max)(0L)
+    var executors = List.fill(config.parallelismLevels.max)("")
     var algoStart = 0L
     var copyTimeTotal = 0.0
     var materializationTime = 0.0
@@ -353,6 +369,7 @@ object ExperimentRunner extends App {
       algoEnd = wcojResult.algorithmEnd
       schedulesTimes = wcojResult.scheduledTimes
       tasks = wcojResult.tasks
+      executors = wcojResult.executors
 
       materializationTime = wcojResult.materializationTime match {
         case Some(t) => {
@@ -383,6 +400,8 @@ object ExperimentRunner extends App {
       ++ algoEnd.map(t => t.toString)
       ++ padding
       ++ tasks.map(t => t.toString)
+      ++ padding
+      ++ executors
       ++ padding
     )
 
@@ -550,6 +569,7 @@ object ExperimentRunner extends App {
           val algorithmEnd = Metrics.getTimes("algorithm_end")
           val scheduled = Metrics.getTimes("scheduled")
           val tasks = Metrics.getTimes("tasks")
+          val executors = Metrics.getStringAccumable("executors")
 
           val algorithmStart = Metrics.masterTimers("algorithmStart")
 
@@ -564,7 +584,8 @@ object ExperimentRunner extends App {
             joinTimes.sortBy(_._1).map(_._2.toDouble / 1e3),
             copyTimes.sortBy(_._1).map(_._2.toDouble / 1e3),
             materializationTimes.map(_._2.toDouble / 1e3).headOption,
-            tasks.sortBy(_._1).map(_._2)
+            tasks.sortBy(_._1).map(_._2),
+            executors.sortBy(_._1).map(_._2)
           )
         }
         case _: BinaryJoins => {
