@@ -5,7 +5,7 @@ import java.util.concurrent.ConcurrentHashMap
 import experiments.{Datasets, GraphWCOJ}
 import experiments.metrics.Metrics
 import leapfrogTriejoin.{CSRTrieIterable, TrieIterable}
-import org.apache.spark.{BarrierTaskContext, PublicTaskContext, TaskContext}
+import org.apache.spark.{BarrierTaskContext, TaskContext}
 import org.apache.spark.rdd.{RDD, RDDBarrier}
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.{Attribute, AttributeSet, BoundReference, UnsafeProjection}
@@ -50,7 +50,22 @@ case class GraphWCOJExec(outputVariables: Seq[Attribute],
     AttributeSet(Seq(graphChild).flatMap(c => c.output.filter(a => List("src", "dst").contains(a.name))))
   }
 
-  private def calculateWorkstealingValues(partition: Int,
+  private def calculateRoundRobinWorkstealingValues(partition: Int,
+                                               barrierTaskContext: BarrierTaskContext,
+                                               batchSize: Int,
+                                               maxValue: Int) = {
+    val taskInfos = barrierTaskContext.getTaskInfos()
+    val ownTaskInfo = taskInfos(partition)
+
+    val executors: Seq[String] = Set(taskInfos.map(_.address): _*).toSeq.sorted
+    val numberOfExecutors = executors.size
+
+    val currentExecutorIndex = executors.indexOf(ownTaskInfo.address)
+
+    (currentExecutorIndex until maxValue by numberOfExecutors)
+  }
+
+  private def calculateRangeWorkstealingValues(partition: Int,
                                           barrierTaskContext: BarrierTaskContext,
                                           batchSize: Int,
                                           maxValue: Int): Seq[Int] = {
@@ -62,7 +77,6 @@ case class GraphWCOJExec(outputVariables: Seq[Attribute],
 
     val executors: Seq[String] = Set(taskInfos.map(_.address): _*).toSeq.sorted
     val numberOfExecutors = executors.size
-
 
     val currentExecutorIndex = executors.indexOf(ownTaskInfo.address)
 
@@ -142,7 +156,7 @@ case class GraphWCOJExec(outputVariables: Seq[Attribute],
               // TODO use stage attempt as well for ID?
 
               require(batchSize == 1)
-              val col = calculateWorkstealingValues(partition, btc, batchSize, csrBroadcast.value._1.asInstanceOf[CSRTrieIterable].maxValue)
+              val col = calculateRoundRobinWorkstealingValues(partition, btc, batchSize, csrBroadcast.value._1.asInstanceOf[CSRTrieIterable].maxValue)
               val id = FirstVariablePartitioningWithWorkstealing.newQueue(tc.stageId(), col)
 
               p.queueID = id
