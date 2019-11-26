@@ -54,6 +54,7 @@ case class GraphWCOJExec(outputVariables: Seq[Attribute],
                                                barrierTaskContext: BarrierTaskContext,
                                                batchSize: Int,
                                                maxValue: Int) = {
+    require(batchSize == 1)
     val taskInfos = barrierTaskContext.getTaskInfos()
     val ownTaskInfo = taskInfos(partition)
 
@@ -91,10 +92,10 @@ case class GraphWCOJExec(outputVariables: Seq[Attribute],
     }
 
     if (currentExecutorIndex == numberOfExecutors - 1) {
-      (valuesPerTask * tasksUpToCurrentExecutor to maxValue)
+      (valuesPerTask * tasksUpToCurrentExecutor to maxValue by batchSize)
     } else {
       (valuesPerTask * tasksUpToCurrentExecutor
-        until valuesPerTask * (tasksUpToCurrentExecutor + numberOfTasksOnCurrentExecutor))
+        until valuesPerTask * (tasksUpToCurrentExecutor + numberOfTasksOnCurrentExecutor) by batchSize)
     }
   }
 
@@ -155,8 +156,7 @@ case class GraphWCOJExec(outputVariables: Seq[Attribute],
               val btc = BarrierTaskContext.get()
               // TODO use stage attempt as well for ID?
 
-              require(batchSize == 1)
-              val col = calculateRoundRobinWorkstealingValues(partition, btc, batchSize, csrBroadcast.value._1.asInstanceOf[CSRTrieIterable].maxValue)
+              val col = calculateRangeWorkstealingValues(partition, btc, batchSize, csrBroadcast.value._1.asInstanceOf[CSRTrieIterable].maxValue)
               val id = FirstVariablePartitioningWithWorkstealing.newQueue(tc.stageId(), col)
 
               p.queueID = id
